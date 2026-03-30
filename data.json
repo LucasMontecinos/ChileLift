@@ -5288,42 +5288,14 @@
         "categoria": "-74 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
-      },
-      {
-        "evento": "Zona Centro Iron Forces 2022",
-        "fecha": "2022-03-12",
-        "division": "",
-        "categoria": "83",
-        "modalidad": "Powerlifting Classic",
-        "sexo": "Hombre",
-        "resultado": {
-          "sq": 220,
-          "bp": 162.5,
-          "dl": 240,
-          "total": 622.5,
-          "bw": 81.8,
-          "glp": 86.81,
-          "rank": 8
-        },
-        "source": "openpowerlifting",
-        "opl_meet": "fechipo/2201"
-      },
-      {
-        "evento": "Nacional Universitario 2026",
-        "fecha": "2026-05-23",
-        "division": "",
-        "categoria": "74",
-        "modalidad": "Powerlifting Classic",
-        "sexo": "Masculino",
-        "universidad": "Universidad Católica del Maule"
       }
     ],
     "bestLifts": {
-      "sq": 220,
-      "bp": 162.5,
-      "dl": 240,
-      "total": 622.5,
-      "glp": 86.81
+      "sq": 0,
+      "bp": 0,
+      "dl": 0,
+      "total": 0,
+      "glp": 0
     }
   },
   {
