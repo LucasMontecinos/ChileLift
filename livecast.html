@@ -5,847 +5,233 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FECHIPO LiveCast</title>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0A1628;--card:#11223B;--border:#1E3A5F;--text:#D4E1F0;--muted:#7A8FA6;--accent:#C41E3A;--accent2:#E8243C;--blue:#1E5BA8;--gold:#D4A843;--green:#22c55e;--red:#ef4444;--white:#fff}
+:root{--bg:#0A1628;--card:#11223B;--border:#1E3A5F;--text:#D4E1F0;--muted:#7A8FA6;--accent:#C41E3A;--blue:#1E5BA8;--gold:#D4A843;--green:#22c55e;--red:#ef4444}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
 input,select,button{font-family:inherit;outline:none}
 .os{font-family:'Oswald',sans-serif}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.fade-in{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.fade{animation:fadeIn .25s ease}
 .pulse{animation:pulse 1.5s ease-in-out infinite}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px}
+.inp{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;transition:border-color .2s}
+.inp:focus{border-color:var(--accent)}.inp.ok{border-color:var(--green)}
+.btn{padding:8px 16px;border-radius:6px;border:none;font-weight:600;font-size:12px;cursor:pointer;font-family:'Oswald',sans-serif;letter-spacing:1px;text-transform:uppercase;transition:all .15s}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-r{background:var(--accent);color:#fff}.btn-g{background:var(--green);color:#fff}.btn-b{background:var(--blue);color:#fff}
+.btn-o{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-o:hover{border-color:var(--accent);color:var(--text)}
+.tab{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-weight:600;font-size:11px;cursor:pointer;font-family:'Oswald',sans-serif;letter-spacing:1px;text-transform:uppercase;transition:all .2s}
+.tab.a{background:var(--accent);color:#fff;border-color:var(--accent)}.tab:hover:not(.a){border-color:var(--muted)}
+@media(max-width:700px){.g2{grid-template-columns:1fr!important}}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const {useState,useEffect,useCallback,useMemo,useRef} = React;
+<div id="R"></div>
+<script>
+const S={loaded:false,events:[],eventIdx:-1,athletes:[],view:'setup',flight:'A',lift:'sq',round:0,timer:60,timerOn:false,selId:-1,editId:-1,_focusId:null};
+const LIFTS=['sq','bp','dl'],LN={sq:'SQUAT',bp:'BENCH PRESS',dl:'DEADLIFT'},LS={sq:'SQ',bp:'BP',dl:'DL'};
+const LC={sq:'#3b82f6',bp:'#f59e0b',dl:'#ef4444'},FC={A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899',F:'#06b6d4'};
 
-// ── GL Points Coefficients (IPF Goodlift) ──
-const GL_COEFF = {
-  M: { a: 1199.72839, b: 1025.18162, c: 0.00921 },
-  F: { a: 610.32796, b: 560.22205, c: 0.01289 }
-};
-function calcGL(total, bw, sex) {
-  if (!total || !bw || total <= 0) return 0;
-  const s = sex === 'Hombre' || sex === 'M' ? 'M' : 'F';
-  const {a, b, c} = GL_COEFF[s];
-  const denom = a - b * Math.exp(-c * bw);
-  return denom > 0 ? Math.round((total * 100 / denom) * 100) / 100 : 0;
-}
+function gl(t,bw,sex){if(!t||!bw||t<=0)return 0;const m=sex==='Hombre'||sex==='Masculino'||sex==='M';const a=m?1199.72839:610.32796,b=m?1025.18162:560.22205,c=m?0.00921:0.01289;const d=a-b*Math.exp(-c*bw);return d>0?Math.round(t*100/d*100)/100:0;}
+function best(a,l){let b=0;for(const t of a.att[l])if(t.r==='good'&&t.w>b)b=t.w;return b;}
+function total(a){const s=best(a,'sq'),b=best(a,'bp'),d=best(a,'dl');return(s&&b&&d)?s+b+d:0;}
+function rankings(){return S.athletes.map(a=>({...a,total:total(a),gl:gl(total(a),a.bw,a.sex||a.sexo)})).filter(a=>a.total>0).sort((a,b)=>b.gl-a.gl);}
+function liftOrder(){return S.athletes.filter(a=>!a.bombed&&a.flight===S.flight&&a.att[S.lift][S.round].r===null&&a.att[S.lift][S.round].w>0).sort((a,b)=>{const wa=a.att[S.lift][S.round].w,wb=b.att[S.lift][S.round].w;return wa!==wb?wa-wb:a.lot-b.lot;});}
 
-// ── Lift helpers ──
-const LIFTS = ['sq', 'bp', 'dl'];
-const LIFT_NAMES = { sq: 'SQUAT', bp: 'BENCH PRESS', dl: 'DEADLIFT' };
-const LIFT_SHORT = { sq: 'SQ', bp: 'BP', dl: 'DL' };
-const LIFT_COLORS = { sq: '#3b82f6', bp: '#f59e0b', dl: '#ef4444' };
+const SK='fechipo_lc2';
+function save(){try{localStorage.setItem(SK,JSON.stringify({eventIdx:S.eventIdx,athletes:S.athletes,view:S.view,flight:S.flight,lift:S.lift,round:S.round}));}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(SK));if(d&&d.athletes?.length){Object.assign(S,d);return true;}}catch(e){}return false;}
 
-function bestLift(athlete, lift) {
-  const attempts = athlete.attempts[lift];
-  let best = 0;
-  for (const a of attempts) {
-    if (a.result === 'good' && a.weight > best) best = a.weight;
+let _tid=null;
+function timerStart(){if(S.timerOn)return;S.timerOn=true;_tid=setInterval(()=>{S.timer--;if(S.timer<=0){S.timerOn=false;clearInterval(_tid);}render();},1000);}
+function timerPause(){S.timerOn=false;clearInterval(_tid);}
+function timerReset(){timerPause();S.timer=60;render();}
+
+function selectEvent(i){S.eventIdx=i;const ev=S.events[i];S.athletes=ev.athletes.map((a,j)=>({...a,id:j,lot:j+1,bw:0,flight:'A',rackSQ:'',rackBP:'',bombed:false,att:{sq:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],bp:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],dl:[{w:0,r:null},{w:0,r:null},{w:0,r:null}]}}));S.view='athletes';S.flight='A';S.lift='sq';S.round=0;S.selId=-1;S.editId=-1;save();render();}
+function upA(id,k,v){const a=S.athletes.find(x=>x.id===id);if(a)a[k]=v;save();}
+function setAtt(id,l,r,w){const a=S.athletes.find(x=>x.id===id);if(a){a.att[l][r]={...a.att[l][r],w:parseFloat(w)||0};save();}}
+function judge(id,l,r,res){const a=S.athletes.find(x=>x.id===id);if(!a)return;a.att[l][r].r=res;if(r<2&&res==='good'){const nw=a.att[l][r+1].w;if(!nw)a.att[l][r+1].w=a.att[l][r].w+2.5;}if(a.att[l].every(t=>t.r==='nolift'))a.bombed=true;timerReset();save();render();}
+function newComp(){localStorage.removeItem(SK);S.eventIdx=-1;S.athletes=[];S.view='setup';S.selId=-1;S.editId=-1;render();}
+function exportJSON(){const r=rankings();const blob=new Blob([JSON.stringify(r.map((a,i)=>({rank:i+1,nombre:a.nombre,rut:a.rut||'',sexo:a.sex||a.sexo||'',categoria:a.categoria||'',bw:a.bw,sq:best(a,'sq'),bp:best(a,'bp'),dl:best(a,'dl'),total:a.total,gl:a.gl,club:a.club||''})),null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const l=document.createElement('a');l.href=u;l.download='resultados_'+(S.events[S.eventIdx]?.short||'comp').replace(/\s/g,'_')+'.json';l.click();URL.revokeObjectURL(u);}
+
+function render(){
+  const el=document.getElementById('R');let h='';
+  if(S.view!=='scoreboard'){
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);background:rgba(17,34,59,.95);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px);flex-wrap:wrap;gap:6px">';
+    h+='<div style="display:flex;align-items:center;gap:10px"><div class="os" style="font-size:20px;font-weight:700;letter-spacing:2px"><span style="color:var(--accent)">FECHIPO</span> <span style="font-weight:400;color:var(--muted)">LiveCast</span></div>';
+    if(S.eventIdx>=0)h+='<span style="font-size:10px;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:12px">'+S.events[S.eventIdx]?.short+'</span>';
+    h+='</div><div style="display:flex;gap:4px;flex-wrap:wrap">';
+    if(S.eventIdx>=0){['athletes','competition','scoreboard','results'].forEach(v=>{const labels={athletes:'👥 Atletas',competition:'🏋 Competencia',scoreboard:'📺 Pantalla',results:'🏆 Resultados'};h+='<button class="tab '+(S.view===v?'a':'')+'" onclick="S.view=\''+v+'\';render()">'+labels[v]+'</button>';});h+='<button class="tab" onclick="newComp()">✕</button>';}
+    h+='</div></div>';
   }
-  return best;
+  if(S.view==='setup')h+=vSetup();else if(S.view==='athletes')h+=vAthletes();else if(S.view==='competition')h+=vComp();else if(S.view==='scoreboard')h+=vScore();else if(S.view==='results')h+=vResults();
+  el.innerHTML=h;
+  if(S._focusId){const inp=document.getElementById(S._focusId);if(inp){inp.focus();const len=inp.value.length;try{inp.setSelectionRange(len,len);}catch(e){}}S._focusId=null;}
 }
 
-function athleteTotal(athlete) {
-  const s = bestLift(athlete, 'sq');
-  const b = bestLift(athlete, 'bp');
-  const d = bestLift(athlete, 'dl');
-  if (s === 0 || b === 0 || d === 0) return 0;
-  return s + b + d;
+function vSetup(){let h='<div class="fade" style="max-width:650px;margin:50px auto;padding:0 16px"><div style="text-align:center;margin-bottom:32px"><h1 class="os" style="font-size:clamp(26px,5vw,40px);letter-spacing:3px"><span style="color:var(--accent)">LIVE</span>CAST</h1><p style="color:var(--muted);font-size:13px;margin-top:6px">Sistema de Gestión de Competencia en Vivo</p><div style="width:50px;height:3px;background:linear-gradient(90deg,var(--accent),var(--gold));margin:10px auto;border-radius:2px"></div></div>';
+if(!S.events.length)h+='<div class="card" style="text-align:center;padding:30px"><p style="color:var(--muted)">Cargando competencias...</p></div>';
+S.events.forEach((ev,i)=>{h+='<div class="card" style="cursor:pointer;transition:border-color .2s,transform .15s" onclick="selectEvent('+i+')" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.transform=\'translateX(4px)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.transform=\'none\'"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="os" style="font-size:16px;font-weight:700">'+ev.name+'</div><p style="color:var(--muted);font-size:12px;margin-top:3px">'+ev.organizer+' · '+ev.location+' · '+ev.days+'</p></div><div style="text-align:center"><div style="background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;font-size:15px;font-weight:700;font-family:Oswald">'+ev.athletes.length+'</div><div style="font-size:9px;color:var(--muted);margin-top:2px">atletas</div></div></div></div>';});
+return h+'</div>';}
+
+function vAthletes(){
+const flights=[...new Set(S.athletes.map(a=>a.flight))].sort();const ff=S.flight;const shown=S.athletes.filter(a=>a.flight===ff);
+const weighed=S.athletes.filter(a=>a.bw>0).length;const ready=S.athletes.filter(a=>a.bw>0&&a.att.sq[0].w>0&&a.att.bp[0].w>0&&a.att.dl[0].w>0).length;
+let h='<div class="fade" style="max-width:950px;margin:0 auto;padding:10px 16px">';
+h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:20px;letter-spacing:1px">ATLETAS & PESAJE</h2><p style="font-size:11px;color:var(--muted)">'+weighed+'/'+S.athletes.length+' pesados · '+ready+' listos</p></div><button class="btn btn-g" onclick="S.view=\'competition\';render()">🏋 Ir a Competencia →</button></div>';
+h+='<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">';
+flights.forEach(f=>{h+='<button class="tab '+(ff===f?'a':'')+'" style="'+(ff===f?'background:'+(FC[f]||'var(--muted)')+';border-color:'+(FC[f]||'var(--muted)'):'border-color:'+(FC[f]||'var(--border)'))+'" onclick="S.flight=\''+f+'\';render()">Vuelo '+f+' ('+S.athletes.filter(a=>a.flight===f).length+')</button>';});
+h+='</div>';
+
+shown.forEach(a=>{
+const exp=S.editId===a.id;const ok=a.bw>0&&a.att.sq[0].w>0&&a.att.bp[0].w>0&&a.att.dl[0].w>0;
+h+='<div class="card" style="padding:0;border-left:3px solid '+(ok?'var(--green)':'var(--border)')+'">';
+h+='<div onclick="S.editId='+(exp?-1:a.id)+';render()" style="display:grid;grid-template-columns:30px 1fr auto auto auto auto 20px;gap:6px;align-items:center;padding:10px 12px;cursor:pointer;font-size:13px">';
+h+='<span class="os" style="color:var(--gold);font-weight:700;text-align:center">'+a.lot+'</span>';
+h+='<div style="overflow:hidden"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+a.nombre+'</div><div style="font-size:10px;color:var(--muted)">'+(a.club||'')+'</div></div>';
+h+='<span style="font-size:10px;color:var(--muted)">'+(a.categoria||'')+'</span>';
+h+='<span style="background:'+(FC[a.flight]||'var(--muted)')+';color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:Oswald">'+a.flight+'</span>';
+h+='<span class="os" style="font-size:13px;color:'+(a.bw>0?'var(--green)':'var(--muted)')+';min-width:50px;text-align:center">'+(a.bw>0?a.bw+'kg':'—')+'</span>';
+h+='<span style="font-size:9px;color:var(--muted)">'+(a.att.sq[0].w>0?'SQ ':'')+(a.att.bp[0].w>0?'BP ':'')+(a.att.dl[0].w>0?'DL':'')+'</span>';
+h+='<span style="color:var(--muted);font-size:14px;transition:transform .2s;transform:'+(exp?'rotate(90deg)':'none')+'">›</span></div>';
+
+if(exp){
+h+='<div style="padding:0 12px 14px;border-top:1px solid var(--border);padding-top:12px">';
+h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">';
+// Flight
+h+='<div><label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px;font-family:Oswald">Vuelo</label>';
+h+='<select class="inp" onchange="upA('+a.id+',\'flight\',this.value);render()">';
+['A','B','C','D','E','F'].forEach(f=>{h+='<option '+(a.flight===f?'selected':'')+'>'+f+'</option>';});
+h+='</select></div>';
+// BW
+var iid='inp_'+a.id+'_bw';
+h+='<div><label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px;font-family:Oswald">Peso Corporal (kg)</label>';
+h+='<input id="'+iid+'" class="inp '+(a.bw>0?'ok':'')+'" type="number" step="0.1" value="'+(a.bw||'')+'" placeholder="kg" oninput="upA('+a.id+',\'bw\',parseFloat(this.value)||0)" onfocus="S._focusId=\''+iid+'\'"></div>';
+// Rack SQ
+iid='inp_'+a.id+'_rsq';
+h+='<div><label style="font-size:9px;color:#3b82f6;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px;font-family:Oswald">Rack Squat</label>';
+h+='<input id="'+iid+'" class="inp" type="text" value="'+(a.rackSQ||'')+'" placeholder="ej: 12-out" oninput="upA('+a.id+',\'rackSQ\',this.value)" onfocus="S._focusId=\''+iid+'\'"></div>';
+// Rack BP
+iid='inp_'+a.id+'_rbp';
+h+='<div><label style="font-size:9px;color:#f59e0b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px;font-family:Oswald">Rack Bench</label>';
+h+='<input id="'+iid+'" class="inp" type="text" value="'+(a.rackBP||'')+'" placeholder="ej: 5" oninput="upA('+a.id+',\'rackBP\',this.value)" onfocus="S._focusId=\''+iid+'\'"></div>';
+h+='</div>';
+// Openers
+h+='<div style="margin-top:10px"><label style="font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.5px;font-family:Oswald;display:block;margin-bottom:6px">OPENERS</label><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+['sq','bp','dl'].forEach(l=>{
+iid='inp_'+a.id+'_op_'+l;
+h+='<div><label style="font-size:9px;color:'+LC[l]+';font-family:Oswald;letter-spacing:.5px;display:block;margin-bottom:2px">'+LS[l]+' (kg)</label>';
+h+='<input id="'+iid+'" class="inp '+(a.att[l][0].w>0?'ok':'')+'" type="number" step="2.5" value="'+(a.att[l][0].w||'')+'" placeholder="0" style="border-color:'+(a.att[l][0].w>0?LC[l]:'var(--border)')+';font-weight:700;text-align:center;font-family:Oswald" oninput="setAtt('+a.id+',\''+l+'\',0,this.value)" onfocus="S._focusId=\''+iid+'\'"></div>';
+});
+h+='</div></div></div>';
+}
+h+='</div>';
+});
+return h+'</div>';}
+
+function vComp(){
+const flights=[...new Set(S.athletes.map(a=>a.flight))].sort();
+const fa=S.athletes.filter(a=>a.flight===S.flight&&!a.bombed);
+const order=liftOrder();const cur=order[0]||null;const rk=rankings();
+const sel=S.selId>=0?S.athletes.find(x=>x.id===S.selId):cur;
+const s=sel||cur;
+const ri=s?(S.lift==='sq'?s.rackSQ:S.lift==='bp'?s.rackBP:''):'';
+
+let h='<div class="fade" style="display:grid;grid-template-columns:1fr 320px;gap:12px;padding:10px 16px;max-width:1200px;margin:0 auto" class="g2"><div>';
+// Flights
+h+='<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">';
+flights.forEach(f=>{h+='<button class="tab '+(S.flight===f?'a':'')+'" style="'+(S.flight===f?'background:'+(FC[f]||'var(--muted)')+';border-color:'+(FC[f]||'var(--muted)'):'border-color:'+(FC[f]||'var(--border)'))+'" onclick="S.flight=\''+f+'\';S.selId=-1;render()">Vuelo '+f+'</button>';});
+h+='</div>';
+// Lifts
+h+='<div style="display:flex;gap:4px;margin-bottom:8px">';
+LIFTS.forEach(l=>{h+='<button class="os" onclick="S.lift=\''+l+'\';S.round=0;S.selId=-1;render()" style="flex:1;padding:8px;border-radius:6px;border:2px solid '+(S.lift===l?LC[l]:'var(--border)')+';background:'+(S.lift===l?LC[l]+'20':'transparent')+';color:'+(S.lift===l?LC[l]:'var(--muted)')+';font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer">'+LN[l]+'</button>';});
+h+='</div>';
+// Rounds
+h+='<div style="display:flex;gap:4px;margin-bottom:10px">';
+[0,1,2].forEach(r=>{h+='<button class="os" onclick="S.round='+r+';S.selId=-1;render()" style="flex:1;padding:6px;border-radius:5px;border:1px solid '+(S.round===r?'var(--gold)':'var(--border)')+';background:'+(S.round===r?'rgba(212,168,67,.12)':'transparent')+';color:'+(S.round===r?'var(--gold)':'var(--muted)')+';font-size:11px;font-weight:600;letter-spacing:1px;cursor:pointer">INTENTO '+(r+1)+'</button>';});
+h+='</div>';
+// Timer
+h+='<div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px"><span class="os '+(S.timerOn&&S.timer<=10?'pulse':'')+'" style="font-size:32px;font-weight:700;color:'+(S.timer<=10?'var(--red)':S.timer<=30?'var(--gold)':'var(--green)')+'">'+Math.floor(S.timer/60)+':'+String(S.timer%60).padStart(2,'0')+'</span><div style="display:flex;gap:4px"><button class="btn btn-g" onclick="timerStart()" '+(S.timerOn?'disabled':'')+' style="padding:6px 10px">▶</button><button class="btn" style="background:var(--gold);color:#fff;padding:6px 10px" onclick="timerPause()">⏸</button><button class="btn btn-o" onclick="timerReset()" style="padding:6px 10px">↺</button></div></div>';
+
+// Current lifter
+if(s){
+h+='<div class="card" style="border-left:4px solid '+LC[S.lift]+'">';
+h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><div class="os" style="font-size:18px;font-weight:700">'+s.nombre+'</div><div style="font-size:11px;color:var(--muted)">'+(s.club||'')+' · Lot #'+s.lot+' · '+s.bw+'kg</div></div>';
+h+='<div style="display:flex;align-items:center;gap:6px">';
+if(ri)h+='<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:5px;font-size:10px">🔧 '+ri+'</span>';
+h+='<span style="background:'+LC[S.lift]+';color:#fff;padding:3px 10px;border-radius:5px;font-family:Oswald;font-weight:700;font-size:12px">'+LS[S.lift]+(S.round+1)+'</span></div></div>';
+// Weight
+var wid='inp_comp_w';
+h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input id="'+wid+'" class="inp" type="number" step="2.5" value="'+(s.att[S.lift][S.round].w||'')+'" style="flex:1;padding:10px;font-size:20px;font-weight:700;font-family:Oswald;text-align:center;letter-spacing:2px;border-color:'+LC[S.lift]+'" oninput="setAtt('+s.id+',\''+S.lift+'\','+S.round+',this.value)" onfocus="S._focusId=\''+wid+'\'"><span class="os" style="color:var(--muted);font-size:14px">KG</span></div>';
+// Judge
+h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button onclick="judge('+s.id+',\''+S.lift+'\','+S.round+',\'good\')" style="padding:14px;border-radius:8px;border:3px solid var(--green);background:rgba(34,197,94,.08);color:var(--green);font-size:16px;font-weight:700;font-family:Oswald;letter-spacing:2px;cursor:pointer">✓ GOOD LIFT</button><button onclick="judge('+s.id+',\''+S.lift+'\','+S.round+',\'nolift\')" style="padding:14px;border-radius:8px;border:3px solid var(--red);background:rgba(239,68,68,.08);color:var(--red);font-size:16px;font-weight:700;font-family:Oswald;letter-spacing:2px;cursor:pointer">✗ NO LIFT</button></div>';
+// Attempt display
+h+='<div style="display:flex;gap:5px;margin-top:10px;justify-content:center">';
+LIFTS.forEach(l=>{s.att[l].forEach((t,j)=>{const bg=t.r==='good'?'rgba(34,197,94,.12)':t.r==='nolift'?'rgba(239,68,68,.12)':'transparent';const bc=t.r==='good'?'rgba(34,197,94,.4)':t.r==='nolift'?'rgba(239,68,68,.4)':'var(--border)';const tc=t.r==='good'?'var(--green)':t.r==='nolift'?'var(--red)':'var(--muted)';h+='<div style="text-align:center;padding:3px 5px;border:1px solid '+bc+';border-radius:4px;background:'+bg+';min-width:38px;cursor:pointer" onclick="S.lift=\''+l+'\';S.round='+j+';S.selId='+s.id+';render()"><div style="font-size:7px;color:var(--muted);font-family:Oswald">'+LS[l]+(j+1)+'</div><div class="os" style="font-size:11px;font-weight:700;color:'+tc+';'+(t.r==='nolift'?'text-decoration:line-through':'')+'">'+(t.w||'—')+'</div></div>';});});
+h+='</div></div>';
+} else {
+h+='<div class="card" style="text-align:center;padding:20px"><span class="os" style="color:var(--gold);font-size:15px;letter-spacing:2px">RONDA COMPLETADA</span></div>';
 }
 
-function makeAttempts() {
-  return {
-    sq: [{w:0,result:null},{w:0,result:null},{w:0,result:null}],
-    bp: [{w:0,result:null},{w:0,result:null},{w:0,result:null}],
-    dl: [{w:0,result:null},{w:0,result:null},{w:0,result:null}],
-  };
-}
+// Queue
+h+='<div class="card"><h3 class="os" style="font-size:12px;letter-spacing:1px;margin-bottom:8px;color:var(--muted)">ORDEN DE LEVANTAMIENTO</h3>';
+if(!order.length)h+='<p style="font-size:11px;color:var(--muted);text-align:center;padding:8px">Sin pendientes</p>';
+order.forEach((a,i)=>{const isSel=(S.selId>=0?S.selId:cur?.id)===a.id;const ari=S.lift==='sq'?a.rackSQ:S.lift==='bp'?a.rackBP:'';
+h+='<div onclick="S.selId='+a.id+';render()" style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:5px;margin-bottom:3px;cursor:pointer;background:'+(isSel?LC[S.lift]+'12':'transparent')+';border:1px solid '+(isSel?LC[S.lift]+'30':'transparent')+'"><div style="display:flex;align-items:center;gap:8px"><span class="os" style="color:var(--gold);font-weight:700;width:20px;text-align:center">'+(i+1)+'</span><span style="font-size:12px;font-weight:600">'+a.nombre+'</span></div><div style="display:flex;align-items:center;gap:6px">'+(ari?'<span style="font-size:8px;color:var(--muted);background:var(--bg);padding:1px 5px;border-radius:3px">R:'+ari+'</span>':'')+'<span class="os" style="color:'+LC[S.lift]+';font-weight:700;font-size:14px">'+a.att[S.lift][S.round].w+' kg</span></div></div>';});
+h+='</div>';
 
-// ── Lifting order (IPF rules) ──
-function liftOrder(athletes, lift, round) {
-  const active = athletes.filter(a => {
-    if (a.bombed) return false;
-    // Check if already attempted this round
-    const att = a.attempts[lift][round];
-    if (att.result !== null) return false;
-    // Must have declared weight
-    if (!att.w || att.w <= 0) return false;
-    return true;
-  });
-  return active.sort((a, b) => {
-    const wA = a.attempts[lift][round].w;
-    const wB = b.attempts[lift][round].w;
-    if (wA !== wB) return wA - wB;
-    return a.lot - b.lot;
-  });
-}
+// Summary table
+h+='<div class="card"><h3 class="os" style="font-size:12px;letter-spacing:1px;margin-bottom:8px;color:var(--muted)">'+LN[S.lift]+' — VUELO '+S.flight+'</h3>';
+fa.forEach(a=>{h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,58,95,.15);font-size:11px"><span style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+a.nombre+'</span><div style="display:flex;gap:3px">'+a.att[S.lift].map((t,j)=>{const bg=t.r==='good'?'rgba(34,197,94,.12)':t.r==='nolift'?'rgba(239,68,68,.12)':'transparent';const bc=t.r==='good'?'rgba(34,197,94,.3)':t.r==='nolift'?'rgba(239,68,68,.3)':'var(--border)';const tc=t.r==='good'?'var(--green)':t.r==='nolift'?'var(--red)':'var(--muted)';return'<span style="width:44px;text-align:center;padding:1px 3px;border-radius:3px;font-size:9px;font-weight:600;font-family:Oswald;background:'+bg+';color:'+tc+';border:1px solid '+bc+';'+(t.r==='nolift'?'text-decoration:line-through':'')+'">'+(t.w||'—')+'</span>';}).join('')+'</div></div>';});
+h+='</div></div>';
 
-// ── Storage ──
-const STORAGE_KEY = 'fechipo_livecast_v1';
-function saveState(state) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-}
-function loadState() {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    return s ? JSON.parse(s) : null;
-  } catch(e) { return null; }
-}
+// Right: Rankings
+h+='<div><div class="card" style="position:sticky;top:56px"><h3 class="os" style="font-size:12px;letter-spacing:1px;margin-bottom:10px;color:var(--gold)">RANKING GL POINTS</h3>';
+if(!rk.length)h+='<p style="font-size:11px;color:var(--muted);text-align:center;padding:16px">Sin totales aún</p>';
+rk.forEach((a,i)=>{h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 8px;border-bottom:1px solid rgba(30,58,95,.25)"><div style="display:flex;align-items:center;gap:6px"><span class="os" style="color:'+(i<3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:15px;width:22px">'+(i+1)+'</span><div><div style="font-weight:600;font-size:12px">'+a.nombre+'</div><div style="font-size:9px;color:var(--muted)">'+a.bw+'kg · SQ'+best(a,'sq')+' BP'+best(a,'bp')+' DL'+best(a,'dl')+'</div></div></div><div style="text-align:right"><div class="os" style="font-size:16px;font-weight:700;color:var(--gold)">'+a.gl+'</div><div style="font-size:9px;color:var(--muted)">'+a.total+'kg</div></div></div>';});
+h+='</div></div></div>';
+return h;}
 
-// ── Shared Card Component ──
-function Card({children, style, className}) {
-  return <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20,...style}} className={className}>{children}</div>;
-}
-function Btn({children, color='var(--accent)', onClick, style, disabled}) {
-  return <button onClick={onClick} disabled={disabled} style={{background:color,color:'#fff',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:600,fontSize:13,cursor:disabled?'not-allowed':'pointer',opacity:disabled?.5:1,fontFamily:'Oswald',letterSpacing:1,textTransform:'uppercase',transition:'all .15s',...style}}>{children}</button>;
-}
+function vScore(){
+const order=liftOrder();const cur=order[0];const next=order[1];const rk=rankings();
+const ri=cur?(S.lift==='sq'?cur.rackSQ:S.lift==='bp'?cur.rackBP:''):'';
+let h='<div style="min-height:100vh"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 24px;background:linear-gradient(90deg,var(--accent),#8B1525);color:#fff"><div class="os" style="font-size:22px;font-weight:700;letter-spacing:3px">FECHIPO LIVECAST</div><div class="os" style="font-size:14px;letter-spacing:1px">'+(S.events[S.eventIdx]?.short||'')+'</div><div style="display:flex;align-items:center;gap:12px"><span class="os" style="font-size:13px;background:'+LC[S.lift]+';padding:4px 14px;border-radius:5px;font-weight:700;letter-spacing:2px">VUELO '+S.flight+' — '+LN[S.lift]+' — INT '+(S.round+1)+'</span><button onclick="S.view=\'competition\';render()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 12px;border-radius:5px;cursor:pointer;font-size:11px;font-family:Oswald">⚙ CONTROL</button></div></div>';
+h+='<div style="display:grid;grid-template-columns:1fr 360px;min-height:calc(100vh - 50px)">';
+h+='<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;padding:30px">';
+if(cur){
+h+='<div class="os '+(S.timerOn&&S.timer<=10?'pulse':'')+'" style="font-size:64px;font-weight:700;color:'+(S.timer<=10?'var(--red)':S.timer<=30?'var(--gold)':'var(--green)')+';margin-bottom:16px;opacity:'+(S.timerOn?1:.3)+'">'+Math.floor(S.timer/60)+':'+String(S.timer%60).padStart(2,'0')+'</div>';
+h+='<div class="os" style="font-size:clamp(28px,5vw,48px);font-weight:700;letter-spacing:2px;text-align:center">'+cur.nombre+'</div>';
+h+='<div style="color:var(--muted);font-size:15px;margin:8px 0 20px">'+(cur.club||'')+' · '+cur.bw+'kg · Lot #'+cur.lot+(ri?' · 🔧 Rack: '+ri:'')+'</div>';
+h+='<div class="os" style="font-size:72px;font-weight:700;color:'+LC[S.lift]+';letter-spacing:4px">'+(cur.att[S.lift][S.round].w||'—')+' <span style="font-size:32px;color:var(--muted)">KG</span></div>';
+h+='<div style="display:flex;gap:14px;margin-top:24px">';
+cur.att[S.lift].forEach((t,j)=>{h+='<div style="text-align:center;opacity:'+(j===S.round?1:.4)+'"><div style="font-size:9px;color:var(--muted);font-family:Oswald;letter-spacing:1px">INT '+(j+1)+'</div><div class="os" style="font-size:24px;font-weight:700;color:'+(t.r==='good'?'var(--green)':t.r==='nolift'?'var(--red)':'var(--muted)')+';'+(t.r==='nolift'?'text-decoration:line-through':'')+'">'+(t.w||'—')+'</div></div>';});
+h+='</div>';
+if(next)h+='<div style="margin-top:30px;color:var(--muted);font-size:12px">Siguiente: <strong style="color:var(--text)">'+next.nombre+'</strong> — '+next.att[S.lift][S.round].w+'kg'+((S.lift==='sq'&&next.rackSQ)||(S.lift==='bp'&&next.rackBP)?' · Rack: '+(S.lift==='sq'?next.rackSQ:next.rackBP):'')+'</div>';
+} else {h+='<div class="os" style="font-size:24px;color:var(--gold);letter-spacing:2px">RONDA COMPLETADA</div>';}
+h+='</div>';
+h+='<div style="background:rgba(17,34,59,.8);border-left:1px solid var(--border);padding:16px;overflow-y:auto"><h3 class="os" style="font-size:14px;letter-spacing:2px;color:var(--gold);margin-bottom:10px;text-align:center">RANKING GL POINTS</h3>';
+rk.forEach((a,i)=>{h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.25);background:'+(cur&&a.id===cur.id?LC[S.lift]+'12':'transparent')+';border-radius:3px"><div style="display:flex;align-items:center;gap:8px"><span class="os" style="color:'+(i<3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:16px;width:24px">'+(i+1)+'</span><div><div style="font-weight:600;font-size:13px">'+a.nombre+'</div><div style="font-size:10px;color:var(--muted)">SQ '+best(a,'sq')+' · BP '+best(a,'bp')+' · DL '+best(a,'dl')+'</div></div></div><div style="text-align:right"><div class="os" style="font-size:18px;font-weight:700;color:var(--gold)">'+a.gl+'</div><div style="font-size:10px;color:var(--muted)">'+a.total+'kg</div></div></div>';});
+if(!rk.length)h+='<p style="text-align:center;padding:30px;color:var(--muted);font-size:12px">Sin totales</p>';
+h+='</div></div></div>';return h;}
 
-// ══════════════════════════════════════════════
-// MAIN APP
-// ══════════════════════════════════════════════
-function App() {
-  const [phase, setPhase] = useState('setup');
-  const [events, setEvents] = useState([]);
-  const [records, setRecords] = useState({});
-  const [event, setEvent] = useState(null);
-  const [athletes, setAthletes] = useState([]);
-  const [currentLift, setCurrentLift] = useState('sq');
-  const [currentRound, setCurrentRound] = useState(0);
-  const [viewMode, setViewMode] = useState('control');
-  const [currentFlight, setCurrentFlight] = useState('A');
-  const [timer, setTimer] = useState(60);
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [recordAlerts, setRecordAlerts] = useState([]);
+function vResults(){
+const rk=rankings();const bombed=S.athletes.filter(a=>a.bombed);
+let h='<div class="fade" style="max-width:1000px;margin:0 auto;padding:10px 16px"><div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:22px;letter-spacing:2px">RESULTADOS FINALES</h2><p style="font-size:12px;color:var(--muted)">'+(S.events[S.eventIdx]?.name||'')+'</p></div><button class="btn btn-g" onclick="exportJSON()">📥 Exportar JSON</button></div>';
+h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">';
+[['Atletas',S.athletes.length,'var(--blue)'],['Clasificados',rk.length,'var(--green)'],['Bomb Out',bombed.length,'var(--red)'],['Mejor GL',rk[0]?.gl||'—','var(--gold)']].forEach(([l,v,c])=>{h+='<div class="card" style="text-align:center;padding:12px"><div class="os" style="font-size:24px;font-weight:700;color:'+c+'">'+v+'</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px">'+l+'</div></div>';});
+h+='</div>';
+h+='<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:2px solid var(--border)">';
+['#','Atleta','BW','Cat.','SQ','BP','DL','Total','GL'].forEach(x=>{h+='<th class="os" style="padding:8px 6px;text-align:'+(x==='Atleta'?'left':'center')+';color:var(--muted);font-size:10px;letter-spacing:1px">'+x+'</th>';});
+h+='</tr></thead><tbody>';
+rk.forEach((a,i)=>{h+='<tr style="border-bottom:1px solid rgba(30,58,95,.25)"><td class="os" style="padding:8px 6px;text-align:center;color:var(--gold);font-weight:700;font-size:15px">'+(i+1)+'</td><td style="padding:8px 6px"><div style="font-weight:600">'+a.nombre+'</div><div style="font-size:9px;color:var(--muted)">'+(a.club||'')+'</div></td><td style="padding:8px 6px;text-align:center">'+a.bw+'</td><td style="padding:8px 6px;text-align:center;font-size:10px">'+(a.categoria||'')+'</td><td class="os" style="padding:8px 6px;text-align:center;font-weight:700;color:#3b82f6">'+(best(a,'sq')||'—')+'</td><td class="os" style="padding:8px 6px;text-align:center;font-weight:700;color:#f59e0b">'+(best(a,'bp')||'—')+'</td><td class="os" style="padding:8px 6px;text-align:center;font-weight:700;color:#ef4444">'+(best(a,'dl')||'—')+'</td><td class="os" style="padding:8px 6px;text-align:center;font-weight:700;font-size:15px">'+a.total+'</td><td class="os" style="padding:8px 6px;text-align:center;font-weight:700;font-size:15px;color:var(--gold)">'+a.gl+'</td></tr>';});
+h+='</tbody></table></div>';
+if(bombed.length){h+='<div class="card"><h3 class="os" style="font-size:12px;color:var(--red);letter-spacing:1px;margin-bottom:6px">BOMB OUT</h3>';bombed.forEach(a=>{h+='<div style="padding:4px 0;border-bottom:1px solid rgba(30,58,95,.15);font-size:12px;color:var(--muted)">'+a.nombre+' — '+(a.club||'')+'</div>';});h+='</div>';}
+return h+'</div>';}
 
-  // Load saved state or nominas
-  useEffect(() => {
-    const saved = loadState();
-    if (saved && saved.phase !== 'setup') {
-      setPhase(saved.phase);
-      setEvent(saved.event);
-      setAthletes(saved.athletes);
-      setCurrentLift(saved.currentLift || 'sq');
-      setCurrentRound(saved.currentRound || 0);
-      setCurrentFlight(saved.currentFlight || 'A');
-    }
-    fetch('nominas.json').then(r=>r.json()).then(n=>setEvents(n.events||[])).catch(()=>{});
-    fetch('records.json').then(r=>r.json()).then(r=>setRecords(r)).catch(()=>{});
-  }, []);
-
-  // Auto-save
-  useEffect(() => {
-    if (phase !== 'setup') saveState({phase, event, athletes, currentLift, currentRound, currentFlight});
-  }, [phase, event, athletes, currentLift, currentRound, currentFlight]);
-
-  // Timer
-  useEffect(() => {
-    if (!timerRunning || timer <= 0) { if(timer<=0) setTimerRunning(false); return; }
-    const id = setInterval(() => setTimer(t => t - 1), 1000);
-    return () => clearInterval(id);
-  }, [timerRunning, timer]);
-
-  const resetTimer = () => { setTimer(60); setTimerRunning(false); };
-  const startTimer = () => setTimerRunning(true);
-  const pauseTimer = () => setTimerRunning(false);
-
-  // Select event and import athletes
-  const selectEvent = (ev) => {
-    setEvent(ev);
-    const imported = ev.athletes.map((a, i) => ({
-      ...a, id: i, lot: i + 1, bodyweight: 0, bombed: false,
-      flight: 'A',
-      rackSQ: '', rackBP: '',
-      attempts: makeAttempts(),
-    }));
-    setAthletes(imported);
-    setPhase('weighin');
-  };
-
-  // Update athlete
-  const updateAthlete = (id, updates) => {
-    setAthletes(prev => prev.map(a => a.id === id ? {...a, ...updates} : a));
-  };
-
-  // Set attempt weight
-  const setAttemptWeight = (athleteId, lift, round, weight) => {
-    setAthletes(prev => prev.map(a => {
-      if (a.id !== athleteId) return a;
-      const newAttempts = {...a.attempts};
-      newAttempts[lift] = [...newAttempts[lift]];
-      newAttempts[lift][round] = {...newAttempts[lift][round], w: parseFloat(weight) || 0};
-      return {...a, attempts: newAttempts};
-    }));
-  };
-
-  // Record attempt result
-  const recordResult = (athleteId, lift, round, result) => {
-    setAthletes(prev => {
-      const updated = prev.map(a => {
-        if (a.id !== athleteId) return a;
-        const newAttempts = {...a.attempts};
-        newAttempts[lift] = [...newAttempts[lift]];
-        newAttempts[lift][round] = {...newAttempts[lift][round], result};
-        // Auto-copy weight to next attempt if good
-        if (round < 2) {
-          const nextW = newAttempts[lift][round + 1].w;
-          if (!nextW || nextW === 0) {
-            newAttempts[lift][round + 1] = {...newAttempts[lift][round + 1], w: newAttempts[lift][round].w + 2.5};
-          }
-        }
-        return {...a, attempts: newAttempts};
-      });
-      // Check for bomb-out
-      return updated.map(a => {
-        if (a.id !== athleteId) return a;
-        const allFailed = a.attempts[lift].every(att => att.result === 'nolift');
-        if (allFailed && a.attempts[lift][2].result !== null) {
-          return {...a, bombed: true};
-        }
-        return a;
-      });
-    });
-    resetTimer();
-  };
-
-  // Rankings
-  const rankings = useMemo(() => {
-    return [...athletes]
-      .map(a => ({...a, total: athleteTotal(a), gl: calcGL(athleteTotal(a), a.bodyweight, a.sexo || a.sex)}))
-      .filter(a => a.total > 0)
-      .sort((a, b) => b.gl - a.gl);
-  }, [athletes]);
-
-  // New competition
-  const newComp = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setPhase('setup');
-    setEvent(null);
-    setAthletes([]);
-    setCurrentLift('sq');
-    setCurrentRound(0);
-  };
-
-  // Export results
-  const exportResults = () => {
-    const results = athletes.map(a => {
-      const t = athleteTotal(a);
-      return {
-        nombre: a.nombre,
-        rut: a.rut || '',
-        sexo: a.sexo || a.sex || '',
-        categoria: a.categoria || a.weightClass || '',
-        bodyweight: a.bodyweight,
-        sq: bestLift(a, 'sq'),
-        bp: bestLift(a, 'bp'),
-        dl: bestLift(a, 'dl'),
-        total: t,
-        gl: calcGL(t, a.bodyweight, a.sexo || a.sex),
-        club: a.club || '',
-        bombed: a.bombed,
-      };
-    }).filter(r => r.total > 0).sort((a,b) => b.gl - a.gl);
-    
-    const blob = new Blob([JSON.stringify(results, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `resultados_${(event?.short || 'comp').replace(/\s/g,'_')}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Header
-  const Header = () => (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 20px',borderBottom:'1px solid var(--border)',background:'rgba(17,34,59,.95)',position:'sticky',top:0,zIndex:100,backdropFilter:'blur(10px)'}}>
-      <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <div style={{fontFamily:'Oswald',fontSize:22,fontWeight:700,letterSpacing:2}}>
-          <span style={{color:'var(--accent)'}}>FECHIPO</span> <span style={{fontWeight:400,color:'var(--muted)'}}>LiveCast</span>
-        </div>
-        {event && <span style={{fontSize:11,color:'var(--muted)',background:'var(--bg)',padding:'4px 10px',borderRadius:20}}>{event.short}</span>}
-      </div>
-      <div style={{display:'flex',gap:6}}>
-        {phase === 'competition' && <>
-          {['control','scoreboard'].map(m => (
-            <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 14px',borderRadius:6,border:'1px solid '+(viewMode===m?'var(--accent)':'var(--border)'),background:viewMode===m?'var(--accent)':'transparent',color:viewMode===m?'#fff':'var(--muted)',fontSize:11,cursor:'pointer',fontFamily:'Oswald',letterSpacing:1,textTransform:'uppercase'}}>
-              {m==='control'?'⚙ Control':'📺 Scoreboard'}
-            </button>
-          ))}
-        </>}
-        {phase !== 'setup' && <button onClick={newComp} style={{padding:'6px 14px',borderRadius:6,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',fontSize:11,cursor:'pointer',fontFamily:'Oswald',letterSpacing:1}}>NUEVA</button>}
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{minHeight:'100vh'}}>
-      <Header />
-      <div style={{maxWidth:phase==='competition'&&viewMode==='scoreboard'?'100%':1100,margin:'0 auto',padding:phase==='competition'&&viewMode==='scoreboard'?'0':'16px 20px'}}>
-        {phase === 'setup' && <SetupView events={events} onSelect={selectEvent} />}
-        {phase === 'weighin' && <WeighInView athletes={athletes} event={event} updateAthlete={updateAthlete} setAttemptWeight={setAttemptWeight} onStart={() => {setPhase('competition'); setCurrentLift('sq'); setCurrentRound(0);}} />}
-        {phase === 'competition' && viewMode === 'control' && (
-          <ControlView athletes={athletes} currentLift={currentLift} currentRound={currentRound} setCurrentLift={setCurrentLift} setCurrentRound={setCurrentRound} setAttemptWeight={setAttemptWeight} recordResult={recordResult} rankings={rankings} timer={timer} timerRunning={timerRunning} startTimer={startTimer} pauseTimer={pauseTimer} resetTimer={resetTimer} onFinish={()=>setPhase('results')} records={records} event={event} currentFlight={currentFlight} setCurrentFlight={setCurrentFlight} />
-        )}
-        {phase === 'competition' && viewMode === 'scoreboard' && (
-          <ScoreboardView athletes={athletes} currentLift={currentLift} currentRound={currentRound} rankings={rankings} event={event} timer={timer} timerRunning={timerRunning} currentFlight={currentFlight} />
-        )}
-        {phase === 'results' && <ResultsView rankings={rankings} athletes={athletes} event={event} exportResults={exportResults} records={records} />}
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// SETUP VIEW
-// ══════════════════════════════════════════════
-function SetupView({events, onSelect}) {
-  return (
-    <div className="fade-in" style={{maxWidth:700,margin:'60px auto'}}>
-      <div style={{textAlign:'center',marginBottom:40}}>
-        <h1 className="os" style={{fontSize:'clamp(28px,5vw,42px)',fontWeight:700,letterSpacing:3}}>
-          <span style={{color:'var(--accent)'}}>LIVE</span>CAST
-        </h1>
-        <p style={{color:'var(--muted)',fontSize:14,marginTop:8}}>Sistema de Gestión de Competencia en Vivo</p>
-        <div style={{width:60,height:3,background:'linear-gradient(90deg,var(--accent),var(--gold))',margin:'12px auto',borderRadius:2}}></div>
-      </div>
-      
-      {events.length === 0 && (
-        <Card style={{textAlign:'center',padding:40}}>
-          <p style={{color:'var(--muted)'}}>Cargando competencias desde nominas.json...</p>
-          <p style={{color:'var(--muted)',fontSize:12,marginTop:8}}>Asegúrate de que el archivo esté en la misma carpeta</p>
-        </Card>
-      )}
-      
-      {events.map((ev, i) => (
-        <Card key={i} style={{marginBottom:16,cursor:'pointer',transition:'border-color .2s,transform .15s'}}
-          onClick={() => onSelect(ev)}
-          onMouseEnter={e => {e.currentTarget.style.borderColor='var(--accent)';e.currentTarget.style.transform='translateX(4px)'}}
-          onMouseLeave={e => {e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.transform='none'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div>
-              <h2 className="os" style={{fontSize:18,letterSpacing:1}}>{ev.name}</h2>
-              <p style={{color:'var(--muted)',fontSize:12,marginTop:4}}>{ev.organizer} · {ev.location} · {ev.days}</p>
-            </div>
-            <div style={{textAlign:'right'}}>
-              <div style={{background:'var(--accent)',color:'#fff',padding:'4px 14px',borderRadius:20,fontSize:14,fontWeight:700,fontFamily:'Oswald'}}>{ev.athletes.length}</div>
-              <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>atletas</div>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// WEIGH-IN VIEW
-// ══════════════════════════════════════════════
-function WeighInView({athletes, event, updateAthlete, setAttemptWeight, onStart}) {
-  const [expandedId, setExpandedId] = useState(null);
-  const [filterFlight, setFilterFlight] = useState('');
-  const allReady = athletes.every(a => a.bodyweight > 0 && a.attempts.sq[0].w > 0 && a.attempts.bp[0].w > 0 && a.attempts.dl[0].w > 0);
-  const weighed = athletes.filter(a => a.bodyweight > 0).length;
-  const flights = [...new Set(athletes.map(a => a.flight))].sort();
-  const filtered = filterFlight ? athletes.filter(a => a.flight === filterFlight) : athletes;
-
-  const FlightBadge = ({f}) => {
-    const colors = {A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899'};
-    return <span style={{background:colors[f]||'var(--muted)',color:'#fff',padding:'2px 8px',borderRadius:4,fontSize:10,fontWeight:700,fontFamily:'Oswald'}}>{f}</span>;
-  };
-  
-  return (
-    <div className="fade-in">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',margin:'20px 0',flexWrap:'wrap',gap:10}}>
-        <div>
-          <h2 className="os" style={{fontSize:22,letterSpacing:1}}>PESAJE & CONFIGURACIÓN</h2>
-          <p style={{color:'var(--muted)',fontSize:12}}>{weighed}/{athletes.length} pesados · Vuelos: {flights.join(', ')}</p>
-        </div>
-        <div style={{display:'flex',gap:8}}>
-          <select value={filterFlight} onChange={e=>setFilterFlight(e.target.value)} style={{padding:'8px 12px',borderRadius:6,border:'1px solid var(--border)',background:'var(--card)',color:'var(--text)',fontSize:12}}>
-            <option value="">Todos los vuelos</option>
-            {flights.map(f=><option key={f} value={f}>Vuelo {f}</option>)}
-          </select>
-          <Btn onClick={onStart} disabled={!allReady} color={allReady?'var(--green)':'var(--border)'}>
-            Iniciar Competencia →
-          </Btn>
-        </div>
-      </div>
-      
-      {/* Quick stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:16}}>
-        {flights.map(f => {
-          const count = athletes.filter(a=>a.flight===f).length;
-          const ready = athletes.filter(a=>a.flight===f && a.bodyweight>0).length;
-          return <Card key={f} style={{padding:12,textAlign:'center',cursor:'pointer',border:filterFlight===f?'1px solid var(--accent)':'1px solid var(--border)'}} onClick={()=>setFilterFlight(filterFlight===f?'':f)}>
-            <div className="os" style={{fontSize:20,fontWeight:700}}>Vuelo {f}</div>
-            <div style={{fontSize:11,color:'var(--muted)'}}>{ready}/{count} listos</div>
-          </Card>;
-        })}
-      </div>
-
-      {/* Athlete cards */}
-      <div style={{display:'grid',gap:6}}>
-        {filtered.map(a => {
-          const expanded = expandedId === a.id;
-          const ready = a.bodyweight > 0 && a.attempts.sq[0].w > 0 && a.attempts.bp[0].w > 0 && a.attempts.dl[0].w > 0;
-          return (
-            <Card key={a.id} style={{padding:0,overflow:'hidden',borderLeft:'3px solid '+(ready?'var(--green)':'var(--border)')}}>
-              {/* Header row - always visible */}
-              <div onClick={()=>setExpandedId(expanded?null:a.id)} style={{display:'grid',gridTemplateColumns:'35px 1fr auto auto auto auto 30px',gap:8,alignItems:'center',padding:'10px 14px',cursor:'pointer',fontSize:13}}>
-                <span style={{color:'var(--gold)',fontWeight:700,fontFamily:'Oswald',textAlign:'center'}}>{a.lot}</span>
-                <div style={{overflow:'hidden'}}>
-                  <div style={{fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.nombre}</div>
-                  <div style={{fontSize:11,color:'var(--muted)'}}>{a.club}</div>
-                </div>
-                <span style={{fontSize:11,color:'var(--muted)',padding:'0 6px'}}>{a.categoria}</span>
-                <FlightBadge f={a.flight} />
-                <span style={{fontWeight:700,fontFamily:'Oswald',fontSize:14,color:a.bodyweight>0?'var(--green)':'var(--muted)',minWidth:55,textAlign:'center'}}>{a.bodyweight>0?a.bodyweight+'kg':'—'}</span>
-                <span style={{fontSize:10,color:'var(--muted)'}}>
-                  {a.attempts.sq[0].w>0?'SQ':''}
-                  {a.attempts.bp[0].w>0?' BP':''}
-                  {a.attempts.dl[0].w>0?' DL':''}
-                </span>
-                <span style={{color:'var(--muted)',fontSize:16,transition:'transform .2s',transform:expanded?'rotate(90deg)':'none'}}>›</span>
-              </div>
-              
-              {/* Expanded details */}
-              {expanded && (
-                <div style={{padding:'0 14px 14px',borderTop:'1px solid var(--border)',paddingTop:14}}>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>
-                    {/* Flight */}
-                    <div>
-                      <label style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Vuelo</label>
-                      <select value={a.flight} onChange={e=>updateAthlete(a.id,{flight:e.target.value})} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:13}}>
-                        {['A','B','C','D','E','F'].map(f=><option key={f} value={f}>{f}</option>)}
-                      </select>
-                    </div>
-                    {/* Bodyweight */}
-                    <div>
-                      <label style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Peso Corporal (kg)</label>
-                      <input type="number" step="0.1" value={a.bodyweight||''} onChange={e=>updateAthlete(a.id,{bodyweight:parseFloat(e.target.value)||0})} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid '+(a.bodyweight>0?'var(--green)':'var(--border)'),background:'var(--bg)',color:'var(--text)',fontSize:13,textAlign:'center'}} />
-                    </div>
-                    {/* Rack SQ */}
-                    <div>
-                      <label style={{fontSize:10,color:'#3b82f6',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Rack Squat</label>
-                      <input type="text" placeholder="ej: 12-out" value={a.rackSQ||''} onChange={e=>updateAthlete(a.id,{rackSQ:e.target.value})} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:13,textAlign:'center'}} />
-                    </div>
-                    {/* Rack BP */}
-                    <div>
-                      <label style={{fontSize:10,color:'#f59e0b',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Rack Bench</label>
-                      <input type="text" placeholder="ej: 5" value={a.rackBP||''} onChange={e=>updateAthlete(a.id,{rackBP:e.target.value})} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:13,textAlign:'center'}} />
-                    </div>
-                    {/* Opener SQ */}
-                    <div>
-                      <label style={{fontSize:10,color:'#3b82f6',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Opener SQ (kg)</label>
-                      <input type="number" step="2.5" value={a.attempts.sq[0].w||''} onChange={e=>setAttemptWeight(a.id,'sq',0,e.target.value)} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid '+(a.attempts.sq[0].w>0?'#3b82f6':'var(--border)'),background:'var(--bg)',color:'var(--text)',fontSize:13,fontWeight:700,textAlign:'center'}} />
-                    </div>
-                    {/* Opener BP */}
-                    <div>
-                      <label style={{fontSize:10,color:'#f59e0b',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Opener BP (kg)</label>
-                      <input type="number" step="2.5" value={a.attempts.bp[0].w||''} onChange={e=>setAttemptWeight(a.id,'bp',0,e.target.value)} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid '+(a.attempts.bp[0].w>0?'#f59e0b':'var(--border)'),background:'var(--bg)',color:'var(--text)',fontSize:13,fontWeight:700,textAlign:'center'}} />
-                    </div>
-                    {/* Opener DL */}
-                    <div>
-                      <label style={{fontSize:10,color:'#ef4444',textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Opener DL (kg)</label>
-                      <input type="number" step="2.5" value={a.attempts.dl[0].w||''} onChange={e=>setAttemptWeight(a.id,'dl',0,e.target.value)} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid '+(a.attempts.dl[0].w>0?'#ef4444':'var(--border)'),background:'var(--bg)',color:'var(--text)',fontSize:13,fontWeight:700,textAlign:'center'}} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
-      
-      {!allReady && <p style={{textAlign:'center',color:'var(--muted)',fontSize:12,marginTop:16}}>Completa peso corporal y openers (SQ, BP, DL) de todos los atletas para iniciar</p>}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// CONTROL VIEW (Mesa de Control)
-// ══════════════════════════════════════════════
-function ControlView({athletes, currentLift, currentRound, setCurrentLift, setCurrentRound, setAttemptWeight, recordResult, rankings, timer, timerRunning, startTimer, pauseTimer, resetTimer, onFinish, records, event, currentFlight, setCurrentFlight}) {
-  const [selectedAthlete, setSelectedAthlete] = useState(null);
-  
-  const flightAthletes = athletes.filter(a => a.flight === currentFlight);
-  const flights = [...new Set(athletes.map(a => a.flight))].sort();
-  const order = useMemo(() => liftOrder(flightAthletes, currentLift, currentRound), [flightAthletes, currentLift, currentRound]);
-  const nextUp = order[0] || null;
-  
-  // Auto-select first in order
-  useEffect(() => {
-    if (nextUp && (!selectedAthlete || selectedAthlete.id !== nextUp.id)) {
-      setSelectedAthlete(nextUp);
-    }
-  }, [nextUp]);
-
-  const advanceLift = () => {
-    const li = LIFTS.indexOf(currentLift);
-    if (currentRound < 2) {
-      setCurrentRound(currentRound + 1);
-    } else if (li < 2) {
-      setCurrentLift(LIFTS[li + 1]);
-      setCurrentRound(0);
-    } else {
-      onFinish();
-    }
-  };
-
-  const activeAthletes = flightAthletes.filter(a => !a.bombed);
-  const roundDone = order.length === 0;
-  const rackInfo = selectedAthlete ? (currentLift==='sq'?selectedAthlete.rackSQ:currentLift==='bp'?selectedAthlete.rackBP:'') : '';
-
-  return (
-    <div className="fade-in" style={{display:'grid',gridTemplateColumns:'1fr 340px',gap:16,marginTop:16}}>
-      {/* Left: Main control */}
-      <div>
-        {/* Flight selector */}
-        <div style={{display:'flex',gap:6,marginBottom:10}}>
-          {flights.map(f => {
-            const fc = {A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899'};
-            const count = athletes.filter(a=>a.flight===f&&!a.bombed).length;
-            return <button key={f} onClick={()=>setCurrentFlight(f)} className="os" style={{flex:1,padding:'8px 0',borderRadius:8,border:'2px solid '+(currentFlight===f?fc[f]||'var(--muted)':'var(--border)'),background:currentFlight===f?(fc[f]||'var(--muted)')+'20':'transparent',color:currentFlight===f?fc[f]||'var(--muted)':'var(--muted)',fontSize:13,fontWeight:700,letterSpacing:2,cursor:'pointer',transition:'all .2s'}}>
-              VUELO {f} <span style={{fontSize:10,opacity:.7}}>({count})</span>
-            </button>;
-          })}
-        </div>
-        
-        {/* Lift nav */}
-        {/* Lift & Round nav */}
-        <div style={{display:'flex',gap:6,marginBottom:12}}>
-          {LIFTS.map(l => (
-            <button key={l} onClick={()=>{setCurrentLift(l);setCurrentRound(0);}} className="os" style={{flex:1,padding:'10px 0',borderRadius:8,border:'2px solid '+(currentLift===l?LIFT_COLORS[l]:'var(--border)'),background:currentLift===l?LIFT_COLORS[l]+'20':'transparent',color:currentLift===l?LIFT_COLORS[l]:'var(--muted)',fontSize:14,fontWeight:700,letterSpacing:2,cursor:'pointer',transition:'all .2s'}}>
-              {LIFT_NAMES[l]}
-            </button>
-          ))}
-        </div>
-        
-        {/* Round selector */}
-        <div style={{display:'flex',gap:6,marginBottom:16}}>
-          {[0,1,2].map(r => (
-            <button key={r} onClick={()=>setCurrentRound(r)} className="os" style={{flex:1,padding:'8px 0',borderRadius:6,border:'1px solid '+(currentRound===r?'var(--gold)':'var(--border)'),background:currentRound===r?'rgba(212,168,67,.15)':'transparent',color:currentRound===r?'var(--gold)':'var(--muted)',fontSize:12,fontWeight:600,letterSpacing:1,cursor:'pointer'}}>
-              INTENTO {r+1}
-            </button>
-          ))}
-        </div>
-
-        {/* Timer */}
-        <Card style={{marginBottom:12,padding:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <span className="os" style={{fontSize:36,fontWeight:700,color:timer<=10?'var(--red)':timer<=30?'var(--gold)':'var(--green)',minWidth:70,textAlign:'center'}}>{Math.floor(timer/60)}:{String(timer%60).padStart(2,'0')}</span>
-          </div>
-          <div style={{display:'flex',gap:6}}>
-            <Btn onClick={startTimer} color="var(--green)" style={{padding:'8px 14px',fontSize:11}} disabled={timerRunning}>▶</Btn>
-            <Btn onClick={pauseTimer} color="var(--gold)" style={{padding:'8px 14px',fontSize:11}}>⏸</Btn>
-            <Btn onClick={resetTimer} color="var(--muted)" style={{padding:'8px 14px',fontSize:11}}>↺</Btn>
-          </div>
-        </Card>
-
-        {/* Current lifter control */}
-        {selectedAthlete && (
-          <Card style={{marginBottom:12,borderLeft:'4px solid '+LIFT_COLORS[currentLift]}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <div>
-                <div className="os" style={{fontSize:20,fontWeight:700}}>{selectedAthlete.nombre}</div>
-                <div style={{fontSize:12,color:'var(--muted)'}}>{selectedAthlete.club} · Lot #{selectedAthlete.lot} · {selectedAthlete.bodyweight}kg</div>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                {rackInfo && <span style={{background:'var(--bg)',border:'1px solid var(--border)',padding:'4px 10px',borderRadius:6,fontSize:11,color:'var(--text)'}}>🔧 Rack: <strong>{rackInfo}</strong></span>}
-                <div style={{background:LIFT_COLORS[currentLift],color:'#fff',padding:'4px 12px',borderRadius:6,fontFamily:'Oswald',fontWeight:700,fontSize:13}}>
-                  {LIFT_SHORT[currentLift]}{currentRound+1}
-                </div>
-              </div>
-            </div>
-
-            {/* Weight input */}
-            <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:14}}>
-              <span style={{color:'var(--muted)',fontSize:12,minWidth:50}}>Peso:</span>
-              <input type="number" step="2.5" value={selectedAthlete.attempts[currentLift][currentRound].w || ''} onChange={e => setAttemptWeight(selectedAthlete.id, currentLift, currentRound, e.target.value)}
-                style={{flex:1,padding:'12px 14px',borderRadius:8,border:'2px solid '+LIFT_COLORS[currentLift],background:'var(--bg)',color:'var(--text)',fontSize:22,fontWeight:700,fontFamily:'Oswald',textAlign:'center',letterSpacing:2}} />
-              <span className="os" style={{color:'var(--muted)',fontSize:16}}>KG</span>
-            </div>
-
-            {/* Judge decision */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              <button onClick={() => {recordResult(selectedAthlete.id, currentLift, currentRound, 'good'); resetTimer();}} style={{padding:16,borderRadius:10,border:'3px solid var(--green)',background:'rgba(34,197,94,.1)',color:'var(--green)',fontSize:18,fontWeight:700,fontFamily:'Oswald',letterSpacing:2,cursor:'pointer',transition:'all .15s'}}
-                onMouseEnter={e=>e.currentTarget.style.background='rgba(34,197,94,.25)'}
-                onMouseLeave={e=>e.currentTarget.style.background='rgba(34,197,94,.1)'}>
-                ✓ GOOD LIFT
-              </button>
-              <button onClick={() => {recordResult(selectedAthlete.id, currentLift, currentRound, 'nolift'); resetTimer();}} style={{padding:16,borderRadius:10,border:'3px solid var(--red)',background:'rgba(239,68,68,.1)',color:'var(--red)',fontSize:18,fontWeight:700,fontFamily:'Oswald',letterSpacing:2,cursor:'pointer',transition:'all .15s'}}
-                onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,.25)'}
-                onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,.1)'}>
-                ✗ NO LIFT
-              </button>
-            </div>
-          </Card>
-        )}
-
-        {roundDone && (
-          <Card style={{textAlign:'center',padding:24}}>
-            <p className="os" style={{fontSize:16,color:'var(--gold)',marginBottom:12}}>RONDA COMPLETADA</p>
-            <Btn onClick={advanceLift} color="var(--gold)">
-              {currentRound < 2 ? `Intento ${currentRound+2} →` : LIFTS.indexOf(currentLift) < 2 ? `${LIFT_NAMES[LIFTS[LIFTS.indexOf(currentLift)+1]]} →` : 'Ver Resultados →'}
-            </Btn>
-          </Card>
-        )}
-
-        {/* Lifting order queue */}
-        <Card style={{marginTop:12}}>
-          <h3 className="os" style={{fontSize:14,letterSpacing:1,marginBottom:10,color:'var(--muted)'}}>ORDEN DE LEVANTAMIENTO</h3>
-          {order.length === 0 && <p style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:12}}>Sin atletas pendientes en esta ronda</p>}
-          {order.map((a, i) => (
-            <div key={a.id} onClick={() => setSelectedAthlete(a)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderRadius:6,marginBottom:4,cursor:'pointer',background:selectedAthlete?.id===a.id?LIFT_COLORS[currentLift]+'15':'transparent',border:'1px solid '+(selectedAthlete?.id===a.id?LIFT_COLORS[currentLift]+'40':'transparent'),transition:'all .15s'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <span style={{color:'var(--gold)',fontWeight:700,fontFamily:'Oswald',width:24,textAlign:'center'}}>{i+1}</span>
-                <span style={{fontWeight:600,fontSize:13}}>{a.nombre}</span>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <span className="os" style={{color:LIFT_COLORS[currentLift],fontWeight:700,fontSize:16}}>{a.attempts[currentLift][currentRound].w} kg</span>
-                {(currentLift==='sq'&&a.rackSQ)||(currentLift==='bp'&&a.rackBP)?<span style={{fontSize:9,color:'var(--muted)',background:'var(--bg)',padding:'2px 6px',borderRadius:4}}>R:{currentLift==='sq'?a.rackSQ:a.rackBP}</span>:''}
-              </div>
-            </div>
-          ))}
-        </Card>
-      </div>
-
-      {/* Right: Live standings */}
-      <div>
-        <Card style={{position:'sticky',top:60}}>
-          <h3 className="os" style={{fontSize:14,letterSpacing:1,marginBottom:12,color:'var(--gold)'}}>RANKING EN VIVO</h3>
-          {rankings.length === 0 && <p style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:20}}>Sin totales completados aún</p>}
-          {rankings.map((a, i) => (
-            <div key={a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',borderBottom:'1px solid rgba(30,58,95,.3)',fontSize:12}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span className="os" style={{color:'var(--gold)',fontWeight:700,width:20}}>{i+1}</span>
-                <div>
-                  <div style={{fontWeight:600,fontSize:13}}>{a.nombre}</div>
-                  <div style={{color:'var(--muted)',fontSize:10}}>{a.bodyweight}kg · {a.categoria}</div>
-                </div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div className="os" style={{color:'var(--gold)',fontWeight:700,fontSize:15}}>{a.gl}</div>
-                <div style={{color:'var(--muted)',fontSize:10}}>{a.total}kg</div>
-              </div>
-            </div>
-          ))}
-          
-          {/* Attempt summary */}
-          <h3 className="os" style={{fontSize:14,letterSpacing:1,marginTop:16,marginBottom:8,color:'var(--muted)'}}>INTENTOS RONDA</h3>
-          <div style={{fontSize:11}}>
-            {activeAthletes.map(a => {
-              const att = a.attempts[currentLift];
-              return (
-                <div key={a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 0',borderBottom:'1px solid rgba(30,58,95,.15)'}}>
-                  <span style={{fontSize:11,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nombre}</span>
-                  <div style={{display:'flex',gap:4}}>
-                    {att.map((at, j) => (
-                      <span key={j} style={{width:50,textAlign:'center',padding:'2px 4px',borderRadius:4,fontSize:10,fontWeight:600,fontFamily:'Oswald',
-                        background:at.result==='good'?'rgba(34,197,94,.15)':at.result==='nolift'?'rgba(239,68,68,.15)':'transparent',
-                        color:at.result==='good'?'var(--green)':at.result==='nolift'?'var(--red)':'var(--muted)',
-                        border:'1px solid '+(at.result==='good'?'rgba(34,197,94,.3)':at.result==='nolift'?'rgba(239,68,68,.3)':'var(--border)'),
-                        textDecoration:at.result==='nolift'?'line-through':'none'
-                      }}>
-                        {at.w > 0 ? at.w : '—'}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// SCOREBOARD VIEW (Proyección)
-// ══════════════════════════════════════════════
-function ScoreboardView({athletes, currentLift, currentRound, rankings, event, timer, timerRunning, currentFlight}) {
-  const flightAthletes = athletes.filter(a => a.flight === currentFlight);
-  const order = liftOrder(flightAthletes, currentLift, currentRound);
-  const current = order[0];
-  const onDeck = order[1];
-  const rackInfo = current ? (currentLift==='sq'?current.rackSQ:currentLift==='bp'?current.rackBP:'') : '';
-  const activeAthletes = flightAthletes.filter(a => !a.bombed);
-
-  return (
-    <div style={{minHeight:'100vh',background:'var(--bg)',padding:0}}>
-      {/* Top bar */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 30px',background:'linear-gradient(90deg,var(--accent),#8B1525)',color:'#fff'}}>
-        <div className="os" style={{fontSize:24,fontWeight:700,letterSpacing:3}}>FECHIPO LIVECAST</div>
-        <div className="os" style={{fontSize:16,letterSpacing:1}}>{event?.short}</div>
-        <div style={{display:'flex',alignItems:'center',gap:16}}>
-          <div className="os" style={{fontSize:14,letterSpacing:2,background:LIFT_COLORS[currentLift],padding:'4px 16px',borderRadius:6,fontWeight:700}}>
-            VUELO {currentFlight} — {LIFT_NAMES[currentLift]} — INTENTO {currentRound+1}
-          </div>
-        </div>
-      </div>
-
-      <div style={{display:'grid',gridTemplateColumns:'1fr 380px',minHeight:'calc(100vh - 56px)'}}>
-        {/* Left: Current lifter */}
-        <div style={{display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',padding:40}}>
-          {current ? (<>
-            {/* Timer */}
-            <div className="os" style={{fontSize:72,fontWeight:700,color:timer<=10?'var(--red)':timer<=30?'var(--gold)':'var(--green)',marginBottom:20,opacity:timerRunning?1:.4}}>
-              {timerRunning && <span className={timer<=10?'pulse':''}>{Math.floor(timer/60)}:{String(timer%60).padStart(2,'0')}</span>}
-            </div>
-            <div className="os" style={{fontSize:'clamp(32px,5vw,52px)',fontWeight:700,letterSpacing:2,textAlign:'center',marginBottom:8}}>{current.nombre}</div>
-            <div style={{color:'var(--muted)',fontSize:16,marginBottom:24}}>
-              {current.club} · {current.bodyweight}kg · Lot #{current.lot}
-              {rackInfo && <span style={{marginLeft:12,background:'rgba(255,255,255,.1)',padding:'3px 12px',borderRadius:6,fontSize:14}}>🔧 Rack: <strong style={{color:'var(--text)'}}>{rackInfo}</strong></span>}
-            </div>
-            <div className="os" style={{fontSize:80,fontWeight:700,color:LIFT_COLORS[currentLift],letterSpacing:4}}>
-              {current.attempts[currentLift][currentRound].w || '—'} <span style={{fontSize:36,color:'var(--muted)'}}>KG</span>
-            </div>
-            {/* Previous attempts */}
-            <div style={{display:'flex',gap:16,marginTop:30}}>
-              {current.attempts[currentLift].map((att, j) => (
-                <div key={j} style={{textAlign:'center',opacity:j===currentRound?1:.5}}>
-                  <div style={{fontSize:10,color:'var(--muted)',marginBottom:4,fontFamily:'Oswald',letterSpacing:1}}>INT {j+1}</div>
-                  <div className="os" style={{fontSize:28,fontWeight:700,
-                    color:att.result==='good'?'var(--green)':att.result==='nolift'?'var(--red)':'var(--muted)',
-                    textDecoration:att.result==='nolift'?'line-through':'none'
-                  }}>{att.w||'—'}</div>
-                </div>
-              ))}
-            </div>
-            {onDeck && <div style={{marginTop:40,color:'var(--muted)',fontSize:13}}>
-              Siguiente: <span style={{color:'var(--text)',fontWeight:600}}>{onDeck.nombre}</span> — {onDeck.attempts[currentLift][currentRound].w}kg
-              {((currentLift==='sq'&&onDeck.rackSQ)||(currentLift==='bp'&&onDeck.rackBP)) && <span style={{marginLeft:8,fontSize:12}}>· Rack: {currentLift==='sq'?onDeck.rackSQ:onDeck.rackBP}</span>}
-            </div>}
-          </>) : (
-            <div className="os" style={{fontSize:28,color:'var(--gold)',letterSpacing:2}}>RONDA COMPLETADA</div>
-          )}
-        </div>
-
-        {/* Right: Rankings */}
-        <div style={{background:'rgba(17,34,59,.8)',borderLeft:'1px solid var(--border)',padding:20,overflowY:'auto'}}>
-          <h3 className="os" style={{fontSize:16,letterSpacing:2,color:'var(--gold)',marginBottom:12,textAlign:'center'}}>RANKING GL POINTS</h3>
-          {rankings.map((a, i) => (
-            <div key={a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',borderBottom:'1px solid rgba(30,58,95,.3)',background:current&&a.id===current.id?LIFT_COLORS[currentLift]+'15':'transparent',borderRadius:4}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <span className="os" style={{color:i<3?'var(--gold)':'var(--muted)',fontWeight:700,fontSize:18,width:28}}>{i+1}</span>
-                <div>
-                  <div style={{fontWeight:600,fontSize:14}}>{a.nombre}</div>
-                  <div style={{fontSize:11,color:'var(--muted)'}}>
-                    SQ {bestLift(a,'sq')} · BP {bestLift(a,'bp')} · DL {bestLift(a,'dl')}
-                  </div>
-                </div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div className="os" style={{fontSize:20,fontWeight:700,color:'var(--gold)'}}>{a.gl}</div>
-                <div style={{fontSize:11,color:'var(--muted)'}}>{a.total}kg</div>
-              </div>
-            </div>
-          ))}
-          
-          {rankings.length === 0 && (
-            <div style={{textAlign:'center',padding:40}}>
-              <p style={{color:'var(--muted)',fontSize:13}}>Sin totales completados</p>
-              <p style={{color:'var(--muted)',fontSize:11,marginTop:8}}>Los rankings aparecerán cuando los atletas completen los 3 levantamientos</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// RESULTS VIEW
-// ══════════════════════════════════════════════
-function ResultsView({rankings, athletes, event, exportResults, records}) {
-  return (
-    <div className="fade-in" style={{marginTop:20}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <div>
-          <h2 className="os" style={{fontSize:26,letterSpacing:2}}>RESULTADOS FINALES</h2>
-          <p style={{color:'var(--muted)',fontSize:12}}>{event?.name}</p>
-        </div>
-        <Btn onClick={exportResults} color="var(--green)">📥 Exportar JSON</Btn>
-      </div>
-
-      {/* Stats summary */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
-        {[
-          ['Total Atletas', athletes.length, 'var(--blue)'],
-          ['Clasificados', rankings.length, 'var(--green)'],
-          ['Bombed Out', athletes.filter(a=>a.bombed).length, 'var(--red)'],
-          ['Mejor GL', rankings[0]?.gl || '—', 'var(--gold)'],
-        ].map(([l,v,c],i) => (
-          <Card key={i} style={{textAlign:'center',padding:16}}>
-            <div className="os" style={{fontSize:28,fontWeight:700,color:c}}>{v}</div>
-            <div style={{fontSize:10,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1,marginTop:4}}>{l}</div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Results table */}
-      <Card>
-        <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-            <thead>
-              <tr style={{borderBottom:'2px solid var(--border)'}}>
-                {['#','Atleta','BW','Cat.','SQ','BP','DL','Total','GL Pts'].map(h => (
-                  <th key={h} className="os" style={{padding:'10px 8px',textAlign:h==='Atleta'?'left':'center',color:'var(--muted)',fontSize:11,letterSpacing:1,textTransform:'uppercase'}}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rankings.map((a, i) => (
-                <tr key={a.id} style={{borderBottom:'1px solid rgba(30,58,95,.3)'}}>
-                  <td className="os" style={{padding:'10px 8px',textAlign:'center',color:'var(--gold)',fontWeight:700,fontSize:16}}>{i+1}</td>
-                  <td style={{padding:'10px 8px'}}>
-                    <div style={{fontWeight:600}}>{a.nombre}</div>
-                    <div style={{fontSize:10,color:'var(--muted)'}}>{a.club}</div>
-                  </td>
-                  <td style={{padding:'10px 8px',textAlign:'center'}}>{a.bodyweight}</td>
-                  <td style={{padding:'10px 8px',textAlign:'center',fontSize:11}}>{a.categoria}</td>
-                  <td className="os" style={{padding:'10px 8px',textAlign:'center',fontWeight:700,color:'#3b82f6'}}>{bestLift(a,'sq')||'—'}</td>
-                  <td className="os" style={{padding:'10px 8px',textAlign:'center',fontWeight:700,color:'#f59e0b'}}>{bestLift(a,'bp')||'—'}</td>
-                  <td className="os" style={{padding:'10px 8px',textAlign:'center',fontWeight:700,color:'#ef4444'}}>{bestLift(a,'dl')||'—'}</td>
-                  <td className="os" style={{padding:'10px 8px',textAlign:'center',fontWeight:700,fontSize:16}}>{a.total}</td>
-                  <td className="os" style={{padding:'10px 8px',textAlign:'center',fontWeight:700,fontSize:16,color:'var(--gold)'}}>{a.gl}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Bombed out */}
-      {athletes.filter(a=>a.bombed).length > 0 && (
-        <Card style={{marginTop:12}}>
-          <h3 className="os" style={{fontSize:14,color:'var(--red)',marginBottom:8,letterSpacing:1}}>BOMB OUT</h3>
-          {athletes.filter(a=>a.bombed).map(a => (
-            <div key={a.id} style={{padding:'6px 0',borderBottom:'1px solid rgba(30,58,95,.2)',fontSize:13,color:'var(--muted)'}}>
-              {a.nombre} — {a.club}
-            </div>
-          ))}
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ── Render ──
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+fetch('nominas.json').then(r=>r.json()).then(n=>{S.events=n.events||[];S.loaded=true;if(!load())render();else render();}).catch(()=>{S.loaded=true;if(!load())render();else render();});
 </script>
 </body>
 </html>
