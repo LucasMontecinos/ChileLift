@@ -245,22 +245,22 @@ function renderForm() {
     h += `<div class="card"><h3 class="os" style="font-size:16px;letter-spacing:1px;margin-bottom:16px">Datos del Atleta</h3>
     <div class="field">
       <label>Nombre Completo <span class="req">*</span></label>
-      <input class="input ${f.nombre?'ok':''}" type="text" placeholder="Nombre Apellido Apellido" value="${f.nombre}" oninput="upd('nombre',this.value)">
+      <input class="input ${f.nombre?'ok':''}" type="text" placeholder="Nombre Apellido Apellido" value="${f.nombre}" oninput="upd('nombre',this.value)" onblur="render()">
     </div>
     <div class="row">
       <div class="field">
         <label>RUT <span class="req">*</span></label>
-        <input class="input ${f.rut?'ok':''}" type="text" placeholder="12345678-9" value="${f.rut}" oninput="upd('rut',this.value)">
+        <input class="input ${f.rut?'ok':''}" type="text" placeholder="12345678-9" value="${f.rut}" oninput="upd('rut',this.value)" onblur="render()">
       </div>
       <div class="field">
         <label>Código de Atleta FECHIPO</label>
-        <input class="input" type="text" placeholder="ej: 2044IAR-2023 (si tienes)" value="${f.codigo}" oninput="upd('codigo',this.value)">
+        <input class="input" type="text" placeholder="ej: 2044IAR-2023 (si tienes)" value="${f.codigo}" oninput="upd('codigo',this.value)" onblur="render()">
       </div>
     </div>
     <div class="row">
       <div class="field">
         <label>Sexo <span class="req">*</span></label>
-        <select class="input ${f.sexo?'ok':''}" onchange="upd('sexo',this.value)">
+        <select class="input ${f.sexo?'ok':''}" onchange="updR('sexo',this.value)">
           <option value="">Seleccionar...</option>
           <option ${f.sexo==='Masculino'?'selected':''}>Masculino</option>
           <option ${f.sexo==='Femenino'?'selected':''}>Femenino</option>
@@ -268,23 +268,23 @@ function renderForm() {
       </div>
       <div class="field">
         <label>Fecha de Nacimiento <span class="req">*</span></label>
-        <input class="input ${f.fechaNac?'ok':''}" type="date" value="${f.fechaNac}" oninput="upd('fechaNac',this.value)">
+        <input class="input ${f.fechaNac?'ok':''}" type="date" value="${f.fechaNac}" onchange="updR('fechaNac',this.value)">
       </div>
     </div>
     <div class="row">
       <div class="field">
         <label>Club <span class="req">*</span></label>
-        <select class="input ${f.club?'ok':''}" onchange="upd('club',this.value)">
+        <select class="input ${f.club?'ok':''}" onchange="updR('club',this.value)">
           <option value="">Seleccionar club...</option>
           ${CLUBS.map(c => `<option ${f.club===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       ${f.club==='Otro'?`<div class="field">
         <label>Nombre del Club</label>
-        <input class="input" type="text" placeholder="Nombre de tu club" value="${f.clubOtro}" oninput="upd('clubOtro',this.value)">
+        <input class="input" type="text" placeholder="Nombre de tu club" value="${f.clubOtro}" oninput="upd('clubOtro',this.value)" onblur="render()">
       </div>`:`<div class="field">
         <label>Comuna y Región</label>
-        <input class="input" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)">
+        <input class="input" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)" onblur="render()">
       </div>`}
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:16px">
@@ -299,7 +299,7 @@ function renderForm() {
     <div class="row">
       <div class="field">
         <label>División de Edad <span class="req">*</span></label>
-        <select class="input ${f.division?'ok':''}" onchange="upd('division',this.value)">
+        <select class="input ${f.division?'ok':''}" onchange="updR('division',this.value)">
           <option value="">Seleccionar...</option>
           ${DIVISIONS.map(d => `<option ${f.division===d?'selected':''}>${d}</option>`).join('')}
           ${isUni?'<option '+(f.division==='Universitario'?'selected':'')+'>Universitario</option>':''}
@@ -307,7 +307,7 @@ function renderForm() {
       </div>
       <div class="field">
         <label>Categoría de Peso <span class="req">*</span></label>
-        <select class="input ${f.categoria?'ok':''}" onchange="upd('categoria',this.value)" ${!f.sexo?'disabled':''}>
+        <select class="input ${f.categoria?'ok':''}" onchange="updR('categoria',this.value)" ${!f.sexo?'disabled':''}>
           <option value="">Seleccionar...</option>
           ${cats.map(c => `<option ${f.categoria===c?'selected':''}>${c}</option>`).join('')}
         </select>
@@ -315,14 +315,14 @@ function renderForm() {
     </div>
     <div class="field">
       <label>Modalidad <span class="req">*</span></label>
-      <select class="input ${f.modalidad?'ok':''}" onchange="upd('modalidad',this.value)">
+      <select class="input ${f.modalidad?'ok':''}" onchange="updR('modalidad',this.value)">
         <option value="">Seleccionar...</option>
         ${MODALITIES.map(m => `<option ${f.modalidad===m?'selected':''}>${m}</option>`).join('')}
       </select>
     </div>
     ${isUni ? `<div class="field">
       <label>Universidad <span class="req">*</span></label>
-      <input class="input ${f.universidad?'ok':''}" type="text" placeholder="Nombre completo de tu universidad" value="${f.universidad||''}" oninput="upd('universidad',this.value)">
+      <input class="input ${f.universidad?'ok':''}" type="text" placeholder="Nombre completo de tu universidad" value="${f.universidad||''}" oninput="upd('universidad',this.value)" onblur="render()">
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
@@ -482,7 +482,8 @@ function renderAdmin() {
 // ══════════════════════════════════════════════
 // HANDLERS
 // ══════════════════════════════════════════════
-function upd(key, val) { state.form[key] = val; render(); }
+function upd(key, val) { state.form[key] = val; }
+function updR(key, val) { state.form[key] = val; render(); }
 
 function selectEvent(id) { state.form.evento = id; render(); }
 
