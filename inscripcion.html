@@ -152,21 +152,37 @@ const CLUBS = [
 const EVENTS = [
   {id:"regional_centro_2026",name:"Campeonato Regional Centro FECHIPO 2026",date:"2026-05-09",closeDate:"2026-04-09",location:"Santiago, RM",org:"Athor Powerlifting"},
   {id:"universitario_2026",name:"Primer Campeonato Nacional Universitario FECHIPO 2026",date:"2026-05-23",closeDate:"2026-04-23",location:"Talca",org:"Club Bushido Lifting"},
-  {id:"tu_evento_id", name:"Torneo de Debutantes", date:"2026-XX-XX", closeDate:"2026-XX-XX", location:"Santiago, Ñuñoa", org:"Club All Power"},
+  {id:"tu_evento_id", name:"Nombre Completo", date:"2026-XX-XX", closeDate:"2026-XX-XX", location:"Ciudad", org:"Club Organizador"},
 ];
 
 const CATEGORIES_M = ["-53 kg","-59 kg","-66 kg","-74 kg","-83 kg","-93 kg","-105 kg","-120 kg","+120 kg"];
 const CATEGORIES_F = ["-43 kg","-47 kg","-52 kg","-57 kg","-63 kg","-69 kg","-76 kg","-84 kg","+84 kg"];
-const DIVISIONS = ["Sub-Junior","Junior","Open","Master I","Master II","Master III","Master IV","Universitario"];
-const MODALITIES = ["Powerlifting Classic","Only Bench Classic","Powerlifting Classic + Only Bench Classic","Powerlifting Equipado","Only Bench Equipado","Powerlifting Equipado + Only Bench Equipado","Powerlifting OE"];
+const DIVISIONS = ["Sub-Junior","Junior","Open","Master I","Master II","Master III","Master IV"];
+const MODALITIES = ["Powerlifting Classic","Only Bench Classic","Powerlifting Classic + Only Bench Classic"];
+
+// ══════════════════════════════════════════════
+// FORMATTING HELPERS
+// ══════════════════════════════════════════════
+function formatName(val) {
+  if (!val) return '';
+  return val.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+function formatRut(val) {
+  if (!val) return '';
+  let r = val.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (r.length > 1 && !r.includes('-')) {
+    r = r.slice(0, -1) + '-' + r.slice(-1);
+  }
+  return r;
+}
 
 // ══════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════
 let state = {
-  view: 'form', // form, confirm, admin
+  view: 'form', // form, confirm, admin, edit_lookup, edit
   step: 0,
-  form: {evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:''},
+  form: {evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''},
   carnetFile: null, carnetName: '',
   wadeFile: null, wadeName: '',
   submitting: false,
@@ -176,6 +192,8 @@ let state = {
   adminEvent: '',
   error: '',
   success: '',
+  editDoc: null, // doc being edited
+  editId: null,
 };
 
 const ADMIN_PIN = '2026';
@@ -187,6 +205,8 @@ function render() {
   const app = document.getElementById('app');
   if (state.view === 'admin') { app.innerHTML = renderAdmin(); return; }
   if (state.view === 'confirm') { app.innerHTML = renderConfirm(); return; }
+  if (state.view === 'edit_lookup') { app.innerHTML = renderEditLookup(); return; }
+  if (state.view === 'edit') { app.innerHTML = renderEdit(); return; }
   app.innerHTML = renderForm();
 }
 
@@ -206,6 +226,7 @@ function renderForm() {
     <h1 class="os" style="font-size:clamp(22px,4vw,30px);letter-spacing:2px"><span style="color:var(--accent)">INSCRIPCIÓN</span> A CAMPEONATO</h1>
     <p style="color:var(--muted);font-size:13px;margin-top:4px">Completa el formulario para inscribirte</p>
     <div style="width:60px;height:3px;background:linear-gradient(90deg,var(--accent),var(--gold));margin:10px auto;border-radius:2px"></div>
+    <button class="btn btn-o" onclick="state.view='edit_lookup';state.error='';render()" style="margin-top:12px;font-size:11px;padding:8px 16px">✏️ Editar mi inscripción</button>
   </div>`;
 
   // Firebase status
@@ -245,16 +266,16 @@ function renderForm() {
     h += `<div class="card"><h3 class="os" style="font-size:16px;letter-spacing:1px;margin-bottom:16px">Datos del Atleta</h3>
     <div class="field">
       <label>Nombre Completo <span class="req">*</span></label>
-      <input class="input ${f.nombre?'ok':''}" type="text" placeholder="Nombre Apellido Apellido" value="${f.nombre}" oninput="upd('nombre',this.value)" onblur="render()">
+      <input class="input ${f.nombre?'ok':''}" type="text" placeholder="Nombre Apellido Apellido" value="${f.nombre}" oninput="upd('nombre',this.value)" onblur="upd('nombre',formatName(this.value));this.value=state.form.nombre">
     </div>
     <div class="row">
       <div class="field">
         <label>RUT <span class="req">*</span></label>
-        <input class="input ${f.rut?'ok':''}" type="text" placeholder="12345678-9" value="${f.rut}" oninput="upd('rut',this.value)" onblur="render()">
+        <input class="input ${f.rut?'ok':''}" type="text" placeholder="12345678-9" value="${f.rut}" oninput="upd('rut',this.value)" onblur="upd('rut',formatRut(this.value));this.value=state.form.rut">
       </div>
       <div class="field">
         <label>Código de Atleta FECHIPO</label>
-        <input class="input" type="text" placeholder="ej: 2044IAR-2023 (si tienes)" value="${f.codigo}" oninput="upd('codigo',this.value)" onblur="render()">
+        <input class="input" type="text" placeholder="ej: 2044IAR-2023 (si tienes)" value="${f.codigo}" oninput="upd('codigo',this.value)">
       </div>
     </div>
     <div class="row">
@@ -279,13 +300,18 @@ function renderForm() {
           ${CLUBS.map(c => `<option ${f.club===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
-      ${f.club==='Otro'?`<div class="field">
-        <label>Nombre del Club</label>
-        <input class="input" type="text" placeholder="Nombre de tu club" value="${f.clubOtro}" oninput="upd('clubOtro',this.value)" onblur="render()">
-      </div>`:`<div class="field">
+      <div class="field">
         <label>Comuna y Región</label>
-        <input class="input" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)" onblur="render()">
-      </div>`}
+        <input class="input" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)">
+      </div>
+    </div>
+    ${f.club==='Otro'?`<div class="field">
+      <label>Nombre del Club</label>
+      <input class="input" type="text" placeholder="Nombre de tu club" value="${f.clubOtro}" oninput="upd('clubOtro',this.value)">
+    </div>`:''}
+    <div class="field" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--border)">
+      <label>PIN de Edición (4 dígitos) <span class="req">*</span> — <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">Guarda este PIN para modificar tu inscripción después</span></label>
+      <input class="input ${f.pin&&f.pin.length===4?'ok':''}" type="password" inputmode="numeric" maxlength="4" placeholder="Crea un PIN de 4 dígitos" value="${f.pin}" oninput="upd('pin',this.value.replace(/[^0-9]/g,'').slice(0,4))" style="max-width:200px;text-align:center;font-size:20px;letter-spacing:8px">
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
@@ -322,7 +348,7 @@ function renderForm() {
     </div>
     ${isUni ? `<div class="field">
       <label>Universidad <span class="req">*</span></label>
-      <input class="input ${f.universidad?'ok':''}" type="text" placeholder="Nombre completo de tu universidad" value="${f.universidad||''}" oninput="upd('universidad',this.value)" onblur="render()">
+      <input class="input ${f.universidad?'ok':''}" type="text" placeholder="Nombre completo de tu universidad" value="${f.universidad||''}" oninput="upd('universidad',this.value)">
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
@@ -381,7 +407,11 @@ function renderConfirm() {
       Tu inscripción ha sido recibida exitosamente.<br>
       Será revisada por el equipo de FECHIPO y aparecerá en la nómina oficial una vez aprobada.
     </p>
-    <div class="card" style="margin-top:24px;text-align:left">
+    <div class="alert alert-info" style="margin-top:16px;text-align:left">
+      🔑 <strong>Tu PIN de edición es: ${state.form.pin}</strong><br>
+      <span style="font-size:12px">Guárdalo para poder modificar tu inscripción después. Lo necesitarás junto con tu RUT.</span>
+    </div>
+    <div class="card" style="margin-top:16px;text-align:left">
       <div style="font-size:12px;display:grid;gap:8px">
         <div><span style="color:var(--muted)">Atleta:</span> <strong>${state.form.nombre}</strong></div>
         <div><span style="color:var(--muted)">Evento:</span> ${EVENTS.find(e=>e.id===state.form.evento)?.name}</div>
@@ -480,6 +510,212 @@ function renderAdmin() {
 }
 
 // ══════════════════════════════════════════════
+// EDIT LOOKUP VIEW
+// ══════════════════════════════════════════════
+function renderEditLookup() {
+  return `<div class="fade" style="max-width:440px;margin:60px auto;text-align:center">
+    <h2 class="os" style="font-size:22px;letter-spacing:2px;margin-bottom:20px">✏️ EDITAR INSCRIPCIÓN</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Ingresa tu RUT y el PIN de 4 dígitos que creaste al inscribirte</p>
+    ${state.error?`<div class="alert alert-error">⚠️ ${state.error}</div>`:''}
+    <div class="field">
+      <label>RUT</label>
+      <input class="input" type="text" id="editRut" placeholder="12345678-9" style="text-align:center" onblur="this.value=formatRut(this.value)">
+    </div>
+    <div class="field">
+      <label>PIN de 4 dígitos</label>
+      <input class="input" type="password" inputmode="numeric" maxlength="4" id="editPin" placeholder="••••" style="text-align:center;font-size:20px;letter-spacing:8px;max-width:200px;margin:0 auto" onkeydown="if(event.key==='Enter')lookupEdit()">
+    </div>
+    <button class="btn btn-accent" onclick="lookupEdit()" style="margin-top:8px">Buscar inscripción</button>
+    <div style="margin-top:16px"><button class="btn btn-o" onclick="state.view='form';state.error='';render()" style="font-size:11px">← Volver</button></div>
+  </div>`;
+}
+
+function renderEdit() {
+  const f = state.form;
+  const cats = f.sexo === 'Femenino' ? CATEGORIES_F : CATEGORIES_M;
+  const isUni = f.evento === 'universitario_2026';
+  const ev = EVENTS.find(e => e.id === f.evento);
+  
+  let h = `<div class="fade" style="max-width:600px;margin:30px auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 class="os" style="font-size:22px;letter-spacing:1px">✏️ EDITANDO INSCRIPCIÓN</h2>
+      <button class="btn btn-o" onclick="state.view='form';state.error='';render()" style="font-size:11px">← Cancelar</button>
+    </div>
+    ${state.error?`<div class="alert alert-error">⚠️ ${state.error}</div>`:''}
+    ${state.success?`<div class="alert alert-success">✅ ${state.success}</div>`:''}
+    <div class="card" style="margin-bottom:12px;padding:12px 16px;border-left:3px solid var(--gold)">
+      <span style="font-size:12px;color:var(--gold);font-family:Oswald;letter-spacing:1px">${ev?ev.name:'Evento'}</span>
+    </div>
+    <div class="card">
+      <div class="field">
+        <label>Nombre Completo</label>
+        <input class="input" type="text" value="${f.nombre}" oninput="upd('nombre',this.value)" onblur="upd('nombre',formatName(this.value));this.value=state.form.nombre">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>RUT</label>
+          <input class="input" type="text" value="${f.rut}" disabled style="opacity:.6">
+        </div>
+        <div class="field">
+          <label>Código FECHIPO</label>
+          <input class="input" type="text" value="${f.codigo}" oninput="upd('codigo',this.value)">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Sexo</label>
+          <select class="input" onchange="updR('sexo',this.value)">
+            <option value="">Seleccionar...</option>
+            <option ${f.sexo==='Masculino'?'selected':''}>Masculino</option>
+            <option ${f.sexo==='Femenino'?'selected':''}>Femenino</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Fecha de Nacimiento</label>
+          <input class="input" type="date" value="${f.fechaNac}" onchange="updR('fechaNac',this.value)">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>División</label>
+          <select class="input" onchange="updR('division',this.value)">
+            <option value="">Seleccionar...</option>
+            ${DIVISIONS.map(d => `<option ${f.division===d?'selected':''}>${d}</option>`).join('')}
+            ${isUni?`<option ${f.division==='Universitario'?'selected':''}>Universitario</option>`:''}
+          </select>
+        </div>
+        <div class="field">
+          <label>Categoría de Peso</label>
+          <select class="input" onchange="updR('categoria',this.value)">
+            <option value="">Seleccionar...</option>
+            ${cats.map(c => `<option ${f.categoria===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Modalidad</label>
+          <select class="input" onchange="updR('modalidad',this.value)">
+            <option value="">Seleccionar...</option>
+            ${MODALITIES.map(m => `<option ${f.modalidad===m?'selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Club</label>
+          <select class="input" onchange="updR('club',this.value)">
+            <option value="">Seleccionar club...</option>
+            ${CLUBS.map(c => `<option ${f.club===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      ${isUni?`<div class="field">
+        <label>Universidad</label>
+        <input class="input" type="text" value="${f.universidad||''}" oninput="upd('universidad',this.value)">
+      </div>`:''}
+      <div class="field">
+        <label>Comuna y Región</label>
+        <input class="input" type="text" value="${f.comuna}" oninput="upd('comuna',this.value)">
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:12px">
+      <button class="btn btn-g" onclick="saveEdit()" ${state.submitting?'disabled':''}>
+        ${state.submitting?'Guardando...':'💾 Guardar Cambios'}
+      </button>
+    </div>
+  </div>`;
+  return h;
+}
+
+// ══════════════════════════════════════════════
+// EDIT HANDLERS
+// ══════════════════════════════════════════════
+async function lookupEdit() {
+  const rut = formatRut(document.getElementById('editRut')?.value || '');
+  const pin = document.getElementById('editPin')?.value || '';
+  if (!rut || !pin) { state.error = 'Ingresa RUT y PIN'; render(); return; }
+  
+  state.error = '';
+  try {
+    let found = null;
+    if (firebaseReady) {
+      const q = window.FB.query(window.FB.collection(db, 'inscripciones'), window.FB.where('rut', '==', rut));
+      const snap = await window.FB.getDocs(q);
+      snap.forEach(d => { if (d.data().pin === pin) found = {id: d.id, ...d.data()}; });
+    } else {
+      const all = demoGetAll();
+      found = all.find(i => formatRut(i.rut) === rut && i.pin === pin);
+    }
+    
+    if (!found) { state.error = 'No se encontró inscripción con ese RUT y PIN'; render(); return; }
+    
+    // Load into form for editing
+    state.editId = found.id;
+    state.editDoc = found;
+    state.form = {
+      evento: found.evento || '',
+      nombre: found.nombre || '',
+      rut: found.rut || '',
+      codigo: found.codigo || '',
+      sexo: found.sexo || '',
+      fechaNac: found.fechaNac || '',
+      division: found.division || '',
+      categoria: found.categoria || '',
+      modalidad: found.modalidad || '',
+      club: found.club || '',
+      clubOtro: found.clubOtro || '',
+      comuna: found.comuna || '',
+      pin: found.pin || '',
+      universidad: found.universidad || '',
+    };
+    state.view = 'edit';
+    state.error = '';
+    state.success = '';
+    render();
+  } catch(e) {
+    state.error = 'Error buscando: ' + e.message;
+    render();
+  }
+}
+
+async function saveEdit() {
+  state.submitting = true;
+  state.error = '';
+  state.success = '';
+  render();
+  
+  try {
+    const f = state.form;
+    const updates = {
+      nombre: f.nombre.trim(),
+      codigo: f.codigo.trim(),
+      sexo: f.sexo,
+      fechaNac: f.fechaNac,
+      division: f.division,
+      categoria: f.categoria,
+      modalidad: f.modalidad,
+      club: f.club,
+      clubOtro: f.clubOtro,
+      comuna: f.comuna,
+      universidad: f.universidad || '',
+    };
+    
+    if (firebaseReady) {
+      await window.FB.updateDoc(window.FB.doc(db, 'inscripciones', state.editId), updates);
+    } else {
+      demoUpdate(state.editId, updates);
+    }
+    
+    state.submitting = false;
+    state.success = 'Inscripción actualizada correctamente';
+    render();
+  } catch(e) {
+    state.error = 'Error al guardar: ' + e.message;
+    state.submitting = false;
+    render();
+  }
+}
+
+// ══════════════════════════════════════════════
 // HANDLERS
 // ══════════════════════════════════════════════
 function upd(key, val) { state.form[key] = val; }
@@ -493,7 +729,7 @@ function nextStep() {
   const f = state.form;
   if (state.step === 0 && !f.evento) { state.error = 'Selecciona un evento'; render(); return; }
   if (state.step === 1) {
-    if (!f.nombre || !f.rut || !f.sexo || !f.fechaNac || !f.club) { state.error = 'Completa todos los campos obligatorios'; render(); return; }
+    if (!f.nombre || !f.rut || !f.sexo || !f.fechaNac || !f.club || !f.pin || f.pin.length !== 4) { state.error = 'Completa todos los campos obligatorios (incluye PIN de 4 dígitos)'; render(); return; }
   }
   if (state.step === 2) {
     if (!f.division || !f.categoria || !f.modalidad) { state.error = 'Completa todos los campos obligatorios'; render(); return; }
@@ -537,6 +773,7 @@ async function submitForm() {
       universidad: f.universidad || '',
       carnetName: state.carnetName,
       wadeName: state.wadeName,
+      pin: f.pin,
       status: 'pending',
     };
 
@@ -575,7 +812,7 @@ async function submitForm() {
 }
 
 function resetForm() {
-  state = {...state, view:'form', step:0, form:{evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:''}, carnetFile:null, carnetName:'', wadeFile:null, wadeName:'', submitting:false, error:'', success:''};
+  state = {...state, view:'form', step:0, form:{evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''}, carnetFile:null, carnetName:'', wadeFile:null, wadeName:'', submitting:false, error:'', success:'', editDoc:null, editId:null};
   render();
 }
 
