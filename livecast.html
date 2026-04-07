@@ -128,8 +128,10 @@ setInterval(()=>{
     // Update compete tab element
     const el2=document.getElementById('cct_'+k);
     if(el2){
-      if(ct.expired){el2.textContent='\u23F0 TIEMPO';el2.style.color='var(--red)'}
-      else{el2.textContent='\u23F1 '+ct.remaining+'s para entregar intento';el2.style.color='var(--orange)'}
+      const parts=k.split('_');const aId=parseInt(parts[0]);const lift=parts[1];const rnd=parseInt(parts[2]);
+      const a=DATA.athletes.find(x=>x.id===aId);const nm=a?a.name:'';
+      if(ct.expired){el2.innerHTML='\u23F0 <strong>'+nm+'</strong> \u2014 '+LIFT_S[lift]+(rnd+1)+' \u2014 TIEMPO';el2.style.color='var(--red)'}
+      else{el2.innerHTML='\u23F1 <strong>'+nm+'</strong> \u2014 '+LIFT_S[lift]+(rnd+1)+' \u2014 '+ct.remaining+'s para entregar intento';el2.style.color='var(--orange)'}
     }
   });
   if(changed)save();
