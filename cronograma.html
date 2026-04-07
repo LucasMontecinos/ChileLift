@@ -7,16 +7,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0A1628;--card:#11223B;--border:#1E3A5F;--text:#D4E1F0;--muted:#7A8FA6;--accent:#C41E3A;--gold:#D4A843;--green:#22c55e;--red:#ef4444;--blue:#3b82f6}
+:root{--bg:#0A1628;--card:#11223B;--border:#1E3A5F;--text:#D4E1F0;--muted:#7A8FA6;--accent:#C41E3A;--gold:#D4A843;--green:#22c55e;--red:#ef4444;--blue:#3b82f6;--orange:#f59e0b}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .os{font-family:'Oswald',sans-serif}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
-.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;font-size:13px;cursor:pointer;font-family:'Oswald';letter-spacing:1px;text-transform:uppercase;transition:all .15s}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-weight:600;font-size:12px;cursor:pointer;font-family:'Oswald';letter-spacing:1px;text-transform:uppercase;transition:all .15s}
 .btn-r{background:var(--accent);color:#fff}.btn-g{background:var(--green);color:#fff}
 .btn-o{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-o:hover{border-color:var(--accent);color:var(--text)}
+.inp-t{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-family:Oswald;font-size:14px;text-align:center}
+.inp-t:focus{border-color:var(--accent)}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .fade{animation:fadeIn .3s ease}
+.lock{cursor:pointer;opacity:.5;transition:opacity .15s}.lock:hover{opacity:1}
+.session-hdr{padding:12px 16px;border-radius:10px;font-family:Oswald;font-size:16px;font-weight:700;letter-spacing:2px;text-align:center;margin:20px 0 12px}
 </style>
 </head>
 <body>
@@ -32,10 +36,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 const FL_C=['#3b82f6','#f59e0b','#22c55e','#a855f7','#ec4899','#06b6d4','#ef4444','#84cc16','#f97316','#6366f1'];
 const FL_L='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const MIN_FLIGHT=8, MAX_FLIGHT=14;
+const ADMIN_PIN='2026';
+const LIFTS_NAMES=['SQUAT','BENCH PRESS','DEADLIFT'];
 
-let NM={events:[]}, DB=[], selectedEvent=null, flights=[], startTime='09:00', liftTime=12;
+let NM={events:[]}, DB=[], selectedEvent=null, flights=[];
+let config={morningStart:'09:00',afternoonStart:'14:30',minPerAthlete:12,breakBetweenLifts:10,breakMorningAfternoon:60,adminUnlocked:false};
 
-// Load data
 Promise.all([
   fetch('nominas.json').then(r=>r.json()).catch(()=>({events:[]})),
   fetch('data.json').then(r=>r.json()).catch(()=>[])
@@ -46,198 +52,265 @@ function render(){
   renderCronograma();
 }
 
+function checkAdmin(){
+  if(config.adminUnlocked)return true;
+  const p=prompt('Clave de administrador:');
+  if(p===ADMIN_PIN){config.adminUnlocked=true;return true}
+  alert('Clave incorrecta');return false;
+}
+
+function updateConfig(key,val){
+  if(!checkAdmin())return;
+  config[key]=val;render();
+}
+
 function renderEventList(){
-  let h='<div class="fade">';
-  h+='<h2 class="os" style="font-size:20px;letter-spacing:1px;margin-bottom:16px">Selecciona un Campeonato</h2>';
-  if(!NM.events||!NM.events.length){h+='<div class="card" style="text-align:center;padding:30px;color:var(--muted)">No hay eventos con nóminas</div>';h+='</div>';document.getElementById('content').innerHTML=h;return}
+  let h='<div class="fade"><h2 class="os" style="font-size:20px;letter-spacing:1px;margin-bottom:16px">Selecciona un Campeonato</h2>';
+  if(!NM.events||!NM.events.length){h+='<div class="card" style="text-align:center;padding:30px;color:var(--muted)">No hay eventos</div></div>';document.getElementById('content').innerHTML=h;return}
   NM.events.forEach((ev,i)=>{
     h+=`<div class="card" style="cursor:pointer;transition:all .2s" onclick="selectEvent(${i})" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="os" style="font-size:18px;font-weight:700">${ev.name}</div>
-          <p style="color:var(--muted);font-size:12px;margin-top:4px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p>
-        </div>
-        <div style="background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;font-size:14px;font-weight:700;font-family:Oswald">${ev.athletes.length}</div>
-      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center"><div>
+        <div class="os" style="font-size:18px;font-weight:700">${ev.name}</div>
+        <p style="color:var(--muted);font-size:12px;margin-top:4px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p>
+      </div><div style="background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;font-size:14px;font-weight:700;font-family:Oswald">${ev.athletes.length}</div></div>
     </div>`;
   });
-  h+='</div>';
-  document.getElementById('content').innerHTML=h;
+  h+='</div>';document.getElementById('content').innerHTML=h;
 }
 
-function selectEvent(i){
-  selectedEvent=NM.events[i];
-  generateFlights();
-  render();
-}
+function selectEvent(i){selectedEvent=NM.events[i];generateFlights();render()}
 
-function catWeight(cat){
-  if(!cat)return 999;
-  const m=cat.match(/(\d+)/);
-  return m?parseInt(m[1]):999;
-}
+function catWeight(cat){const m=(cat||'').match(/(\d+)/);return m?parseInt(m[1]):999}
 
 function generateFlights(){
   const athletes=selectedEvent.athletes.map((a,i)=>({...a,idx:i}));
-  
-  // Separate by sex
   const women=athletes.filter(a=>(a.sexo||'').match(/fem|mujer/i));
   const men=athletes.filter(a=>!(a.sexo||'').match(/fem|mujer/i));
   
   flights=[];
   [women,men].forEach(group=>{
     if(!group.length)return;
-    // Group by division+categoria
     const groups={};
     group.forEach(a=>{
-      const div=a.division||'Open';
-      const cat=a.categoria||'?';
-      const key=div+'|'+cat;
+      const div=a.division||'Open';const cat=a.categoria||'?';const key=div+'|'+cat;
       if(!groups[key])groups[key]={div,cat,athletes:[],catW:catWeight(cat),sex:a.sexo||''};
       groups[key].athletes.push(a);
     });
-    
-    // Sort by category weight ascending
     const sorted=Object.values(groups).sort((a,b)=>a.catW-b.catW);
     
-    // Pack into flights
-    let current=[];
-    let currentGroups=[];
-    
-    sorted.forEach(g=>{
-      // If adding this group exceeds MAX and current is valid, close current
-      if(current.length+g.athletes.length>MAX_FLIGHT && current.length>=MIN_FLIGHT){
-        flights.push({athletes:[...current],groups:[...currentGroups]});
-        current=[];
-        currentGroups=[];
-      }
-      // If group alone exceeds MAX, give it its own flight
-      if(current.length===0 && g.athletes.length>MAX_FLIGHT){
-        flights.push({athletes:[...g.athletes],groups:[{...g}]});
-        return;
-      }
-      current.push(...g.athletes);
-      currentGroups.push(g);
-    });
-    
-    // Handle remaining
-    if(current.length>0){
-      if(current.length<MIN_FLIGHT && flights.length>0){
-        // Try to merge with previous flight if combined ≤ MAX
-        const prev=flights[flights.length-1];
-        if(prev.athletes[0]?.sexo===current[0]?.sexo && prev.athletes.length+current.length<=MAX_FLIGHT+2){
-          prev.athletes.push(...current);
-          prev.groups.push(...currentGroups);
+    let current=[],currentGroups=[];
+    for(let gi=0;gi<sorted.length;gi++){
+      const g=sorted[gi];
+      const wouldBe=current.length+g.athletes.length;
+      
+      if(wouldBe>MAX_FLIGHT){
+        if(current.length>=MIN_FLIGHT){
+          // Current is valid flight. Check if g would be orphan alone
+          const remaining=sorted.slice(gi+1).reduce((s,x)=>s+x.athletes.length,0);
+          if(g.athletes.length<MIN_FLIGHT&&(remaining+g.athletes.length)<MIN_FLIGHT){
+            current.push(...g.athletes);currentGroups.push(g);// absorb orphan
+          }else{
+            flights.push({athletes:[...current],groups:[...currentGroups]});
+            current=[...g.athletes];currentGroups=[g];
+          }
         }else{
-          flights.push({athletes:current,groups:currentGroups});
+          // Current is too small to be its own flight
+          if(wouldBe<=MAX_FLIGHT+2){
+            // Slightly over max, acceptable
+            current.push(...g.athletes);currentGroups.push(g);
+          }else{
+            // Way too big. Merge current into previous flight, start fresh with g
+            if(flights.length>0&&flights[flights.length-1].athletes[0]?.sexo===current[0]?.sexo){
+              flights[flights.length-1].athletes.push(...current);
+              flights[flights.length-1].groups.push(...currentGroups);
+            }else if(current.length>0){
+              flights.push({athletes:[...current],groups:[...currentGroups]});
+            }
+            current=[...g.athletes];currentGroups=[g];
+          }
         }
       }else{
-        flights.push({athletes:current,groups:currentGroups});
+        current.push(...g.athletes);currentGroups.push(g);
       }
     }
+    if(current.length>0){
+      if(current.length<MIN_FLIGHT&&flights.length>0){
+        const prev=flights[flights.length-1];
+        if(prev.athletes[0]?.sexo===current[0]?.sexo){
+          prev.athletes.push(...current);prev.groups.push(...currentGroups);
+        }else flights.push({athletes:current,groups:currentGroups});
+      }else flights.push({athletes:current,groups:currentGroups});
+    }
   });
-  
-  // Assign letters
   flights.forEach((f,i)=>{f.letter=FL_L[i]||'?';f.color=FL_C[i%FL_C.length]});
 }
 
 function renderCronograma(){
-  const ev=selectedEvent;
-  const totalAthletes=ev.athletes.length;
+  const ev=selectedEvent;const total=ev.athletes.length;
+  const nFlights=flights.length;
+  
+  // Split morning/afternoon: max 3 morning, rest afternoon. If 4 → 2+2
+  let morningCount;
+  if(nFlights<=3)morningCount=nFlights;
+  else if(nFlights===4)morningCount=2;
+  else morningCount=3;
+  const afternoonCount=nFlights-morningCount;
+  
+  const morningFlights=flights.slice(0,morningCount);
+  const afternoonFlights=flights.slice(morningCount);
   
   let h='<div class="fade">';
   // Header
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-    <div>
-      <h2 class="os" style="font-size:22px;letter-spacing:1px">${ev.name}</h2>
-      <p style="color:var(--muted);font-size:12px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-o" onclick="selectedEvent=null;render()">← Volver</button>
-      <button class="btn btn-g" onclick="generateFlights();render()">↺ Regenerar</button>
-    </div>
+    <div><h2 class="os" style="font-size:22px;letter-spacing:1px">${ev.name}</h2>
+    <p style="color:var(--muted);font-size:12px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p></div>
+    <div style="display:flex;gap:8px"><button class="btn btn-o" onclick="selectedEvent=null;config.adminUnlocked=false;render()">← Volver</button>
+    <button class="btn btn-o" onclick="generateFlights();render()">↺ Regenerar</button>
+    <button class="btn ${config.adminUnlocked?'btn-g':'btn-r'}" onclick="checkAdmin();render()">${config.adminUnlocked?'🔓 Admin':'🔒 Admin'}</button></div>
   </div>`;
   
-  // Config
+  // Config (password protected)
   h+=`<div class="card" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:12px;color:var(--muted)">Hora inicio:</label>
-      <input type="time" value="${startTime}" onchange="startTime=this.value;render()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-family:Oswald;font-size:14px">
+      <label style="font-size:11px;color:var(--muted)">🌅 Mañana:</label>
+      <input type="time" class="inp-t" value="${config.morningStart}" onchange="updateConfig('morningStart',this.value)" ${config.adminUnlocked?'':'disabled'} style="width:90px;${config.adminUnlocked?'':'opacity:.5'}">
     </div>
     <div style="display:flex;align-items:center;gap:6px">
-      <label style="font-size:12px;color:var(--muted)">Min/atleta:</label>
-      <input type="number" value="${liftTime}" min="8" max="20" onchange="liftTime=parseInt(this.value);render()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-family:Oswald;font-size:14px;width:60px;text-align:center">
+      <label style="font-size:11px;color:var(--muted)">🌆 Tarde:</label>
+      <input type="time" class="inp-t" value="${config.afternoonStart}" onchange="updateConfig('afternoonStart',this.value)" ${config.adminUnlocked?'':'disabled'} style="width:90px;${config.adminUnlocked?'':'opacity:.5'}">
     </div>
-    <div style="font-size:12px;color:var(--muted)">
-      ${totalAthletes} atletas · ${flights.length} vuelos · ~${Math.round(totalAthletes*liftTime/60)}h total estimado
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;color:var(--muted)">⏱ Min/atleta:</label>
+      <input type="number" class="inp-t" value="${config.minPerAthlete}" min="8" max="20" onchange="updateConfig('minPerAthlete',parseInt(this.value))" ${config.adminUnlocked?'':'disabled'} style="width:55px;${config.adminUnlocked?'':'opacity:.5'}">
     </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;color:var(--muted)">☕ Receso lifts (min):</label>
+      <input type="number" class="inp-t" value="${config.breakBetweenLifts}" min="0" max="30" onchange="updateConfig('breakBetweenLifts',parseInt(this.value))" ${config.adminUnlocked?'':'disabled'} style="width:55px;${config.adminUnlocked?'':'opacity:.5'}">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <label style="font-size:11px;color:var(--muted)">🍽 Receso mañana/tarde (min):</label>
+      <input type="number" class="inp-t" value="${config.breakMorningAfternoon}" min="0" max="120" onchange="updateConfig('breakMorningAfternoon',parseInt(this.value))" ${config.adminUnlocked?'':'disabled'} style="width:55px;${config.adminUnlocked?'':'opacity:.5'}">
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-left:auto">${total} atletas · ${nFlights} vuelos · ${morningCount} mañana + ${afternoonCount} tarde</div>
   </div>`;
   
-  // Stats bar
+  // Flight overview
   h+=`<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">`;
-  flights.forEach(f=>{
+  flights.forEach((f,i)=>{
     const sex=(f.athletes[0]?.sexo||'').match(/fem|mujer/i)?'♀':'♂';
-    const cats=[...new Set(f.groups.map(g=>g.cat))].join(', ');
-    h+=`<div style="flex:1;min-width:80px;background:${f.color}15;border:2px solid ${f.color};border-radius:8px;padding:8px 10px;text-align:center">
-      <div class="os" style="font-size:20px;font-weight:700;color:${f.color}">${f.letter}</div>
-      <div style="font-size:11px;color:var(--muted)">${sex} ${f.athletes.length} atl.</div>
+    const session=i<morningCount?'AM':'PM';
+    const warn=f.athletes.length<MIN_FLIGHT?'⚠️ ':'';
+    h+=`<div style="flex:1;min-width:75px;background:${f.color}15;border:2px solid ${f.color};border-radius:8px;padding:8px 10px;text-align:center">
+      <div class="os" style="font-size:20px;font-weight:700;color:${f.color}">${warn}${f.letter}</div>
+      <div style="font-size:10px;color:var(--muted)">${sex} ${f.athletes.length} · ${session}</div>
     </div>`;
   });
   h+=`</div>`;
   
-  // Flight details
-  let timeAccum=0;
-  const [startH,startM]=(startTime||'09:00').split(':').map(Number);
-  
-  flights.forEach((f,fi)=>{
-    const flightMin=f.athletes.length*liftTime;
-    const totalMin=startH*60+startM+timeAccum;
-    const hh=String(Math.floor(totalMin/60)%24).padStart(2,'0');
-    const mm=String(totalMin%60).padStart(2,'0');
-    const endMin=totalMin+flightMin;
-    const ehh=String(Math.floor(endMin/60)%24).padStart(2,'0');
-    const emm=String(endMin%60).padStart(2,'0');
+  // Render sessions
+  function renderSession(sessionFlights,startTime,label,emoji){
+    const [startH,startM]=startTime.split(':').map(Number);
     
+    h+=`<div class="session-hdr" style="background:${label==='MAÑANA'?'rgba(245,158,11,.1);border:2px solid var(--orange)':'rgba(99,102,241,.1);border:2px solid #6366f1'}">${emoji} SESIÓN ${label} — ${startTime}</div>`;
+    
+    // For each lift (SQ, BP, DL), all flights do it in sequence
+    let timeAccum=0;
+    
+    LIFTS_NAMES.forEach((liftName,li)=>{
+      const liftColor=li===0?'#3b82f6':li===1?'#f59e0b':'#ef4444';
+      h+=`<div style="margin:12px 0 8px;display:flex;align-items:center;gap:8px">
+        <span style="background:${liftColor};color:#fff;padding:4px 12px;border-radius:6px;font-family:Oswald;font-size:13px;font-weight:700;letter-spacing:1px">${liftName}</span>
+        <div style="flex:1;height:1px;background:${liftColor}40"></div>
+      </div>`;
+      
+      sessionFlights.forEach((f,fi)=>{
+        const flightMin=f.athletes.length*config.minPerAthlete;
+        const totalMin=startH*60+startM+timeAccum;
+        const hh=String(Math.floor(totalMin/60)%24).padStart(2,'0');
+        const mm=String(totalMin%60).padStart(2,'0');
+        const endMin=totalMin+flightMin;
+        const ehh=String(Math.floor(endMin/60)%24).padStart(2,'0');
+        const emm=String(endMin%60).padStart(2,'0');
+        
+        const sex=(f.athletes[0]?.sexo||'').match(/fem|mujer/i)?'♀':'♂';
+        const cats=[...new Set(f.groups.map(g=>g.cat))].join(', ');
+        const divs=[...new Set(f.groups.map(g=>g.div))].join(', ');
+        const warn=f.athletes.length<MIN_FLIGHT?`<span style="color:var(--orange);font-size:10px;margin-left:4px">⚠️ ${f.athletes.length} atletas (mín ${MIN_FLIGHT})</span>`:f.athletes.length>MAX_FLIGHT?`<span style="color:var(--orange);font-size:10px;margin-left:4px">⚠️ ${f.athletes.length} atletas (máx ${MAX_FLIGHT})</span>`:'';
+        
+        h+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:${f.color}08;border-left:3px solid ${f.color};border-radius:0 8px 8px 0;margin-bottom:4px">
+          <span class="os" style="font-size:22px;font-weight:700;color:${f.color};min-width:28px">${f.letter}</span>
+          <div style="flex:1">
+            <span style="font-size:13px;font-weight:600">${sex} ${cats}</span>
+            <span style="font-size:10px;color:var(--muted);margin-left:6px">(${divs})</span>${warn}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="os" style="font-size:15px;font-weight:700">${hh}:${mm}</span>
+            <span style="color:var(--border)">→</span>
+            <span class="os" style="font-size:15px;color:var(--muted)">${ehh}:${emm}</span>
+            <span style="background:${f.color}20;border:1px solid ${f.color};padding:3px 8px;border-radius:5px;font-family:Oswald;font-size:12px;font-weight:700;color:${f.color}">${f.athletes.length}</span>
+          </div>
+        </div>`;
+        
+        timeAccum+=flightMin;
+      });
+      
+      // Break between lifts (except after last lift)
+      if(li<2){
+        timeAccum+=config.breakBetweenLifts;
+        const breakEnd=startH*60+startM+timeAccum;
+        const bh=String(Math.floor(breakEnd/60)%24).padStart(2,'0');
+        const bm=String(breakEnd%60).padStart(2,'0');
+        h+=`<div style="text-align:center;padding:6px;color:var(--muted);font-size:11px;font-style:italic">☕ Receso ${config.breakBetweenLifts} min — reinicio ${bh}:${bm}</div>`;
+      }
+    });
+    
+    const endTotal=startH*60+startM+timeAccum;
+    const fh=String(Math.floor(endTotal/60)%24).padStart(2,'0');
+    const fm=String(endTotal%60).padStart(2,'0');
+    h+=`<div style="text-align:center;padding:10px;font-family:Oswald;font-size:14px;color:var(--green);letter-spacing:1px">✓ FIN SESIÓN ${label}: ~${fh}:${fm}</div>`;
+  }
+  
+  // Morning session
+  if(morningFlights.length) renderSession(morningFlights,config.morningStart,'MAÑANA','🌅');
+  
+  // Break
+  if(morningFlights.length&&afternoonFlights.length){
+    h+=`<div style="text-align:center;padding:16px;margin:8px 0">
+      <div style="display:inline-block;background:rgba(99,102,241,.1);border:2px dashed #6366f1;border-radius:10px;padding:12px 24px">
+        <span style="font-size:14px">🍽</span>
+        <span class="os" style="font-size:14px;color:#6366f1;letter-spacing:1px"> RECESO ${config.breakMorningAfternoon} MIN</span>
+      </div>
+    </div>`;
+  }
+  
+  // Afternoon session
+  if(afternoonFlights.length) renderSession(afternoonFlights,config.afternoonStart,'TARDE','🌆');
+  
+  // Detailed roster per flight
+  h+=`<h2 class="os" style="font-size:18px;letter-spacing:1px;margin:24px 0 12px;color:var(--gold)">📋 NÓMINA POR VUELO</h2>`;
+  flights.forEach(f=>{
     const sex=(f.athletes[0]?.sexo||'').match(/fem|mujer/i)?'♀ Femenino':'♂ Masculino';
-    const divs=[...new Set(f.groups.map(g=>g.div))].join(', ');
     const cats=[...new Set(f.groups.map(g=>g.cat))].join(', ');
+    const divs=[...new Set(f.groups.map(g=>g.div))].join(', ');
+    const session=flights.indexOf(f)<morningCount?'Mañana':'Tarde';
     
     h+=`<div class="card" style="border-left:4px solid ${f.color}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:10px">
-          <span class="os" style="font-size:28px;font-weight:700;color:${f.color};min-width:36px">${f.letter}</span>
-          <div>
-            <div class="os" style="font-size:15px;letter-spacing:1px">${sex} · ${cats}</div>
-            <div style="font-size:11px;color:var(--muted)">${divs}</div>
-          </div>
+          <span class="os" style="font-size:26px;font-weight:700;color:${f.color}">${f.letter}</span>
+          <div><div class="os" style="font-size:14px">${sex} · ${cats}</div>
+          <div style="font-size:10px;color:var(--muted)">${divs} · ${session}</div></div>
         </div>
-        <div style="display:flex;gap:12px;align-items:center">
-          <div style="text-align:center">
-            <div class="os" style="font-size:18px;font-weight:700;color:var(--text)">${hh}:${mm}</div>
-            <div style="font-size:9px;color:var(--muted)">INICIO</div>
-          </div>
-          <span style="color:var(--border)">→</span>
-          <div style="text-align:center">
-            <div class="os" style="font-size:18px;font-weight:700;color:var(--muted)">${ehh}:${emm}</div>
-            <div style="font-size:9px;color:var(--muted)">~FIN</div>
-          </div>
-          <div style="background:${f.color}20;border:1px solid ${f.color};padding:4px 12px;border-radius:6px">
-            <span class="os" style="font-size:16px;font-weight:700;color:${f.color}">${f.athletes.length}</span>
-            <span style="font-size:10px;color:var(--muted);margin-left:2px">atl.</span>
-          </div>
-        </div>
+        <span style="background:${f.color}20;border:1px solid ${f.color};padding:4px 12px;border-radius:6px;font-family:Oswald;font-size:16px;font-weight:700;color:${f.color}">${f.athletes.length}</span>
       </div>
-      
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="border-bottom:2px solid var(--border)">
-          <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px;width:28px;font-family:Oswald">#</th>
-          <th style="padding:6px 4px;text-align:left;color:var(--muted);font-size:9px;font-family:Oswald">ATLETA</th>
-          <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px;font-family:Oswald">DIVISIÓN</th>
-          <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px;font-family:Oswald">CATEGORÍA</th>
-          <th style="padding:6px 4px;text-align:left;color:var(--muted);font-size:9px;font-family:Oswald">CLUB</th>
-        </tr></thead>
-        <tbody>`;
-    
+          <th class="os" style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px;width:28px">#</th>
+          <th style="padding:6px 4px;text-align:left;color:var(--muted);font-size:9px">ATLETA</th>
+          <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">DIVISIÓN</th>
+          <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">CATEGORÍA</th>
+          <th style="padding:6px 4px;text-align:left;color:var(--muted);font-size:9px">CLUB</th>
+        </tr></thead><tbody>`;
     f.athletes.forEach((a,ai)=>{
       h+=`<tr style="border-bottom:1px solid rgba(30,58,95,.25)">
         <td class="os" style="padding:5px 4px;text-align:center;color:var(--gold);font-weight:700">${ai+1}</td>
@@ -247,9 +320,7 @@ function renderCronograma(){
         <td style="padding:5px 4px;font-size:11px;color:var(--muted)">${a.club||''}</td>
       </tr>`;
     });
-    
     h+=`</tbody></table></div>`;
-    timeAccum+=flightMin+15; // 15 min break between flights
   });
   
   h+='</div>';
