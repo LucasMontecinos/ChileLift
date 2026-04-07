@@ -356,7 +356,7 @@ function renderForm() {
       </div>
       <div class="field">
         <label>Fecha de Nacimiento <span class="req">*</span></label>
-        <input class="input ${f.fechaNac?'ok':''}" type="date" value="${f.fechaNac}" onchange="updR('fechaNac',this.value)">
+        <input class="input ${f.fechaNac?'ok':''}" type="date" value="${f.fechaNac}" oninput="upd('fechaNac',this.value)" onblur="render()">
       </div>
     </div>
     <div class="row">
@@ -639,7 +639,7 @@ function renderEdit() {
         </div>
         <div class="field">
           <label>Fecha de Nacimiento</label>
-          <input class="input" type="date" value="${f.fechaNac}" onchange="updR('fechaNac',this.value)">
+          <input class="input" type="date" value="${f.fechaNac}" oninput="upd('fechaNac',this.value)" onblur="render()">
         </div>
       </div>
       <div class="row">

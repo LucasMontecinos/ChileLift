@@ -71,13 +71,22 @@ function load(){try{const s=localStorage.getItem(SAVE_KEY);if(s){const d=JSON.pa
 
 function calcPlates(w){const ps=(w-BAR-COLLARS)/2;if(ps<=0)return[];let rem=ps;const r=[];for(const p of PLATES){while(rem>=p-0.001){r.push(p);rem-=p}}return r}
 function renderPlates(w){
-  const pl=calcPlates(w);if(!pl.length)return'<span style="color:var(--muted);font-size:16px">Solo barra</span>';
-  let out='<span style="background:#555;color:#fff;padding:4px 10px;border-radius:4px;font-size:13px;font-family:Oswald;font-weight:700;margin-right:4px">BARRA 20kg</span>';
-  out+='<span style="background:var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px;font-family:Oswald;margin-right:2px">2.5</span>';
-  out+=pl.map(p=>{const h=p>=15?52:p>=5?42:p>=2.5?34:26;const wd=p>=15?16:p>=5?12:10;const bg=PLATE_C[p]||'#888';const dk=p===5;
-    return'<span class="plate" style="height:'+h+'px;width:'+wd+'px;background:'+bg+';font-size:'+(p<5?9:11)+'px;color:'+(dk?'#000':'#fff')+'">'+p+'</span>'}).join('');
-  out+='<span style="background:var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-size:11px;font-family:Oswald;margin-left:2px">2.5</span>';
-  out+='<span style="font-size:12px;color:var(--muted);margin-left:8px;font-family:Oswald">\u00d72 lados</span>';
+  const pl=calcPlates(w);
+  if(!pl.length)return'<div style="display:flex;align-items:center;justify-content:center;gap:0"><div style="background:#777;height:14px;width:120px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:11px;color:#fff;font-weight:700">BARRA 20kg</div></div>';
+  const pH={25:80,20:72,15:64,10:54,5:46,'2.5':38,'1.25':32,'0.5':26,'0.25':22};
+  const pW={25:16,20:14,15:14,10:11,5:10,'2.5':9,'1.25':8,'0.5':7,'0.25':7};
+  function plateHTML(p){
+    const h=pH[p]||30;const wd=pW[p]||8;const bg=PLATE_C[p]||'#888';const dk=p===5;
+    return'<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><div style="height:'+h+'px;width:'+wd+'px;background:'+bg+';border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-weight:700;font-size:'+(p>=10?10:p>=2.5?8:7)+'px;color:'+(dk?'#000':'#fff')+';writing-mode:vertical-lr;text-orientation:mixed">'+p+'</div></div>';
+  }
+  const collar='<div style="height:30px;width:18px;background:var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:8px;color:var(--text);font-weight:700;writing-mode:vertical-lr">2.5</div>';
+  const bar='<div style="height:14px;width:70px;background:#777;border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:10px;color:#fff;font-weight:700">20kg</div>';
+  const rev=[...pl].reverse();
+  let out='<div style="display:flex;align-items:center;justify-content:center;gap:1px">'+collar;
+  rev.forEach(p=>{out+=plateHTML(p)});
+  out+=bar;
+  pl.forEach(p=>{out+=plateHTML(p)});
+  out+=collar+'</div>';
   return out;
 }
 
@@ -317,7 +326,7 @@ function renderSB(){
     h+='<div class="os" style="font-size:clamp(28px,5vw,48px);font-weight:700;letter-spacing:2px;text-align:center;margin-bottom:6px">'+cur.name+'</div>';
     h+='<div style="color:var(--muted);font-size:14px;margin-bottom:20px">'+cur.club+' \u00b7 '+cur.bw+'kg \u00b7 '+cur.div+' \u00b7 '+cur.cat+(rack?' \u00b7 \uD83D\uDD27 '+rack:'')+'</div>';
     h+='<div class="os" style="font-size:70px;font-weight:700;color:'+LIFT_C[DATA.lift]+';letter-spacing:4px">'+(cw||'\u2014')+' <span style="font-size:30px;color:var(--muted)">KG</span></div>';
-    if(cw)h+='<div style="margin-top:20px;padding:14px 20px;background:rgba(17,34,59,.6);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">'+renderPlates(cw)+'</div>';
+    if(cw)h+='<div style="margin-top:24px;padding:20px 24px;background:rgba(17,34,59,.6);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center">'+renderPlates(cw)+'</div>';
     h+='<div style="display:flex;gap:14px;margin-top:24px">';
     cur.att[DATA.lift].forEach((at,j)=>{h+='<div style="text-align:center;opacity:'+(j===DATA.round?1:.5)+'"><div style="font-size:9px;color:var(--muted);margin-bottom:3px;font-family:Oswald;letter-spacing:1px">INT '+(j+1)+'</div><div class="os" style="font-size:26px;font-weight:700;color:'+(at.r==='g'?'var(--green)':at.r==='n'?'var(--red)':'var(--muted)')+';text-decoration:'+(at.r==='n'?'line-through':'none')+'">'+(at.w||'\u2014')+'</div></div>'});
     h+='</div>';
