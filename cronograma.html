@@ -78,7 +78,70 @@ function renderEventList(){
   h+='</div>';document.getElementById('content').innerHTML=h;
 }
 
-function selectEvent(i){selectedEvent=NM.events[i];generateFlights();render()}
+function selectEvent(i){selectedEvent=NM.events[i];loadOrGenerateFlights();render()}
+
+function flightKey(){return 'fechipo_crono_'+(selectedEvent?.name||'').replace(/\s+/g,'_')}
+
+function saveFlights(){
+  // Save flight assignments as name→letter map + flight letters array
+  const map={};
+  flights.forEach(f=>{f.athletes.forEach(a=>{map[a.nombre||a.name||'']=f.letter})});
+  const letters=flights.map(f=>f.letter);
+  localStorage.setItem(flightKey(),JSON.stringify({map,letters,ts:Date.now()}));
+}
+
+function loadOrGenerateFlights(){
+  const saved=localStorage.getItem(flightKey());
+  if(saved){
+    try{
+      const d=JSON.parse(saved);
+      if(d.map&&d.letters){
+        // Rebuild flights from saved map
+        generateFlights();// first generate to get groups structure
+        const newFlights=d.letters.map((l,i)=>({letter:l,color:FL_C[i%FL_C.length],athletes:[],groups:[]}));
+        const allAthletes=selectedEvent.athletes.map((a,i)=>({...a,idx:i}));
+        allAthletes.forEach(a=>{
+          const assignedLetter=d.map[a.nombre||''];
+          const fi=newFlights.findIndex(f=>f.letter===assignedLetter);
+          if(fi>=0)newFlights[fi].athletes.push(a);
+          else if(newFlights.length>0)newFlights[newFlights.length-1].athletes.push(a);
+        });
+        // Remove empty flights
+        flights=newFlights.filter(f=>f.athletes.length>0);
+        flights.forEach((f,i)=>{f.color=FL_C[i%FL_C.length]});
+        return;
+      }
+    }catch(e){}
+  }
+  generateFlights();
+  saveFlights();
+}
+
+function moveAthlete(fIdx,aIdx,toLetter){
+  if(!config.adminUnlocked)return;
+  const fromF=flights[fIdx];
+  const toF=flights.find(f=>f.letter===toLetter);
+  if(!fromF||!toF||fromF.letter===toLetter)return;
+  const athlete=fromF.athletes.splice(aIdx,1)[0];
+  toF.athletes.push(athlete);
+  flights=flights.filter(f=>f.athletes.length>0);
+  flights.forEach((f,i)=>{f.color=FL_C[i%FL_C.length]});
+  saveFlights();render();
+}
+
+function addFlight(){
+  if(!config.adminUnlocked){checkAdmin();if(!config.adminUnlocked)return}
+  const nextLetter=FL_L[flights.length]||'?';
+  flights.push({letter:nextLetter,color:FL_C[flights.length%FL_C.length],athletes:[],groups:[]});
+  saveFlights();render();
+}
+
+function resetFlights(){
+  if(!config.adminUnlocked){checkAdmin();if(!config.adminUnlocked)return}
+  if(!confirm('¿Regenerar vuelos? Se perderán los cambios manuales.'))return;
+  localStorage.removeItem(flightKey());
+  generateFlights();saveFlights();render();
+}
 
 function catWeight(cat){const m=(cat||'').match(/(\d+)/);return m?parseInt(m[1]):999}
 
@@ -157,7 +220,8 @@ function renderCronograma(){
     <div><h2 class="os" style="font-size:22px;letter-spacing:1px">${ev.name}</h2>
     <p style="color:var(--muted);font-size:12px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p></div>
     <div style="display:flex;gap:8px"><button class="btn btn-o" onclick="selectedEvent=null;config.adminUnlocked=false;render()">← Volver</button>
-    <button class="btn btn-o" onclick="generateFlights();render()">↺ Regenerar</button>
+    <button class="btn btn-o" onclick="resetFlights()">↺ Regenerar</button>
+    <button class="btn btn-o" onclick="addFlight()">+ Vuelo</button>
     <button class="btn ${config.adminUnlocked?'btn-g':'btn-r'}" onclick="checkAdmin();render()">${config.adminUnlocked?'🔓 Admin':'🔒 Admin'}</button></div>
   </div>`;
   
@@ -280,11 +344,11 @@ function renderCronograma(){
   
   // Detailed roster per flight
   h+=`<h2 class="os" style="font-size:18px;letter-spacing:1px;margin:24px 0 12px;color:var(--gold)">📋 NÓMINA POR VUELO</h2>`;
-  flights.forEach(f=>{
+  flights.forEach((f,fi)=>{
     const sex=(f.athletes[0]?.sexo||'').match(/fem|mujer/i)?'♀ Femenino':'♂ Masculino';
     const cats=[...new Set(f.groups.map(g=>g.cat))].join(', ');
     const divs=[...new Set(f.groups.map(g=>g.div))].join(', ');
-    const session=flights.indexOf(f)<morningCount?'Mañana':'Tarde';
+    const session=fi<morningCount?'Mañana':'Tarde';
     
     h+=`<div class="card" style="border-left:4px solid ${f.color}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -302,14 +366,17 @@ function renderCronograma(){
           <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">DIVISIÓN</th>
           <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">CATEGORÍA</th>
           <th style="padding:6px 4px;text-align:left;color:var(--muted);font-size:9px">CLUB</th>
+          ${config.adminUnlocked?'<th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">MOVER</th>':''}
         </tr></thead><tbody>`;
     f.athletes.forEach((a,ai)=>{
+      const flightOptions=config.adminUnlocked?flights.map(ff=>`<option value="${ff.letter}" ${ff.letter===f.letter?'selected':''}>${ff.letter}</option>`).join(''):'';
       h+=`<tr style="border-bottom:1px solid rgba(30,58,95,.25)">
         <td class="os" style="padding:5px 4px;text-align:center;color:var(--gold);font-weight:700">${ai+1}</td>
         <td style="padding:5px 4px;font-weight:600">${a.nombre||''}</td>
         <td style="padding:5px 4px;text-align:center;font-size:11px">${a.division||''}</td>
         <td style="padding:5px 4px;text-align:center;font-size:11px">${a.categoria||''}</td>
         <td style="padding:5px 4px;font-size:11px;color:var(--muted)">${a.club||''}</td>
+        ${config.adminUnlocked?`<td style="padding:5px 4px;text-align:center"><select style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:Oswald;font-size:11px;cursor:pointer" onchange="moveAthlete(${fi},${ai},this.value)">${flightOptions}</select></td>`:''}
       </tr>`;
     });
     h+=`</tbody></table></div>`;

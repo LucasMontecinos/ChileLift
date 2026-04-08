@@ -95,9 +95,20 @@ function pickEvent(i){
   const ev=DATA.events[i];
   if(ev.pin){const p=prompt('Clave para "'+( ev.short||ev.name)+'":');if(p!==ev.pin){alert('Clave incorrecta');return}}
   DATA.event=ev;
-  DATA.athletes=ev.athletes.map((a,j)=>({id:j,lot:j+1,name:a.nombre,rut:a.rut||'',sex:a.sexo||a.sex||'',cat:a.categoria||'',div:a.division||'',club:a.club||'',uni:a.universidad||'',bw:0,flight:'A',rackSQ:'',rackBP:'',bombed:false,
-    att:{sq:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],bp:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],dl:[{w:0,r:null},{w:0,r:null},{w:0,r:null}]}}));
-  DATA.lift='sq';DATA.round=0;DATA.flight='A';DATA.changeTimers={};go('manage');
+  // Load saved flight assignments from cronograma
+  const cronoKey='fechipo_crono_'+(ev.name||'').replace(/\s+/g,'_');
+  let flightMap=null;
+  try{const saved=localStorage.getItem(cronoKey);if(saved){const d=JSON.parse(saved);if(d.map)flightMap=d.map}}catch(e){}
+  
+  DATA.athletes=ev.athletes.map((a,j)=>{
+    const name=a.nombre||'';
+    const fl=flightMap&&flightMap[name]?flightMap[name]:'A';
+    return{id:j,lot:j+1,name,rut:a.rut||'',sex:a.sexo||a.sex||'',cat:a.categoria||'',div:a.division||'',club:a.club||'',uni:a.universidad||'',bw:0,flight:fl,rackSQ:'',rackBP:'',bombed:false,
+    att:{sq:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],bp:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],dl:[{w:0,r:null},{w:0,r:null},{w:0,r:null}]}};
+  });
+  // Set active flight to first available
+  const firstFlight=flightMap?[...new Set(Object.values(flightMap))].sort()[0]:'A';
+  DATA.lift='sq';DATA.round=0;DATA.flight=firstFlight||'A';DATA.changeTimers={};go('manage');
 }
 function setAtt(id,l,r,val){const a=DATA.athletes.find(x=>x.id===id);if(!a)return;a.att[l][r].w=parseFloat(val)||0;const key=id+'_'+l+'_'+r;if(DATA.changeTimers[key]){delete DATA.changeTimers[key]}save()}
 function setResult(id,l,r,res){
