@@ -221,26 +221,6 @@
           "club": "Athor Powerlifting"
         },
         {
-          "nombre": "Jorge Andrés Romero Jorquera",
-          "rut": "21473239-4",
-          "sexo": "Hombre",
-          "dob": "2003-12-26",
-          "division": "Junior",
-          "categoria": "-83 kg (Hombre)",
-          "modalidad": "Powerlifting Classic+Only Bench Classic",
-          "club": "All Power CD"
-        },
-        {
-          "nombre": "Julian Ramirez Espina",
-          "rut": "22660370-0",
-          "sexo": "Hombre",
-          "dob": "2008-02-28",
-          "division": "Subjunior",
-          "categoria": "-83 kg (Hombre)",
-          "modalidad": "Powerlifting Classic+Only Bench Classic",
-          "club": "Himalaya Powerlifting"
-        },
-        {
           "nombre": "Maxi Esteban Jacob Moya Vieytes",
           "rut": "22752323-9",
           "sexo": "Hombre",
@@ -279,26 +259,6 @@
           "categoria": "-93 kg (Hombre)",
           "modalidad": "Powerlifting Classic",
           "club": "Shoganai Strength"
-        },
-        {
-          "nombre": "Hugo Alfredo Díaz Lobos",
-          "rut": "17961065-5",
-          "sexo": "Hombre",
-          "dob": "1991-11-20",
-          "division": "Open",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic+Only Bench Classic",
-          "club": "All Power CD"
-        },
-        {
-          "nombre": "Ian Jesus Alvarez Gonzalez",
-          "rut": "19832424-8",
-          "sexo": "Hombre",
-          "dob": "1998-02-03",
-          "division": "Open",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Beers and Lifts"
         },
         {
           "nombre": "Ignacio Alonso de la Fuente Letelier",
@@ -471,16 +431,6 @@
           "club": "South Side"
         },
         {
-          "nombre": "Esteban Patricio Zagal Zara",
-          "rut": "19932730-5",
-          "sexo": "Hombre",
-          "dob": "1998-01-05",
-          "division": "Open",
-          "categoria": "+120 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "All Power CD"
-        },
-        {
           "nombre": "Miguel Carlos Inzunza Pino",
           "rut": "18119532-0",
           "sexo": "Hombre",
@@ -489,16 +439,6 @@
           "categoria": "-120 kg (Hombre)",
           "modalidad": "Powerlifting Classic",
           "club": "Los Toros"
-        },
-        {
-          "nombre": "Sebastian Manuel Flores Jadue",
-          "rut": "20288072-K",
-          "sexo": "Hombre",
-          "dob": "1999-07-12",
-          "division": "Open",
-          "categoria": "-120 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Potencia Muscular"
         },
         {
           "nombre": "Claudia Andrea Carvallo Guzmán",
@@ -516,16 +456,6 @@
           "sexo": "Mujer",
           "dob": "1998-04-12",
           "division": "Open",
-          "categoria": "-57 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
-        {
-          "nombre": "Keily Yoxiel Rojas Peraza",
-          "rut": "26312215-1",
-          "sexo": "Mujer",
-          "dob": "2003-06-15",
-          "division": "Junior",
           "categoria": "-57 kg (Mujer)",
           "modalidad": "Powerlifting Classic",
           "club": "Himalaya Powerlifting"
@@ -611,30 +541,10 @@
           "club": "Athor Powerlifting"
         },
         {
-          "nombre": "Antonia Isabel Guerrero Olmedo",
-          "rut": "21727161-4",
-          "sexo": "Mujer",
-          "dob": "2004-12-15",
-          "division": "Junior",
-          "categoria": "-69 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
-        {
           "nombre": "Francisca Constanza Cortés Acuña",
           "rut": "20680481-5",
           "sexo": "Mujer",
           "dob": "2001-08-30",
-          "division": "Open",
-          "categoria": "-69 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
-        {
-          "nombre": "Jael Ignacia Villalobos Pozo",
-          "rut": "19591130-4",
-          "sexo": "Mujer",
-          "dob": "1997-06-04",
           "division": "Open",
           "categoria": "-69 kg (Mujer)",
           "modalidad": "Powerlifting Classic",
@@ -719,16 +629,6 @@
           "categoria": "+84 kg (Mujer)",
           "modalidad": "Powerlifting Classic",
           "club": "Athor Powerlifting"
-        },
-        {
-          "nombre": "María Constanza Abraham Zuleta",
-          "rut": "16294443-6",
-          "sexo": "Mujer",
-          "dob": "1985-06-26",
-          "division": "Master I",
-          "categoria": "-84 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Club Bushido Lifting"
         },
         {
           "nombre": "Romy Catalina Echeverría Ortega",
