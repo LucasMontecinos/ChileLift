@@ -58,10 +58,7 @@ let DATA={phase:'setup',events:[],event:null,athletes:[],lift:'sq',round:0,fligh
 // ══════════════════════════════════════════════
 // ADMIN CREDENTIALS — Editar aquí para cambiar accesos
 // ══════════════════════════════════════════════
-const ADMINS=[
-  {email:'lucas.montecinos.alarcon@gmail.com',pass:'Lucas.1202'},
-  {email:'yourlift@admin.cl',pass:'Lucas.1202'}
-];
+// Admin credentials managed via Firebase Auth (admin.html → Firebase Console)
 // ══════════════════════════════════════════════
 
 let isAdmin=false;
@@ -69,13 +66,19 @@ let isAdmin=false;
 // FIREBASE REAL-TIME SYNC
 // ══════════════════════════════════════════════
 const FB_CFG={apiKey:"AIzaSyA21IHMus2bklPLJm7ExRrVJJL9bzLhyp4",authDomain:"fechipo-db-13148.firebaseapp.com",projectId:"fechipo-db-13148",storageBucket:"fechipo-db-13148.firebasestorage.app",messagingSenderId:"551573388751",appId:"1:551573388751:web:5fcc377a8d595378ab26ba"};
-let fbDB=null,fbReady=false,fbUnsub=null,_fbSyncing=false,_fbLastWrite=0;
+let fbDB=null,fbReady=false,fbUnsub=null,_fbSyncing=false,_fbLastWrite=0,fbAuth=null;
 async function initFB(){
   try{
     const{initializeApp}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
     const fb=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const authMod=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const app=initializeApp(FB_CFG);fbDB=fb.getFirestore(app);
-    window._fb=fb;fbReady=true;
+    fbAuth=authMod.getAuth(app);
+    window._fb=fb;window._fbAuth=authMod;fbReady=true;
+    // Check if already logged in (session persists)
+    authMod.onAuthStateChanged(fbAuth,(u)=>{
+      if(u&&!isAdmin){isAdmin=true;console.log('[FB] Auto-logged in as',u.email);R()}
+    });
     console.log('[FB] Firebase ready');
     if(DATA.event)startFBSync();
   }catch(e){console.warn('[FB] Init failed',e)}
@@ -129,13 +132,26 @@ function startFBSync(){
   console.log('[FB] Listener started for',id);
 }
 initFB();
-function doLogin(){
+async function doLogin(){
   const em=(document.getElementById('adminEmail')?.value||'').trim().toLowerCase();
   const pw=document.getElementById('adminPass')?.value||'';
-  const found=ADMINS.find(a=>a.email.toLowerCase()===em&&a.pass===pw);
-  if(found){isAdmin=true;R()}else{alert('Correo o clave incorrecta')}
+  if(!em||!pw){alert('Completa email y contraseña');return}
+  if(!fbReady||!fbAuth){alert('Firebase no está listo, espera unos segundos');return}
+  try{
+    await window._fbAuth.signInWithEmailAndPassword(fbAuth,em,pw);
+    isAdmin=true;R();
+  }catch(e){
+    console.error('[FB] Login error',e);
+    let msg='Correo o clave incorrecta';
+    if(e.code==='auth/too-many-requests')msg='Demasiados intentos. Espera unos minutos.';
+    alert(msg);
+  }
 }
-function doLogout(){isAdmin=false;DATA.phase='results';save();R()}
+async function doLogout(){
+  isAdmin=false;DATA.phase='results';save();
+  try{if(fbAuth)await window._fbAuth.signOut(fbAuth)}catch(e){}
+  R();
+}
 const LIFTS=['sq','bp','dl'],LIFT_N={sq:'SQUAT',bp:'BENCH PRESS',dl:'DEADLIFT'},LIFT_S={sq:'SQ',bp:'BP',dl:'DL'},LIFT_C={sq:'#3b82f6',bp:'#f59e0b',dl:'#ef4444'};
 const FL_C={A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899',F:'#06b6d4'};
 const SAVE_KEY='fechipo_lc3';
