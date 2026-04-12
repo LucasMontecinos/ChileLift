@@ -514,24 +514,54 @@ function catRankBySub(athlete){
   const idx=withSub.findIndex(x=>x.id===athlete.id);
   return{pos:idx>=0?idx+1:0,of:withSub.length};
 }
+let txView='marcador';
+function forecastTotal(a){
+  const s=bestOf(a,'sq'),b=bestOf(a,'bp'),d=bestOf(a,'dl');
+  // For current lift, add the attempt weight if not yet judged
+  let fs=s,fb=b,fd=d;
+  if(!s){const best=a.att.sq.reduce((m,x)=>x.w>m?x.w:m,0);fs=best}
+  if(!b){const best=a.att.bp.reduce((m,x)=>x.w>m?x.w:m,0);fb=best}
+  if(!d){const best=a.att.dl.reduce((m,x)=>x.w>m?x.w:m,0);fd=best}
+  return fs+fb+fd;
+}
 function renderTransmision(){
   const queue=liftQueue(),cur=queue[0];
   const evName=DATA.event?.name||DATA.event?.short||'Campeonato';
-  let h='<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;justify-content:flex-end;z-index:999">';
-  h+='<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px;z-index:1000">';
-  h+='<button onclick="go(\'compete\')" style="background:rgba(30,50,80,.85);border:1px solid rgba(100,140,200,.3);color:#aac;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:Oswald;font-size:11px;letter-spacing:1px">\u2699 BACK</button>';
-
+  let h='<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;z-index:999">';
+  // Top nav buttons
+  h+='<div style="position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;z-index:1000">';
+  h+='<div style="display:flex;gap:4px">';
+  ['marcador','leaderboard','silevanta','premiacion'].forEach(v=>{
+    const labels={marcador:'Marcador',leaderboard:'Leaderboard',silevanta:'Si Levanta',premiacion:'Premiación'};
+    const active=txView===v;
+    h+='<button onclick="txView=\''+v+'\';R()" style="background:'+(active?'var(--accent)':'rgba(30,50,80,.85)')+';border:1px solid '+(active?'var(--accent)':'rgba(100,140,200,.3)')+';color:'+(active?'#fff':'#aac')+';padding:6px 12px;border-radius:6px;cursor:pointer;font-family:Oswald;font-size:10px;letter-spacing:1px">'+labels[v]+'</button>';
+  });
   h+='</div>';
+  h+='<button onclick="go(\'compete\')" style="background:rgba(30,50,80,.85);border:1px solid rgba(100,140,200,.3);color:#aac;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:Oswald;font-size:11px;letter-spacing:1px">⚙ BACK</button>';
+  h+='</div>';
+
+  if(txView==='marcador')h+=txMarcador(cur,evName);
+  else if(txView==='leaderboard')h+=txLeaderboard(cur,evName);
+  else if(txView==='silevanta')h+=txSiLevanta(cur,evName);
+  else if(txView==='premiacion')h+=txPremiacion(evName);
+  h+='</div>';
+  return h;
+}
+
+function txFooter(evName){
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 18px;background:linear-gradient(90deg,rgba(12,22,42,.92),rgba(16,26,46,.92));border-radius:0 0 7px 7px"><div style="font-family:Oswald;font-size:11px;color:rgba(160,180,210,.45);letter-spacing:1px">⚡ YourLift</div><div style="font-family:Oswald;font-size:11px;color:rgba(160,180,210,.45);letter-spacing:1px;text-transform:uppercase">'+evName+'</div></div>';
+}
+
+// ── MARCADOR (existing overlay) ──
+function txMarcador(cur,evName){
+  let h='<div style="flex:1"></div>';
   if(!cur){
     h+='<div style="margin:0 30px 60px;padding:18px 30px;background:linear-gradient(135deg,rgba(20,35,65,.97),rgba(25,40,72,.97));border-radius:8px;max-width:760px;border:1px solid rgba(60,90,140,.3)">';
     h+='<div style="font-family:Oswald;font-size:26px;font-weight:700;color:#d4a843;letter-spacing:3px;text-align:center">RONDA COMPLETADA</div>';
-    h+='<div style="display:flex;justify-content:space-between;padding:6px 0 0;font-family:Oswald;font-size:11px;color:rgba(160,180,210,.5);letter-spacing:1px"><span>\u26A1 YourLift</span><span style="text-transform:uppercase">'+evName+'</span></div>';
-    h+='</div></div>';
-    return h;
+    h+=txFooter(evName)+'</div>';return h;
   }
   const cw=cur.att[DATA.lift][DATA.round].w;
-  const rk=catRankBySub(cur);
-  const st=subTotal(cur,DATA.lift);
+  const rk=catRankBySub(cur);const st=subTotal(cur,DATA.lift);
   const parts=cur.name.split(' ');
   const lastName=parts.length>2?parts.slice(-2).join(' '):parts[parts.length-1];
   const firstName=parts.length>2?parts.slice(0,-2).join(' '):parts.slice(0,-1).join(' ');
@@ -539,44 +569,153 @@ function renderTransmision(){
   const divShort=(cur.div||'').replace('Sub Junior','SJR').replace('Junior','JR').replace('Open','OPN').replace('Master I','M1').replace('Master II','M2').replace('Master III','M3').replace('Master IV','M4');
   const catDiv=(cur.cat?'-'+cur.cat+'kg ':'')+divShort;
   h+='<div style="margin:0 30px 50px;max-width:760px">';
-  // Top bar
   h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 18px;background:linear-gradient(90deg,rgba(30,50,85,.94),rgba(35,55,95,.94));border-radius:7px 7px 0 0;border-bottom:1px solid rgba(80,120,180,.25)">';
   h+='<div style="font-family:Oswald;font-size:14px;color:rgba(180,200,230,.75);letter-spacing:1px">'+catDiv+'</div>';
   h+='<div style="font-family:Oswald;font-size:17px;color:#fff;letter-spacing:2px">RANK <span style="font-weight:700;color:#d4a843">'+(rk.pos||'')+'</span> <span style="color:rgba(180,200,230,.45)">de '+rk.of+'</span></div>';
-  h+='<div id="txTimer" style="font-family:Oswald;font-size:22px;font-weight:700;color:'+(DATA.timer<=10&&DATA.timerOn?'#ef4444':'#fff')+';letter-spacing:2px;min-width:60px;text-align:right">'+timerStr+'</div>';
-  h+='</div>';
-  // Name bar
+  h+='<div id="txTimer" style="font-family:Oswald;font-size:22px;font-weight:700;color:'+(DATA.timer<=10&&DATA.timerOn?'#ef4444':'#fff')+';letter-spacing:2px;min-width:60px;text-align:right">'+timerStr+'</div></div>';
   h+='<div style="display:flex;align-items:center;padding:8px 18px;background:linear-gradient(90deg,rgba(22,40,72,.96),rgba(28,46,80,.96));gap:14px">';
-  h+='<div style="background:rgba(40,65,110,.8);padding:5px 10px;border-radius:4px;min-width:75px;text-align:center;border:1px solid rgba(70,110,170,.3)">';
-  h+='<div style="font-family:Oswald;font-size:10px;color:rgba(180,200,230,.7);letter-spacing:.5px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cur.club||'\u2014')+'</div></div>';
+  h+='<div style="background:rgba(40,65,110,.8);padding:5px 10px;border-radius:4px;min-width:75px;text-align:center;border:1px solid rgba(70,110,170,.3)"><div style="font-family:Oswald;font-size:10px;color:rgba(180,200,230,.7);letter-spacing:.5px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(cur.club||'—')+'</div></div>';
   h+='<div style="flex:1">';
   if(firstName)h+='<div style="font-size:11px;color:rgba(180,200,230,.65);line-height:1;margin-bottom:1px">'+firstName+'</div>';
-  h+='<div style="font-family:Oswald;font-size:clamp(22px,4vw,32px);font-weight:700;color:#fff;letter-spacing:1px;line-height:1.1;text-transform:uppercase">'+lastName+'</div>';
-  h+='</div></div>';
-  // Attempts bar
-  h+='<div style="display:flex;align-items:stretch;background:linear-gradient(90deg,rgba(16,30,55,.96),rgba(20,34,60,.96))">';
-  h+='<div style="display:flex;flex:1">';
+  h+='<div style="font-family:Oswald;font-size:clamp(22px,4vw,32px);font-weight:700;color:#fff;letter-spacing:1px;line-height:1.1;text-transform:uppercase">'+lastName+'</div></div></div>';
+  h+='<div style="display:flex;align-items:stretch;background:linear-gradient(90deg,rgba(16,30,55,.96),rgba(20,34,60,.96))"><div style="display:flex;flex:1">';
   cur.att[DATA.lift].forEach((at,j)=>{
     let bg,clr,td='none';
-    if(at.r==='g'){bg='rgba(34,197,94,.22)';clr='#22c55e'}
-    else if(at.r==='n'){bg='rgba(239,68,68,.18)';clr='#ef4444';td='line-through'}
-    else if(at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
-    else{bg='rgba(30,48,78,.4)';clr='rgba(90,120,160,.35)'}
+    if(at.r==='g'){bg='rgba(34,197,94,.22)';clr='#22c55e'}else if(at.r==='n'){bg='rgba(239,68,68,.18)';clr='#ef4444';td='line-through'}else if(at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}else{bg='rgba(30,48,78,.4)';clr='rgba(90,120,160,.35)'}
     const cur2=j===DATA.round&&at.r===null;
-    h+='<div style="flex:1;padding:10px 16px;text-align:center;background:'+bg+';border-right:1px solid rgba(55,85,130,.2);'+(cur2?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">';
-    h+='<div style="font-family:Oswald;font-size:24px;font-weight:700;color:'+clr+';text-decoration:'+td+'">'+(at.w||'\u2014')+'</div></div>';
+    h+='<div style="flex:1;padding:10px 16px;text-align:center;background:'+bg+';border-right:1px solid rgba(55,85,130,.2);'+(cur2?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'"><div style="font-family:Oswald;font-size:24px;font-weight:700;color:'+clr+';text-decoration:'+td+'">'+(at.w||'—')+'</div></div>';
   });
   h+='</div>';
-  if(st>0){
-    h+='<div style="padding:10px 22px;text-align:center;background:rgba(212,168,67,.18);border-left:2px solid #d4a843;min-width:100px;display:flex;align-items:center;justify-content:center">';
-    h+='<div style="font-family:Oswald;font-size:28px;font-weight:700;color:#d4a843">'+st.toFixed(1)+'</div></div>';
-  }
+  if(st>0)h+='<div style="padding:10px 22px;text-align:center;background:rgba(212,168,67,.18);border-left:2px solid #d4a843;min-width:100px;display:flex;align-items:center;justify-content:center"><div style="font-family:Oswald;font-size:28px;font-weight:700;color:#d4a843">'+st.toFixed(1)+'</div></div>';
   h+='</div>';
-  // Footer
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 18px;background:linear-gradient(90deg,rgba(12,22,42,.92),rgba(16,26,46,.92));border-radius:0 0 7px 7px">';
-  h+='<div style="font-family:Oswald;font-size:11px;color:rgba(160,180,210,.45);letter-spacing:1px">\u26A1 YourLift</div>';
-  h+='<div style="font-family:Oswald;font-size:11px;color:rgba(160,180,210,.45);letter-spacing:1px;text-transform:uppercase">'+evName+'</div>';
+  h+=txFooter(evName)+'</div>';
+  return h;
+}
+
+// ── LEADERBOARD ──
+function txLeaderboard(cur,evName){
+  let h='<div style="flex:1;display:flex;align-items:center;justify-content:center">';
+  if(!cur){h+='<div style="font-family:Oswald;font-size:26px;color:#d4a843">RONDA COMPLETADA</div></div>';return h}
+  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.flight===DATA.flight&&!a.bombed);
+  const ranked=sameCat.map(a=>{
+    const t=totalOf(a);const ft=forecastTotal(a);
+    return{...a,total:t,fTotal:ft,fPlace:0};
+  });
+  ranked.sort((a,b)=>b.fTotal-a.fTotal);
+  ranked.forEach((a,i)=>a.fPlace=i+1);
+  const divShort=(cur.div||'').replace('Sub Junior','SJR').replace('Junior','JR').replace('Open','OPN').replace('Master I','M1').replace('Master II','M2');
+  h+='<div style="margin:60px 30px 40px;max-width:700px;width:100%">';
+  h+='<div style="padding:10px 18px;background:linear-gradient(90deg,rgba(25,42,72,.96),rgba(30,48,82,.96));border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">';
+  h+='<div><div style="font-family:Oswald;font-size:11px;color:rgba(160,180,210,.5);letter-spacing:1px">LEADERBOARD</div><div style="font-family:Oswald;font-size:16px;color:#fff;letter-spacing:1px">'+((cur.sex==='Femenino'||cur.sex==='Mujer'||cur.sex==='F')?'WOMEN\'S':'MEN\'S')+' '+divShort+' • '+cur.cat+'</div></div>';
+  h+='<div style="font-family:Oswald;font-size:14px;color:rgba(160,180,210,.4);letter-spacing:1px">⚡ YourLift</div></div>';
+  // Table header
+  h+='<div style="display:grid;grid-template-columns:2fr 70px 80px 50px;gap:0;padding:6px 18px;background:rgba(20,35,60,.9);border-bottom:1px solid rgba(60,90,140,.3)">';
+  h+='<div style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.5);letter-spacing:1px">NOMBRE</div>';
+  h+='<div style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.5);text-align:center;letter-spacing:1px">TOTAL</div>';
+  h+='<div style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.5);text-align:center;letter-spacing:1px">F.TOTAL</div>';
+  h+='<div style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.5);text-align:center;letter-spacing:1px">F.POS</div></div>';
+  // Rows
+  ranked.forEach(a=>{
+    const isCur=a.id===cur.id;
+    const bg=isCur?'rgba(196,30,58,.25)':'rgba(18,32,55,.9)';
+    h+='<div style="display:grid;grid-template-columns:2fr 70px 80px 50px;gap:0;padding:8px 18px;background:'+bg+';border-bottom:1px solid rgba(40,65,100,.3)">';
+    h+='<div style="font-family:Oswald;font-size:14px;font-weight:'+(isCur?'700':'400')+';color:'+(isCur?'#fff':'rgba(200,215,240,.8)')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+a.name+'</div>';
+    h+='<div style="font-family:Oswald;font-size:14px;text-align:center;color:rgba(200,215,240,.6)">'+(a.total||'0')+'</div>';
+    h+='<div style="font-family:Oswald;font-size:14px;text-align:center;font-weight:700;color:'+(isCur?'#d4a843':'rgba(200,215,240,.8)')+'">'+a.fTotal+'</div>';
+    h+='<div style="font-family:Oswald;font-size:14px;text-align:center;font-weight:700;color:'+(isCur?'#d4a843':'rgba(200,215,240,.6)')+'">'+a.fPlace+'</div>';
+    h+='</div>';
+  });
+  // Current athlete details bar
+  h+='<div style="padding:8px 18px;background:rgba(196,30,58,.2);border-radius:0 0 8px 8px;display:flex;gap:16px">';
+  ['sq','bp','dl'].forEach(l=>{
+    const b=bestOf(cur,l);
+    h+='<div style="display:flex;gap:6px;align-items:center"><span style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.5);letter-spacing:1px">BEST '+LIFT_S[l]+'</span><span style="font-family:Oswald;font-size:16px;font-weight:700;color:'+(b?LIFT_C[l]:'rgba(100,130,160,.3)')+'">'+(b||'-')+'</span></div>';
+  });
   h+='</div></div></div>';
+  return h;
+}
+
+// ── SI LO LEVANTA ──
+function txSiLevanta(cur,evName){
+  let h='<div style="flex:1;display:flex;align-items:center;justify-content:center">';
+  if(!cur){h+='<div style="font-family:Oswald;font-size:26px;color:#d4a843">RONDA COMPLETADA</div></div>';return h}
+  const cw=cur.att[DATA.lift][DATA.round].w;
+  if(!cw){h+='<div style="font-family:Oswald;font-size:22px;color:rgba(160,180,210,.5)">Sin peso cargado</div></div>';return h}
+  // Current rank by subtotal
+  const curRk=catRankBySub(cur);
+  // Simulate successful lift
+  const simSub=subTotal(cur,DATA.lift)>0?subTotal(cur,DATA.lift):0;
+  const simBest=bestOf(cur,DATA.lift);
+  const newBest=Math.max(simBest,cw);
+  let newSub;
+  if(DATA.lift==='sq')newSub=newBest;
+  else if(DATA.lift==='bp')newSub=bestOf(cur,'sq')+newBest;
+  else newSub=bestOf(cur,'sq')+bestOf(cur,'bp')+newBest;
+  // Rank with the simulated sub
+  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.flight===DATA.flight&&!a.bombed);
+  const simRanked=sameCat.map(a=>{
+    if(a.id===cur.id)return{id:a.id,sub:newSub};
+    return{id:a.id,sub:subTotal(a,DATA.lift)};
+  }).filter(x=>x.sub>0).sort((a,b)=>b.sub-a.sub);
+  const simPos=simRanked.findIndex(x=>x.id===cur.id)+1;
+  const parts=cur.name.split(' ');
+  const lastName=parts.length>2?parts.slice(-2).join(' '):parts[parts.length-1];
+
+  h+='<div style="max-width:480px;width:90%">';
+  h+='<div style="text-align:center;margin-bottom:24px"><div style="font-family:Oswald;font-size:clamp(28px,5vw,42px);font-weight:700;color:#fff;letter-spacing:3px">SI LO LEVANTA</div></div>';
+  h+='<div style="background:linear-gradient(135deg,rgba(22,38,68,.96),rgba(28,44,76,.96));border-radius:12px;border:1px solid rgba(60,90,140,.3);overflow:hidden">';
+  // Name
+  h+='<div style="padding:14px 22px;background:rgba(196,30,58,.2);border-bottom:1px solid rgba(100,140,200,.2);text-align:center"><div style="font-family:Oswald;font-size:clamp(20px,4vw,28px);font-weight:700;color:#fff;letter-spacing:1px;text-transform:uppercase">'+lastName+'</div><div style="font-size:11px;color:rgba(180,200,230,.6)">'+cur.cat+' · '+(cur.div||'')+'</div></div>';
+  // Rank row
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 28px;border-bottom:1px solid rgba(50,80,120,.3)">';
+  h+='<div style="font-family:Oswald;font-size:14px;color:rgba(180,200,230,.6);letter-spacing:1px">POSICIÓN</div>';
+  h+='<div style="display:flex;align-items:center;gap:14px"><span style="font-family:Oswald;font-size:32px;font-weight:700;color:rgba(200,215,240,.5)">'+(curRk.pos||'—')+'°</span><span style="font-family:Oswald;font-size:28px;color:#d4a843">▸</span><span style="font-family:Oswald;font-size:32px;font-weight:700;color:#d4a843">'+simPos+'°</span></div></div>';
+  // Subtotal row
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 28px">';
+  h+='<div style="font-family:Oswald;font-size:14px;color:rgba(180,200,230,.6);letter-spacing:1px">SUBTOTAL</div>';
+  h+='<div style="display:flex;align-items:center;gap:14px"><span style="font-family:Oswald;font-size:28px;font-weight:700;color:rgba(200,215,240,.5)">'+(simSub||'—')+' kg</span><span style="font-family:Oswald;font-size:28px;color:#d4a843">▸</span><span style="font-family:Oswald;font-size:28px;font-weight:700;color:#d4a843">'+newSub.toFixed(1)+' kg</span></div></div>';
+  h+='</div>';
+  h+=txFooter(evName)+'</div></div>';
+  return h;
+}
+
+// ── PREMIACIÓN ──
+function txPremiacion(evName){
+  const all=DATA.athletes.filter(a=>!a.bombed).map(a=>({...a,total:totalOf(a)})).filter(a=>a.total>0);
+  const groups={};
+  all.forEach(a=>{const k=(a.div||'Sin Div')+' · '+a.cat;if(!groups[k])groups[k]=[];groups[k].push(a)});
+  Object.values(groups).forEach(arr=>arr.sort((a,b)=>b.total-a.total));
+  const keys=Object.keys(groups).sort();
+  let h='<div style="flex:1;overflow-y:auto;padding:60px 30px 30px">';
+  h+='<div style="text-align:center;margin-bottom:24px"><div style="font-family:Oswald;font-size:clamp(24px,4vw,36px);font-weight:700;color:#d4a843;letter-spacing:3px">🏆 PREMIACIÓN</div><div style="font-family:Oswald;font-size:13px;color:rgba(160,180,210,.5);letter-spacing:1px;margin-top:4px">'+evName+'</div></div>';
+  if(!keys.length){h+='<div style="text-align:center;color:rgba(160,180,210,.5);font-size:14px;padding:40px">Sin resultados todavía</div></div>';return h}
+  keys.forEach(k=>{
+    const top3=groups[k].slice(0,3);
+    const medals=['🥇','🥈','🥉'];
+    const colors=['#d4a843','#94a3b8','#b45309'];
+    h+='<div style="background:linear-gradient(135deg,rgba(20,35,62,.96),rgba(26,42,72,.96));border:1px solid rgba(60,90,140,.3);border-radius:12px;margin-bottom:16px;overflow:hidden">';
+    h+='<div style="padding:10px 20px;background:rgba(196,30,58,.15);border-bottom:1px solid rgba(80,120,180,.2)"><div style="font-family:Oswald;font-size:15px;font-weight:700;color:#fff;letter-spacing:1px">'+k+'</div></div>';
+    // Podium
+    h+='<div style="display:flex;justify-content:center;align-items:flex-end;gap:12px;padding:24px 20px 16px">';
+    const order=[1,0,2];
+    const heights=[90,120,70];
+    order.forEach(idx=>{
+      const a=top3[idx];
+      if(!a){h+='<div style="flex:1;max-width:200px"></div>';return}
+      const pts2=a.name.split(' ');
+      const ln=pts2.length>2?pts2.slice(-2).join(' '):pts2[pts2.length-1];
+      const fn=pts2.length>2?pts2.slice(0,-2).join(' '):'';
+      h+='<div style="flex:1;max-width:200px;text-align:center">';
+      if(fn)h+='<div style="font-size:10px;color:rgba(180,200,230,.5);margin-bottom:2px">'+fn+'</div>';
+      h+='<div style="font-family:Oswald;font-size:clamp(14px,2vw,18px);font-weight:700;color:#fff;text-transform:uppercase;margin-bottom:4px">'+ln+'</div>';
+      h+='<div style="font-family:Oswald;font-size:20px;font-weight:700;color:'+colors[idx]+'">'+a.total+' kg</div>';
+      h+='<div style="background:'+colors[idx]+'22;border:2px solid '+colors[idx]+';border-radius:8px 8px 0 0;height:'+heights[idx]+'px;display:flex;align-items:center;justify-content:center;margin-top:8px"><span style="font-size:32px">'+medals[idx]+'</span></div>';
+      h+='</div>';
+    });
+    h+='</div>';
+    h+=txFooter(evName)+'</div>';
+  });
+  h+='</div>';
   return h;
 }
 
