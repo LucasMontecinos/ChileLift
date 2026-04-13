@@ -284,7 +284,8 @@ function nom(){
     h+=`</div>`;
   });
   return h}
-function nss(ei,v){ST.ne=ei;ST.ns=v;render()}
+let _nssTimer=null;
+function nss(ei,v){ST.ne=ei;ST.ns=v;if(_nssTimer)clearTimeout(_nssTimer);_nssTimer=setTimeout(()=>{render();setTimeout(()=>{const inputs=document.querySelectorAll('.fl input');inputs.forEach(i=>{if(i.value===v){i.focus();i.setSelectionRange(i.value.length,i.value.length)}})},10)},300)}
 function sfl(l){ST.fl=l;ST.p=0;render()}
 function lst(){const f=flt(),P=50,sh=f.slice(0,(ST.p+1)*P);
   const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -303,7 +304,8 @@ function render(){const app=document.getElementById("app");
   app.innerHTML=h;if(!ST.sel&&ST.v==="list"){const i=app.querySelector('.fl input');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}}
 
 function sv(v){ST.v=v;ST.p=0;render();scrollTo(0,0)}
-function ss(v){ST.s=v;ST.p=0;render()}
+let _ssTimer=null;
+function ss(v){ST.s=v;ST.p=0;if(_ssTimer)clearTimeout(_ssTimer);_ssTimer=setTimeout(()=>{render();setTimeout(()=>{const i=document.querySelector('.fl input');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},10)},300)}
 function sfc(v){ST.fc=v;ST.p=0;render()}
 function sfk(v){ST.fk=v;ST.p=0;render()}
 function sl(c){ST.sel=D.find(a=>a.codigo===c);render();scrollTo(0,0)}
