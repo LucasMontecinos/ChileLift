@@ -3134,9 +3134,9 @@
     }
   },
   {
-    "codigo": "2056NAG-2025",
+    "codigo": "2056SAG-2025",
     "rut": "20564794-5",
-    "nombre": "Nicolas Arias Gonzalez",
+    "nombre": "Sandro Nicolas Arias Gonzalez",
     "fechaNac": "24/02/2001",
     "club": "Club Bushido Lifting",
     "debut": "2025",
@@ -24650,7 +24650,7 @@
     "rut": "18779355-6",
     "nombre": "Konny Francisca Muñoz Montecino",
     "fechaNac": "24/04/1994",
-    "club": "Iron Forces Powerlifting",
+    "club": "Club Bushido Lifting",
     "debut": "2025",
     "competencias": [
       {
@@ -24738,15 +24738,6 @@
     "fechaNac": "04/11/1988",
     "club": "Potencia Muscular",
     "debut": "2025",
-    "competencias": []
-  },
-  {
-    "codigo": "2167RMA-2023",
-    "rut": "21679124-K",
-    "nombre": "Robinson Fabian Muñoz Azagra",
-    "fechaNac": "08/10/2004",
-    "club": "Club Bushido Lifting",
-    "debut": "2023",
     "competencias": []
   },
   {
@@ -32519,7 +32510,7 @@
     "rut": "20563112-7",
     "nombre": "Pablo Jesus Rojas Castro",
     "fechaNac": "25/08/2000",
-    "club": "Hannya Strength",
+    "club": "Club Bushido Lifting",
     "debut": "2025",
     "competencias": [
       {
