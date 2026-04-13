@@ -332,8 +332,7 @@ async function resetJudgeLights(){
     });
   }catch(e){console.warn('Reset judge lights error',e)}
 }
-// Send athlete info when timer starts
-const _origStartTimer=startTimer;
+// Update judge info when timer starts
 
 function updA(id,k,v){const a=DATA.athletes.find(x=>x.id===id);if(!a)return;if(k==='bw')a.bw=parseFloat(v)||0;else a[k]=v;save()}
 function newComp(){localStorage.removeItem(SAVE_KEY);if(fbUnsub){fbUnsub();fbUnsub=null}DATA.phase='setup';DATA.event=null;DATA.athletes=[];DATA.changeTimers={};R()}
@@ -377,14 +376,14 @@ function exportJSON(){const r=rankings();const blob=new Blob([JSON.stringify(r.m
 function R(){const el=document.getElementById('R');if(DATA.phase==='scoreboard'){el.innerHTML=renderSB();return}if(DATA.phase==='transmision'){el.innerHTML=renderTransmision();return}if(DATA.phase==='setup'){el.innerHTML=renderSetup();return}el.innerHTML=renderShell()}
 
 function renderSetup(){
-  let h='<div style="max-width:700px;margin:60px auto;padding:0 20px" class="fade"><div style="text-align:center;margin-bottom:40px"><div class="os" style="font-size:clamp(30px,6vw,48px);font-weight:700;letter-spacing:3px"><img src="YourLift_logo.png" style="height:50px;margin-bottom:8px" onerror="this.style.display='none'"><br><span style="color:var(--accent)">LIVE</span>CAST</div><p style="color:var(--muted);font-size:14px;margin-top:6px">Sistema de Gesti\u00f3n de Competencia</p><div style="width:60px;height:3px;background:linear-gradient(90deg,var(--accent),var(--gold));margin:12px auto;border-radius:2px"></div><a href="index.html" style="display:inline-block;margin-top:10px;color:var(--muted);font-size:12px;text-decoration:none;padding:6px 16px;border:1px solid var(--border);border-radius:6px;transition:all .15s" onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--muted)\'">← YourLift</a></div>';
+  let h='<div style="max-width:700px;margin:60px auto;padding:0 20px" class="fade"><div style="text-align:center;margin-bottom:40px"><div class="os" style="font-size:clamp(30px,6vw,48px);font-weight:700;letter-spacing:3px"><img src="YourLift_logo.png" style="height:50px;margin-bottom:8px" onerror="this.remove()"><br><span style="color:var(--accent)">LIVE</span>CAST</div><p style="color:var(--muted);font-size:14px;margin-top:6px">Sistema de Gesti\u00f3n de Competencia</p><div style="width:60px;height:3px;background:linear-gradient(90deg,var(--accent),var(--gold));margin:12px auto;border-radius:2px"></div><a href="index.html" style="display:inline-block;margin-top:10px;color:var(--muted);font-size:12px;text-decoration:none;padding:6px 16px;border:1px solid var(--border);border-radius:6px;transition:all .15s" onmouseenter="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--text)\'" onmouseleave="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--muted)\'">← YourLift</a></div>';
   DATA.events.forEach((ev,i)=>{h+='<div class="card" style="cursor:pointer;transition:all .2s" onclick="pickEvent('+i+')" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'var(--border)\'"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="os" style="font-size:18px;font-weight:700">'+ev.name+'</div><p style="color:var(--muted);font-size:12px;margin-top:4px">'+(ev.organizer||'')+' \u00b7 '+(ev.location||'')+'</p></div><div style="text-align:right"><div style="background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;font-size:14px;font-weight:700;font-family:Oswald">'+ev.athletes.length+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">atletas</div></div></div></div>'});
   h+='</div>';return h;
 }
 
 function renderShell(){
   const flights=[...new Set(DATA.athletes.map(a=>a.flight))].sort();const p=DATA.phase;
-  let h='<div class="shell"><div class="side"><div class="logo"><img src="YourLift_logo.png" style="height:28px" onerror="this.outerHTML='<span style=color:var(--accent)>YOUR</span>LIFT'"> LC</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(DATA.event?.short||DATA.event?.name||'')+'</div>';
+  let h='<div class="shell"><div class="side"><div class="logo"><img src="YourLift_logo.png" style="height:28px" onerror="this.remove()"> LC</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(DATA.event?.short||DATA.event?.name||'')+'</div>';
   if(isAdmin){
   h+='<div class="side-label">Gesti\u00f3n</div><button class="side-btn '+(p==='manage'?'active':'')+'" onclick="go(\'manage\')"><span class="icon">\uD83D\uDCCB</span>Atletas & Pesaje</button>';
   h+='<div class="side-label">Competencia</div><button class="side-btn '+(p==='compete'?'active':'')+'" onclick="go(\'compete\')"><span class="icon">\uD83C\uDFCB\uFE0F</span>Control en Vivo</button>';
@@ -745,7 +744,7 @@ function txMarcadorIPF(cur,evName){
   if(st>0)h+='<div style="padding:8px 18px;text-align:center;background:linear-gradient(180deg,rgba(212,168,67,.25),rgba(212,168,67,.1));border-left:2px solid #d4a843;min-width:90px;display:flex;align-items:center;justify-content:center"><div style="font-family:Oswald;font-size:22px;font-weight:700;color:#d4a843">'+st.toFixed(1)+'</div></div>';
   h+='</div>';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 18px;background:linear-gradient(90deg,rgba(12,22,42,.9),rgba(16,26,46,.9));border-radius:0 0 5px 5px">';
-  h+='<div style="display:flex;align-items:center;gap:6px"><img src="YourLift_logo.png" alt="YourLift" style="height:18px;opacity:.7" onerror="this.style.display=\'none\'"><span style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.45);letter-spacing:1px">YourLift</span></div>';
+  h+='<div style="display:flex;align-items:center;gap:6px"><img src="YourLift_logo.png" alt="YourLift" style="height:18px;opacity:.7" onerror="this.remove()"><span style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.45);letter-spacing:1px">YourLift</span></div>';
   h+='<div style="font-family:Oswald;font-size:10px;color:rgba(160,180,210,.45);letter-spacing:1px;text-transform:uppercase">'+evName+'</div></div></div>';
   return h;
 }
