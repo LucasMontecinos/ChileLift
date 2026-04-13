@@ -144,46 +144,49 @@ function startEditsListener(){
     });
   }catch(e){console.warn('Edits listener error',e)}
 }
+function _applyNominas(all){
+  // approved = confirmed spot; pending = registered but waiting
+  const visible=all.filter(i=>i.status==='approved'||i.status==='pending');
+  const byEvent={};
+  visible.forEach(i=>{if(!byEvent[i.evento])byEvent[i.evento]=[];byEvent[i.evento].push(i)});
+  const fbEvents=NOM_EVENTS.map(ev=>{
+    const athletes=(byEvent[ev.id]||[])
+      .sort((a,b)=>(a.timestamp?.seconds||0)-(b.timestamp?.seconds||0))
+      .map((i,idx)=>({
+        id:i.id,nombre:i.nombre,rut:i.rut||'',sexo:i.sexo||'',
+        dob:i.fechaNac||'',division:i.division||'',categoria:i.categoria||'',
+        modalidad:i.modalidad||'',club:i.club==='Otro'?i.clubOtro:i.club||'',
+        universidad:i.universidad||'',status:i.status,
+        sortOrder:idx+1,flight:i.flight||''
+      }));
+    const total=athletes.length;
+    const approved=athletes.filter(a=>a.status==='approved').length;
+    const pending=athletes.filter(a=>a.status==='pending').length;
+    return{...ev,athletes,fromFirebase:true,liveCount:{total,approved,pending}};
+  });
+  const withAthletes=fbEvents.filter(ev=>ev.athletes.length>0);
+  if(withAthletes.length>0){
+    const fbNames=new Set(withAthletes.map(e=>e.name));
+    NM.events=NM.events.filter(e=>!fbNames.has(e.name)).concat(withAthletes);
+    render();
+  }
+}
 async function loadFBNominas(){
   if(!fbReady)return;
   try{
-    const snap=await window.FBQ.getDocs(window.FBQ.query(window.FBQ.collection(fbDB,'inscripciones'),window.FBQ.orderBy('timestamp','desc')));
-    const all=[];snap.forEach(d=>all.push({id:d.id,...d.data()}));
-    const approved=all.filter(i=>i.status==='approved'||i.status==='pending');
-    const byEvent={};
-    approved.forEach(i=>{if(!byEvent[i.evento])byEvent[i.evento]=[];byEvent[i.evento].push(i)});
-    const fbEvents=NOM_EVENTS.map(ev=>{
-      const athletes=(byEvent[ev.id]||[]).map(i=>({id:i.id,nombre:i.nombre,rut:i.rut||'',sexo:i.sexo||'',dob:i.fechaNac||'',division:i.division||'',categoria:i.categoria||'',modalidad:i.modalidad||'',club:i.club==='Otro'?i.clubOtro:i.club||'',universidad:i.universidad||'',status:i.status,sortOrder:i.sortOrder||999,flight:i.flight||''}));
-      return{...ev,athletes,fromFirebase:true};
-    }).filter(ev=>ev.athletes.length>0);
-    if(fbEvents.length>0){
-      const fbNames=new Set(fbEvents.map(e=>e.name));
-      NM.events=NM.events.filter(e=>!fbNames.has(e.name)).concat(fbEvents);
-      render();
-    }
-    // Start real-time listener once
-    if(!window._inscListenerStarted){
-      window._inscListenerStarted=true;
-      window.FBQ.onSnapshot(window.FBQ.collection(fbDB,'inscripciones'),()=>{loadFBNominasQuiet()});
-    }
-  }catch(e){console.warn('Error loading Firebase nominas',e)}
-}
-async function loadFBNominasQuiet(){
-  if(!fbReady)return;
-  try{
+    // Initial load
     const snap=await window.FBQ.getDocs(window.FBQ.collection(fbDB,'inscripciones'));
     const all=[];snap.forEach(d=>all.push({id:d.id,...d.data()}));
-    const approved=all.filter(i=>i.status==='approved'||i.status==='pending');
-    const byEvent={};
-    approved.forEach(i=>{if(!byEvent[i.evento])byEvent[i.evento]=[];byEvent[i.evento].push(i)});
-    const fbEvents=NOM_EVENTS.map(ev=>{
-      const athletes=(byEvent[ev.id]||[]).map(i=>({id:i.id,nombre:i.nombre,rut:i.rut||'',sexo:i.sexo||'',dob:i.fechaNac||'',division:i.division||'',categoria:i.categoria||'',modalidad:i.modalidad||'',club:i.club==='Otro'?i.clubOtro:i.club||'',universidad:i.universidad||'',status:i.status,sortOrder:i.sortOrder||999,flight:i.flight||''}));
-      return{...ev,athletes,fromFirebase:true};
-    }).filter(ev=>ev.athletes.length>0);
-    const fbNames=new Set(fbEvents.map(e=>e.name));
-    NM.events=NM.events.filter(e=>!fbNames.has(e.name)).concat(fbEvents);
-    render();
-  }catch(e){console.warn('Error in quiet reload',e)}
+    _applyNominas(all);
+    // Real-time listener — processes snapshot data directly, no extra getDocs
+    if(!window._inscListenerStarted){
+      window._inscListenerStarted=true;
+      window.FBQ.onSnapshot(window.FBQ.collection(fbDB,'inscripciones'),(snap)=>{
+        const all=[];snap.forEach(d=>all.push({id:d.id,...d.data()}));
+        _applyNominas(all);
+      });
+    }
+  }catch(e){console.warn('Error loading Firebase nominas',e)}
 }
 const CC={"Campeonato Nacional FECHIPO 2026":{bg:"#fef3c7",b:"#f59e0b",t:"#92400e",n:"Nacional 2026"},"Campeonato Nacional FECHIPO 2025":{bg:"#dbeafe",b:"#3b82f6",t:"#1e40af",n:"Nacional 2025"},"Regional Centro Norte 2025":{bg:"#dcfce7",b:"#22c55e",t:"#166534",n:"Reg. Centro Norte 2025"},"Regional Sur Austral 2025":{bg:"#f3e8ff",b:"#a855f7",t:"#6b21a8",n:"Reg. Sur Austral 2025"},"Zonal Centro Clausura 2024":{bg:"#ffe4e6",b:"#f43f5e",t:"#9f1239",n:"Zonal Centro 2024"},"Campeonato Nacional 2025":{bg:"#fef9c3",b:"#eab308",t:"#713f12",n:"Nacional 2025 ⚡"},"Campeonato Nacional 2023":{bg:"#e0f2fe",b:"#0ea5e9",t:"#0c4a6e",n:"Nacional 2023 ⚡"},"Zonal Sur Los Toros 2025":{bg:"#ecfdf5",b:"#10b981",t:"#064e3b",n:"Zonal Sur 2025 ⚡"},"Regional Centro 2025":{bg:"#fdf4ff",b:"#c084fc",t:"#581c87",n:"Reg. Centro 2025 ⚡"}};
 let D=[],R={},NM={events:[]},ST={v:"list",s:"",fc:"",fk:"",fl:"",sel:null,p:0,rt:"classic",rl:"sq",ne:0,ns:""};
@@ -232,7 +235,9 @@ function nom(){
   NM.events.forEach((ev,ei)=>{
     const cd=cdStr(ev.date),cc=cdStr(ev.closeDate),isUni=ev.extraCols&&ev.extraCols.includes("universidad");
     h+=`<div class="cd2" style="margin-bottom:24px">`;
-    h+=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px"><div><h2 style="font-family:Oswald;font-size:clamp(16px,3.5vw,20px);letter-spacing:1px;text-transform:uppercase">${ev.name}${ev.fromFirebase?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;vertical-align:middle;animation:pulse 2s infinite">🔴 LIVE</span>':''}</h2><p style="font-size:12px;color:var(--muted);margin-top:2px">${ev.organizer||ev.org||''} · ${ev.location} · ${ev.days}</p></div><div style="display:flex;gap:8px;align-items:center"><span class="bg" style="background:var(--accent);color:#fff;font-size:14px;padding:6px 14px">${ev.athletes.length} atletas</span></div></div>`;
+    const lc=ev.liveCount||{};
+    h+=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px"><div><h2 style="font-family:Oswald;font-size:clamp(16px,3.5vw,20px);letter-spacing:1px;text-transform:uppercase">${ev.name}${ev.fromFirebase?' <span style="font-size:10px;background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;vertical-align:middle;animation:pulse 2s infinite">🔴 EN VIVO</span>':''}</h2><p style="font-size:12px;color:var(--muted);margin-top:2px">${ev.organizer||ev.org||''} · ${ev.location} · ${ev.days}</p>${ev.fromFirebase&&lc.pending>0?`<p style="font-size:11px;color:var(--gold);margin-top:2px">⏳ ${lc.pending} inscripción${lc.pending!==1?"es":""} pendiente${lc.pending!==1?"s":""} de aprobación</p>`:''}</div><div style="display:flex;gap:8px;align-items:center">${ev.fromFirebase&&lc.approved?`<span style="font-size:12px;background:rgba(34,197,94,.15);color:var(--green);padding:4px 10px;border-radius:8px;border:1px solid rgba(34,197,94,.3)">✓ ${lc.approved} confirmados</span>`:"" }<span class="bg" style="background:var(--accent);color:#fff;font-size:14px;padding:6px 14px">${ev.athletes.length} inscritos</span></div></div>`;
+    if(ev.fromFirebase)h+=`<div style="display:flex;gap:14px;margin-bottom:10px;padding:8px 12px;background:rgba(30,58,95,.2);border-radius:8px;border:1px solid rgba(30,58,95,.4);flex-wrap:wrap;align-items:center"><span style="font-size:10px;color:var(--muted);font-family:Oswald;letter-spacing:1px">LEYENDA:</span><span style="font-size:11px;display:flex;align-items:center;gap:5px;color:var(--green)"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0"></span>Confirmado — plaza asegurada</span><span style="font-size:11px;display:flex;align-items:center;gap:5px;color:var(--gold)"><span style="width:10px;height:10px;background:var(--gold);border-radius:2px;flex-shrink:0"></span>Pendiente — inscripción en revisión por el organizador</span></div>`;
     // Countdown cards
     h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">`;
     // Competition countdown
@@ -262,21 +267,36 @@ function nom(){
     if(isUni)h+=`<th style="padding:8px 6px;color:#fff;text-align:left;font-family:Oswald;letter-spacing:.5px">Universidad</th>`;
     else h+=`<th style="padding:8px 6px;color:#fff;text-align:left;font-family:Oswald;letter-spacing:.5px">Modalidad</th>`;
     h+=`<th style="padding:8px 6px;color:#fff;text-align:left;font-family:Oswald;letter-spacing:.5px">Club</th>`;
-    if(ev.fromFirebase)h+=`<th style="padding:8px 6px;color:#fff;text-align:center;font-family:Oswald;letter-spacing:.5px;width:50px">Estado</th>`;
+    if(ev.fromFirebase)h+=`<th style="padding:8px 6px;color:#fff;text-align:center;font-family:Oswald;letter-spacing:.5px;width:68px">Estado</th>`;
     h+=`</tr>`;
     fa.forEach((a,i)=>{
-      const bg=i%2===0?'transparent':'rgba(30,58,95,.15)';
+      const isPending=ev.fromFirebase&&a.status==='pending';
+      const bg=isPending?'rgba(212,168,67,.05)':i%2===0?'transparent':'rgba(30,58,95,.15)';
       const sexC=a.sexo==='Hombre'||a.sexo==='Masculino'?'var(--blue)':'var(--accent)';
-      h+=`<tr style="background:${bg};border-bottom:1px solid rgba(30,58,95,.2)">`;
+      h+=`<tr style="background:${bg};border-bottom:1px solid rgba(30,58,95,.2);${isPending?'border-left:3px solid var(--gold);opacity:.8':''}">`;
       h+=`<td style="padding:7px 6px;text-align:center;color:var(--muted)">${i+1}</td>`;
-      h+=`<td style="padding:7px 6px;font-weight:600">${a.nombre}</td>`;
+      h+=`<td style="padding:7px 6px;font-weight:${isPending?400:600}">${a.nombre}</td>`;
       h+=`<td style="padding:7px 6px;text-align:center"><span style="color:${sexC};font-weight:600;font-size:11px;" >${(a.sexo||'').substring(0,1)||'?'}</span></td>`;
       h+=`<td style="padding:7px 6px;text-align:center;font-size:11px;" >${a.division||'—'}</td>`;
       h+=`<td style="padding:7px 6px;text-align:center"><span style="background:rgba(212,168,67,.12);color:var(--gold);padding:2px 8px;border-radius:10px;font-weight:600;font-size:11px;" >${a.categoria||'—'}</span></td>`;
       if(isUni)h+=`<td style="padding:7px 6px;font-size:11px;color:var(--muted);" >${a.universidad||''}</td>`;
       else h+=`<td style="padding:7px 6px;font-size:11px;color:var(--muted);" >${a.modalidad||''}</td>`;
       h+=`<td style="padding:7px 6px;font-size:11px;" >${a.club||'—'}</td>`;
-      if(ev.fromFirebase)h+=`<td style="padding:7px 6px;text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;${a.status==='approved'?'background:rgba(34,197,94,.15);color:var(--green)':'background:rgba(212,168,67,.15);color:var(--gold)'}">${a.status==='approved'?'✓':'⏳'}</span></td>`;
+      if(ev.fromFirebase){
+        const isApproved=a.status==='approved';
+        h+=`<td style="padding:6px;text-align:center">
+          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:1px">
+            <span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;
+              ${isApproved
+                ? 'background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)'
+                : 'background:rgba(212,168,67,.12);color:var(--gold);border:1px solid rgba(212,168,67,.3)'
+              }">
+              ${isApproved?'✓ OK':'⏳'}
+            </span>
+            <span style="font-size:8px;color:var(--muted)">${isApproved?'Confirmado':'Pendiente'}</span>
+          </div>
+        </td>`;
+      }
       h+=`</tr>`;
     });
     h+=`</table></div>`;
