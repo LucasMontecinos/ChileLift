@@ -50,16 +50,7 @@
           "modalidad": "Powerlifting Classic+Only Bench Classic",
           "club": "Iron Forces Powerlifting"
         },
-        {
-          "nombre": "Adolfo Ignacio Lobos Castro",
-          "rut": "22762103-6",
-          "sexo": "Hombre",
-          "dob": "2008-06-27",
-          "division": "Subjunior",
-          "categoria": "-74 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Iron Forces Powerlifting"
-        },
+     
         {
           "nombre": "Camilo Patricio Wee Olivero",
           "rut": "16923383-7",
@@ -120,16 +111,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "All Power CD"
         },
-        {
-          "nombre": "Sebastian Maximo Antonio Ferrada Ortiz",
-          "rut": "22398119-4",
-          "sexo": "Hombre",
-          "dob": "2007-05-09",
-          "division": "Junior",
-          "categoria": "-74 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Iron Forces Powerlifting"
-        },
+     
         {
           "nombre": "Sergio Nicolás Peña Paz",
           "rut": "22931707-5",
@@ -140,16 +122,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "Rema"
         },
-        {
-          "nombre": "Vicente Ignacio Galleguillos Olivares",
-          "rut": "21799836-0",
-          "sexo": "Hombre",
-          "dob": "2005-03-18",
-          "division": "Junior",
-          "categoria": "-74 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "All Power CD"
-        },
+
         {
           "nombre": "Agustin Ignacio Ahumada Avalos",
           "rut": "20810878-6",
@@ -160,16 +133,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "Hannya Strength"
         },
-        {
-          "nombre": "Arlik Iván Villanueva Pérez",
-          "rut": "18052244-1",
-          "sexo": "Hombre",
-          "dob": "1992-03-04",
-          "division": "Open",
-          "categoria": "-83 kg (Hombre)",
-          "modalidad": "Powerlifting Classic+Only Bench Classic",
-          "club": "Athor Powerlifting"
-        },
+
         {
           "nombre": "Benjamin Andre Huerta Arraño",
           "rut": "19682575-4",
@@ -230,26 +194,8 @@
           "modalidad": "Powerlifting Classic",
           "club": "Himalaya Powerlifting"
         },
-        {
-          "nombre": "Oscar Eduardo Troncoso Aguilera",
-          "rut": "16783006-4",
-          "sexo": "Hombre",
-          "dob": "1987-10-06",
-          "division": "Open",
-          "categoria": "-83 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Athor Powerlifting"
-        },
-        {
-          "nombre": "Valentin Isaac Cornejo Palma",
-          "rut": "21879058-5",
-          "sexo": "Hombre",
-          "dob": "2005-07-05",
-          "division": "Junior",
-          "categoria": "-83 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
+ 
+    
         {
           "nombre": "Elias Ariel Loewe Steckkonig",
           "rut": "22868639-5",
@@ -260,36 +206,9 @@
           "modalidad": "Powerlifting Classic",
           "club": "Shoganai Strength"
         },
-        {
-          "nombre": "Ignacio Alonso de la Fuente Letelier",
-          "rut": "21823659-6",
-          "sexo": "Hombre",
-          "dob": "2005-04-02",
-          "division": "Junior",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
-        {
-          "nombre": "Ignacio Andres Cabezas Bruna",
-          "rut": "19604978-9",
-          "sexo": "Hombre",
-          "dob": "1996-12-06",
-          "division": "Open",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "All Power CD"
-        },
-        {
-          "nombre": "Joled Mateo Nur Narvaez",
-          "rut": "17340839-0",
-          "sexo": "Hombre",
-          "dob": "1990-04-19",
-          "division": "Open",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Athor Powerlifting"
-        },
+    
+        
+      
         {
           "nombre": "Jonathan Esteban Rojas Rojas",
           "rut": "16280435-9",
@@ -310,16 +229,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "South Side"
         },
-        {
-          "nombre": "Mateo Ortiz Molina",
-          "rut": "21709315-5",
-          "sexo": "Hombre",
-          "dob": "2004-11-14",
-          "division": "Junior",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic+Only Bench Classic",
-          "club": "South Side"
-        },
+       
         {
           "nombre": "Nicolás Octavio Esquivel Vera",
           "rut": "16623271-6",
@@ -330,16 +240,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "Club Bushido Lifting"
         },
-        {
-          "nombre": "Nicolás Vicente Cajas Riera",
-          "rut": "20809863-2",
-          "sexo": "Hombre",
-          "dob": "2002-01-18",
-          "division": "Open",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Iron Forces Powerlifting"
-        },
+    
         {
           "nombre": "Pablo Benjamin Páez Nilo",
           "rut": "20597868-2",
@@ -360,16 +261,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "Iron Forces Powerlifting"
         },
-        {
-          "nombre": "Tomas Andres Garay Avila",
-          "rut": "16377732-0",
-          "sexo": "Hombre",
-          "dob": "1986-01-10",
-          "division": "Master I",
-          "categoria": "-93 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Potencia Muscular"
-        },
+      
         {
           "nombre": "Cristopher Juan Fernando Vega Belmar",
           "rut": "16407799-3",
@@ -380,16 +272,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "All Power CD"
         },
-        {
-          "nombre": "Felipe Ignacio Arias González",
-          "rut": "21308931-5",
-          "sexo": "Hombre",
-          "dob": "2003-05-27",
-          "division": "Junior",
-          "categoria": "-105 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
+  
         {
           "nombre": "Joaquin Andree Riquelme Herrera",
           "rut": "21200141-4",
@@ -420,26 +303,8 @@
           "modalidad": "Powerlifting Classic",
           "club": "Iron Forces Powerlifting"
         },
-        {
-          "nombre": "Vicente Benjamin Contreras Arancibia",
-          "rut": "22780624-9",
-          "sexo": "Hombre",
-          "dob": "2008-07-21",
-          "division": "Subjunior",
-          "categoria": "-105 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "South Side"
-        },
-        {
-          "nombre": "Miguel Carlos Inzunza Pino",
-          "rut": "18119532-0",
-          "sexo": "Hombre",
-          "dob": "1992-04-23",
-          "division": "Open",
-          "categoria": "-120 kg (Hombre)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Los Toros"
-        },
+  
+        
         {
           "nombre": "Claudia Andrea Carvallo Guzmán",
           "rut": "16737160-4",
@@ -460,16 +325,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "Himalaya Powerlifting"
         },
-        {
-          "nombre": "Valentina Paz Osses Mella",
-          "rut": "19171617-5",
-          "sexo": "Mujer",
-          "dob": "1995-06-24",
-          "division": "Open",
-          "categoria": "-57 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Hannya Strength"
-        },
+   
         {
           "nombre": "Claudia Andrea González Sepúlveda",
           "rut": "19230055-K",
@@ -480,16 +336,7 @@
           "modalidad": "Powerlifting Classic",
           "club": "Athor Powerlifting"
         },
-        {
-          "nombre": "Matilde Isidora Ana Karina Lucero Caceres",
-          "rut": "21482061-7",
-          "sexo": "Mujer",
-          "dob": "2004-01-12",
-          "division": "Junior",
-          "categoria": "-63 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Black Bars"
-        },
+       
         {
           "nombre": "Monserrat Trinidad Vera Cubillos",
           "rut": "21626941-1",
@@ -520,26 +367,8 @@
           "modalidad": "Powerlifting Classic",
           "club": "Himalaya Powerlifting"
         },
-        {
-          "nombre": "Tiare Fernanda Pérez Bahamondes",
-          "rut": "21560311-3",
-          "sexo": "Mujer",
-          "dob": "2004-04-28",
-          "division": "Junior",
-          "categoria": "-63 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "South Side"
-        },
-        {
-          "nombre": "Xaviera del Pilar Navarro Medel",
-          "rut": "16743979-9",
-          "sexo": "Mujer",
-          "dob": "1987-09-01",
-          "division": "Open",
-          "categoria": "-63 kg (Mujer)",
-          "modalidad": "Powerlifting Classic+Only Bench Classic",
-          "club": "Athor Powerlifting"
-        },
+      
+     
         {
           "nombre": "Francisca Constanza Cortés Acuña",
           "rut": "20680481-5",
@@ -560,36 +389,8 @@
           "modalidad": "Powerlifting Classic",
           "club": "All Power CD"
         },
-        {
-          "nombre": "Florencia Amapola Riveaud Pérez",
-          "rut": "21159132-3",
-          "sexo": "Mujer",
-          "dob": "2002-11-07",
-          "division": "Open",
-          "categoria": "-76 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Hannya Strength"
-        },
-        {
-          "nombre": "Nataly Alejandra Torres Diaz",
-          "rut": "20151161-5",
-          "sexo": "Mujer",
-          "dob": "1999-07-19",
-          "division": "Open",
-          "categoria": "-76 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Los Toros"
-        },
-        {
-          "nombre": "Victoria Beatriz Palacios Pino",
-          "rut": "21697455-7",
-          "sexo": "Mujer",
-          "dob": "2004-11-02",
-          "division": "Junior",
-          "categoria": "-76 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Himalaya Powerlifting"
-        },
+        
+        
         {
           "nombre": "Andrea Lisbeth Fábregas Schliewe",
           "rut": "21031231-5",
@@ -619,26 +420,6 @@
           "categoria": "+84 kg (Mujer)",
           "modalidad": "Powerlifting Classic",
           "club": "Athor Powerlifting"
-        },
-        {
-          "nombre": "Maria Veronica Almeida Georgerin",
-          "rut": "23727832-1",
-          "sexo": "Mujer",
-          "dob": "1986-07-30",
-          "division": "Master I",
-          "categoria": "+84 kg (Mujer)",
-          "modalidad": "Powerlifting Classic",
-          "club": "Athor Powerlifting"
-        },
-        {
-          "nombre": "Romy Catalina Echeverría Ortega",
-          "rut": "20880308-5",
-          "sexo": "Mujer",
-          "dob": "2002-10-15",
-          "division": "Open",
-          "categoria": "-84 kg (Mujer)",
-          "modalidad": "Only Bench Classic",
-          "club": "Potencia Muscular"
         }
       ],
       "extraCols": [
