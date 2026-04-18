@@ -45,6 +45,8 @@ const LIFTS_NAMES=['SQUAT','BENCH PRESS','DEADLIFT'];
 
 let NM={events:[]}, DB=[], selectedEvent=null, flights=[];
 let config={morningStart:'09:00',afternoonStart:'14:30',minPerAthlete:3,breakBetweenLifts:10,breakMorningAfternoon:60,adminUnlocked:false};
+let coachUser=null; // {email, nombre, grado, rut} when coach is logged in
+let ACCRED={}; // {nombreAtleta_eventoId: {entrenador, handler}} cached from Firestore
 
 // Firebase for flight sync
 const FB_CFG={apiKey:"AIzaSyA21IHMus2bklPLJm7ExRrVJJL9bzLhyp4",authDomain:"fechipo-db-13148.firebaseapp.com",projectId:"fechipo-db-13148",storageBucket:"fechipo-db-13148.firebasestorage.app",messagingSenderId:"551573388751",appId:"1:551573388751:web:5fcc377a8d595378ab26ba"};
@@ -56,7 +58,7 @@ async function initCronoFB(){
     const authMod=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const app=initializeApp(FB_CFG);fbDB=fb.getFirestore(app);
     fbAuthMod=authMod;fbAuthInst=authMod.getAuth(app);
-    window._fb=fb;window._fbAuth=authMod;
+    window._fb=fb;window._fbAuth=authMod;window._fb.getDoc=fb.getDoc;window._fb.where=fb.where;window._fb.query=fb.query;
     // Auth state listener
     authMod.onAuthStateChanged(fbAuthInst,user=>{
       fbAuthUser=user;
@@ -102,6 +104,91 @@ let NOM_EVENTS=[
   {id:'universitario_2026',name:'Primer Campeonato Nacional Universitario FECHIPO 2026',date:'2026-05-23',closeDate:'2026-04-23',location:'Talca',org:'Club Bushido Lifting',days:'23 de Mayo',status:'open'},
   {id:'Campeonato_de_debutantes',name:'Campeonato de Debutantes',date:'2026-XX-XX',closeDate:'2026-XX-XX',location:'Santiago, Ñuñoa',org:'All Power',days:'Por definir',status:'open'},
 ];
+
+// ── COACH AUTH ────────────────────────────────────────────
+function showCoachLogin(){
+  const ex=document.getElementById('coachModal');if(ex)ex.remove();
+  const m=document.createElement('div');m.id='coachModal';
+  m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999';
+  m.innerHTML=`<div style="background:#0D1F38;border:2px solid var(--gold);border-radius:16px;padding:32px;width:min(380px,90vw);text-align:center">
+    <div style="font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:2px;margin-bottom:4px;color:var(--gold)">🏋️ ENTRENADOR / HANDLER</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Correo electrónico y RUT sin puntos ni guión</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input id="coachEmail" type="email" placeholder="tu@correo.cl" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%">
+      <input id="coachPass" type="password" placeholder="RUT sin puntos ni guión (ej: 214543508)" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%" onkeydown="if(event.key==='Enter')doCoachLogin()">
+      <div id="coachErr" style="color:var(--red);font-size:12px;display:none"></div>
+      <button onclick="doCoachLogin()" style="padding:10px;border-radius:8px;border:none;background:var(--gold);color:#000;font-family:Oswald;font-size:14px;font-weight:700;cursor:pointer">Ingresar</button>
+      <button onclick="document.getElementById('coachModal').remove()" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('coachEmail')?.focus(),100);
+}
+
+async function doCoachLogin(){
+  const email=(document.getElementById('coachEmail').value||'').trim().toLowerCase();
+  const pass=(document.getElementById('coachPass').value||'').trim();
+  const err=document.getElementById('coachErr');
+  err.style.display='none';
+  if(!email||!pass){err.style.display='block';err.textContent='Completa ambos campos';return;}
+  if(!fbReady){err.style.display='block';err.textContent='Sin conexión a Firebase';return;}
+  try{
+    const id=email.replace(/[.@]/g,'_');
+    const snap=await window._fb.getDoc(window._fb.doc(fbDB,'coaches',id));
+    if(!snap.exists()){err.style.display='block';err.textContent='Correo no registrado como entrenador acreditado';return;}
+    const data=snap.data();
+    if(data.password!==pass){err.style.display='block';err.textContent='Contraseña incorrecta — usa tu RUT sin puntos ni guión';return;}
+    coachUser={email:data.email,nombre:data.nombre,grado:data.grado,rut:data.rut};
+    document.getElementById('coachModal')?.remove();
+    if(selectedEvent)await loadAccreditations();
+    render();
+  }catch(e){err.style.display='block';err.textContent='Error: '+e.message;console.error(e);}
+}
+
+function doCoachLogout(){coachUser=null;render();}
+
+// ── ACREDITACIONES ────────────────────────────────────────
+async function loadAccreditations(){
+  if(!fbReady||!selectedEvent)return;
+  try{
+    const evId=selectedEvent.id||selectedEvent.name;
+    const snap=await window._fb.getDocs(
+      window._fb.query(window._fb.collection(fbDB,'acreditaciones'),window._fb.where('eventoId','==',evId))
+    );
+    ACCRED={};
+    snap.forEach(d=>{const dat=d.data();if(dat.atletaNombre)ACCRED[dat.atletaNombre]=dat;});
+  }catch(e){console.warn('[Crono] Accred load error',e);}
+}
+
+async function saveAccredField(atletaNombre,field,value){
+  if(!fbReady||!selectedEvent)return;
+  const evId=selectedEvent.id||selectedEvent.name;
+  if(!ACCRED[atletaNombre])ACCRED[atletaNombre]={atletaNombre,eventoId:evId};
+  ACCRED[atletaNombre][field]=value;
+  ACCRED[atletaNombre].updatedBy=coachUser?.nombre||fbAuthUser?.email||'admin';
+  ACCRED[atletaNombre].updatedAt=new Date().toISOString();
+  try{
+    const docId=(evId+'_'+atletaNombre).replace(/[^a-zA-Z0-9_-]/g,'_').substring(0,150);
+    await window._fb.setDoc(window._fb.doc(fbDB,'acreditaciones',docId),ACCRED[atletaNombre],{merge:true});
+  }catch(e){console.warn('[Crono] Save accred error',e);}
+}
+
+function _canEditAccred(){return coachUser!==null||config.adminUnlocked;}
+
+function renderAccredCell(nombre,field,borderColor,textColor){
+  const val=(ACCRED[nombre]||{})[field]||'';
+  const safeName=nombre.replace(/\\/g,'\\\\').replace(/'/g,'\\\'');
+  if(_canEditAccred()){
+    return '<input type="text" value="'+val.replace(/"/g,'&quot;')+'" placeholder="—" '
+      +'style="width:100%;background:var(--bg);border:1px solid '+borderColor+';color:var(--text);'
+      +'padding:4px 6px;border-radius:5px;font-size:11px;" '
+      +'onchange="saveAccredField(\''+safeName+'\',\''+field+'\',this.value)">';
+  }
+  return val
+    ?'<span style="font-size:11px;color:'+textColor+'">'+val+'</span>'
+    :'<span style="font-size:11px;opacity:.3">—</span>';
+}
+
 
 function _cronoApplyNominas(all){
   const visible=all.filter(i=>i.status==='approved'||i.status==='pending');
@@ -224,7 +311,7 @@ function renderEventList(){
   h+='</div>';document.getElementById('content').innerHTML=h;
 }
 
-function selectEvent(i){selectedEvent=NM.events[i];loadOrGenerateFlights();render()}
+function selectEvent(i){selectedEvent=NM.events[i];loadOrGenerateFlights();if(fbReady)loadAccreditations().then(()=>render());else render();}
 
 function flightKey(){return 'fechipo_crono_'+(selectedEvent?.name||'').replace(/\s+/g,'_')}
 
@@ -366,6 +453,7 @@ function renderCronograma(){
     <div><h2 class="os" style="font-size:22px;letter-spacing:1px">${ev.name}</h2>
     <p style="color:var(--muted);font-size:12px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p></div>
     <div style="display:flex;gap:8px"><button class="btn btn-o" onclick="selectedEvent=null;render()">← Volver</button>
+    ${coachUser?`<button class="btn" onclick="doCoachLogout()" style="background:rgba(212,168,67,.15);border:1px solid var(--gold);color:var(--gold);font-size:11px;padding:6px 12px">🏋️ ${coachUser.nombre.split(' ')[0]} · Salir</button>`:`<button class="btn" onclick="showCoachLogin()" style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.4);color:var(--gold);font-size:11px;padding:6px 12px">🏋️ Entrenador / Handler</button>`}
     <button class="btn btn-o" onclick="resetFlights()">↺ Regenerar</button>
     <button class="btn btn-o" onclick="addFlight()">+ Vuelo</button>
     ${config.adminUnlocked?`<button class="btn btn-g" onclick="doLogout()" style="font-size:11px">🔓 ${fbAuthUser?.email?.split('@')[0]||'Admin'} · Salir</button>`:`<button class="btn btn-r" onclick="checkAdmin()" style="font-size:11px">🔒 Admin</button>`}</div>
@@ -512,6 +600,8 @@ function renderCronograma(){
           <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">DIVISIÓN</th>
           <th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">CATEGORÍA</th>
           <th style="padding:6px 4px;text-align:left;color:var(--muted);font-size:9px">CLUB</th>
+          <th style="padding:6px 4px;text-align:left;color:var(--gold);font-size:9px;min-width:110px">ENTRENADOR</th>
+          <th style="padding:6px 4px;text-align:left;color:var(--blue);font-size:9px;min-width:100px">HANDLER</th>
           ${config.adminUnlocked?'<th style="padding:6px 4px;text-align:center;color:var(--muted);font-size:9px">MOVER</th>':''}
         </tr></thead><tbody>`;
     f.athletes.forEach((a,ai)=>{
@@ -522,6 +612,9 @@ function renderCronograma(){
         <td style="padding:5px 4px;text-align:center;font-size:11px">${a.division||''}</td>
         <td style="padding:5px 4px;text-align:center;font-size:11px">${a.categoria||''}</td>
         <td style="padding:5px 4px;font-size:11px;color:var(--muted)">${a.club||''}</td>
+        <td style="padding:3px 2px">${renderAccredCell(a.nombre,'entrenador','rgba(212,168,67,.3)','var(--gold)')}</td>
+        <td style="padding:3px 2px">${renderAccredCell(a.nombre,'handler','rgba(59,130,246,.3)','var(--blue)')}</td>
+
         ${config.adminUnlocked?`<td style="padding:5px 4px;text-align:center"><select style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:Oswald;font-size:11px;cursor:pointer" onchange="moveAthlete(${fi},${ai},this.value)">${flightOptions}</select></td>`:''}
       </tr>`;
     });

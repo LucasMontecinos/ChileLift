@@ -153,14 +153,9 @@ const CLUBS = [
   "REMA","Shoganai Strength","South Side Club","Otro"
 ];
 
-// EVENTS loaded dynamically from Firestore (see loadEventos / state.eventos)
-let EVENTS = []; // populated on Firebase init — fallback to empty
-// Seed events (used if Firestore is empty / offline)
-const SEED_EVENTS = [
-  {id:"regional_centro_2026", name:"Campeonato Regional Centro FECHIPO 2026", date:"2026-05-09", closeDate:"2026-04-09", location:"Santiago, RM", org:"Athor Powerlifting", days:"09 y 10 de Mayo", status:"open", extraCols:["modalidad"]},
-  {id:"universitario_2026", name:"Primer Campeonato Nacional Universitario FECHIPO 2026", date:"2026-05-23", closeDate:"2026-04-23", location:"Talca", org:"Club Bushido Lifting", days:"23 de Mayo", status:"open", extraCols:["universidad"]},
-  {id:"Campeonato_de_debutantes", name:"Campeonato de Debutantes 2026", date:"2026-06-13", closeDate:"2026-05-12", location:"Santiago, Ñuñoa", org:"All Power CD", days:"13 de Junio", status:"open", extraCols:["modalidad"]},
-];
+// EVENTS loaded exclusively from Firestore eventos collection
+// Created and managed only through admin.html — no hardcoded events
+let EVENTS = [];
 
 const CATEGORIES_M = ["-53 kg","-59 kg","-66 kg","-74 kg","-83 kg","-93 kg","-105 kg","-120 kg","+120 kg"];
 const CATEGORIES_F = ["-43 kg","-47 kg","-52 kg","-57 kg","-63 kg","-69 kg","-76 kg","-84 kg","+84 kg"];
@@ -276,39 +271,33 @@ let state = {
 
 // ── Firestore eventos ────────────────────────────────────────
 async function loadEventos() {
-  if (!firebaseReady) { EVENTS = SEED_EVENTS.filter(e=>e.status!=='archived'); render(); return; }
+  if (!firebaseReady) {
+    // Without Firebase, show nothing — events only come from admin
+    EVENTS = [];
+    render();
+    return;
+  }
   try {
-    // Seed Firestore if empty
-    const snap = await window.FB.getDocs(window.FB.collection(db, 'eventos'));
-    if (snap.empty) {
-      // First run: write seed events to Firestore
-      await Promise.all(SEED_EVENTS.map(ev =>
-        window.FB.setDoc(window.FB.doc(db, 'eventos', ev.id), {
-          ...ev, createdAt: window.FB.serverTimestamp(), updatedAt: window.FB.serverTimestamp()
-        })
-      ));
-    }
-    // Real-time listener
     if (!window._eventosListener) {
       window._eventosListener = window.FB.onSnapshot(
         window.FB.collection(db, 'eventos'),
         (snap) => {
-          const evs = snap.docs.map(d => ({...d.data(), id: d.id}))
+          EVENTS = snap.docs.map(d => ({...d.data(), id: d.id}))
             .sort((a,b) => (a.date||'').localeCompare(b.date||''));
-          EVENTS = evs;
           render();
         }
       );
     }
   } catch(e) {
     console.warn('Eventos load error', e);
-    EVENTS = SEED_EVENTS.filter(e=>e.status!=='archived');
+    EVENTS = [];
     render();
   }
 }
 
 function openEventsFromFirebase() {
-  return EVENTS.filter(e => e.status !== 'archived' && e.status !== 'draft');
+  // Only show events explicitly marked as 'open' by admin
+  return EVENTS.filter(e => e.status === 'open');
 }
 
 const ADMIN_PIN = '2026';
@@ -358,7 +347,15 @@ function renderForm() {
   // STEP 0: Event selection
   if (s === 0) {
     h += `<div class="card"><h3 class="os" style="font-size:16px;letter-spacing:1px;margin-bottom:16px">Selecciona la Competencia</h3>`;
-    openEventsFromFirebase().forEach(ev => {
+    const openEvs = openEventsFromFirebase();
+    if (!openEvs.length) {
+      h += `<div style="text-align:center;padding:40px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:12px">🏋️</div>
+        <div style="font-family:Oswald;font-size:16px;letter-spacing:1px;margin-bottom:8px">No hay campeonatos abiertos</div>
+        <div style="font-size:13px">Las inscripciones serán habilitadas por la federación próximamente.</div>
+      </div>`;
+    }
+    openEvs.forEach(ev => {
       const sel = f.evento === ev.id;
       const isClosed = ev.status==='closed' || (ev.closeDate && new Date() > new Date(ev.closeDate + 'T23:59:59'));
       h += `<div onclick="${isClosed?'':`selectEvent('${ev.id}')`}" style="padding:16px;border-radius:10px;border:2px solid ${sel?'var(--accent)':isClosed?'var(--border)':'var(--border)'};background:${sel?'rgba(196,30,58,.08)':'transparent'};margin-bottom:10px;cursor:${isClosed?'not-allowed':'pointer'};transition:all .2s;opacity:${isClosed?'.5':'1'}">
