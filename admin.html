@@ -447,6 +447,38 @@ window.exportData=function(){
   logAction('export','data.json',null,`${ST.data.length} athletes`);
 }
 
+// ── OPL Export ──────────────────────────────────────────────
+window.exportOPL=function(eventoId){
+  const list=ST.inscripciones.filter(i=>
+    (!eventoId||i.evento===eventoId)&&i.status==='approved'
+  );
+  if(!list.length){showToast('Sin inscripciones aprobadas para exportar',null,true);return;}
+  // OPL CSV format: Name,Sex,Event,Equipment,Age,AgeClass,BirthYearClass,Division,
+  // BodyweightKg,WeightClassKg,Squat1Kg,...,TotalKg,Place,Federation,Date,MeetCountry,MeetState,MeetTown,MeetName
+  const today=new Date().toISOString().slice(0,10);
+  const evName=eventoId?(ST.eventos.find(e=>e.id===eventoId)?.name||eventoId):'FECHIPO 2026';
+  const header='Name,Sex,Event,Equipment,Age,AgeClass,BirthYearClass,Division,BodyweightKg,WeightClassKg,Squat1Kg,Squat2Kg,Squat3Kg,Bench1Kg,Bench2Kg,Bench3Kg,Deadlift1Kg,Deadlift2Kg,Deadlift3Kg,TotalKg,Place,Federation,Date,MeetCountry,MeetState,MeetTown,MeetName';
+  const rows=list.map(i=>{
+    const sex=i.sexo==='Hombre'||i.sexo==='Masculino'||i.sexo==='M'?'M':'F';
+    const modal=(i.modalidad||'').toLowerCase();
+    const event=modal.includes('bench')?'B':'SBD';
+    const equip=modal.includes('equip')?'Single-ply':'Raw';
+    const catKg=parseFloat((i.categoria||'').replace(/[^0-9.+]/g,''))||'';
+    let age='';
+    if(i.fechaNac){try{const b=new Date(i.fechaNac);age=Math.floor((new Date()-b)/365.25/86400000);}catch(e){}}
+    const div=(i.division||'Open').replace('Sub-Junior','Sub-Juniors').replace('Junior','Juniors').replace('Open','Open').replace('Master I','Masters 1').replace('Master II','Masters 2').replace('Master III','Masters 3').replace('Master IV','Masters 4');
+    return [i.nombre,'',sex,event,equip,age||'','','',div,'',catKg,'','','','','','','','','','','','','CHL','RM','',evName].join(',');
+  });
+  const csv=[header,...rows].join('
+');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download='OPL_'+((eventoId||'fechipo').replace(/\s+/g,'_'))+'_'+today+'.csv';
+  a.click();
+  showToast('✅ CSV OPL exportado — '+list.length+' atletas');
+};
+
 window.exportNominas=function(){
   const blob=new Blob([JSON.stringify(ST.nominas,null,2)],{type:'application/json'});
   const u=URL.createObjectURL(blob);
@@ -1164,6 +1196,13 @@ function renderExports(){
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-b" onclick="exportData()" style="text-align:left;padding:14px">📥 data.json (${ST.data.length} atletas)</button>
         <button class="btn btn-b" onclick="exportNominas()" style="text-align:left;padding:14px">📥 nominas.json (${ST.nominas.events?.length||0} eventos)</button>
+        <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-family:Oswald;letter-spacing:1px">OPL FORMAT (OPENPOWERLIFTING)</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-g" onclick="exportOPL()" style="text-align:left;padding:12px">🏋️ OPL CSV — todos los aprobados</button>
+            ${ST.eventos.filter(e=>e.status!=='archived').map(ev=>`<button class='btn' onclick='exportOPL("${ev.id}")' style='text-align:left;padding:10px;font-size:12px;background:transparent;border:1px solid var(--border)'>🏋️ OPL — ${ev.name}</button>`).join('')}
+          </div>
+        </div>
         <button class="btn btn-b" onclick="exportInscripciones()" style="text-align:left;padding:14px">📥 inscripciones.json (${ST.inscripciones.length} entradas)</button>
       </div>
       <p style="color:var(--muted);font-size:11px;margin-top:14px">⚠️ Los archivos descargados incluyen las ediciones de admin aplicadas.</p>

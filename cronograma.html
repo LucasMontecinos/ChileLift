@@ -37,7 +37,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 const FL_C=['#3b82f6','#f59e0b','#22c55e','#a855f7','#ec4899','#06b6d4','#ef4444','#84cc16','#f97316','#6366f1'];
 const FL_L='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const MIN_FLIGHT=8, MAX_FLIGHT=14;
-const ADMIN_PIN='2026';
+// ── Firebase Auth for admin ──────────────────────────────────
+let fbAuthUser = null;
+let fbAuthMod  = null;
+let fbAuthInst = null;
 const LIFTS_NAMES=['SQUAT','BENCH PRESS','DEADLIFT'];
 
 let NM={events:[]}, DB=[], selectedEvent=null, flights=[];
@@ -52,7 +55,15 @@ async function initCronoFB(){
     const fb=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
     const authMod=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const app=initializeApp(FB_CFG);fbDB=fb.getFirestore(app);
+    fbAuthMod=authMod;fbAuthInst=authMod.getAuth(app);
     window._fb=fb;window._fbAuth=authMod;
+    // Auth state listener
+    authMod.onAuthStateChanged(fbAuthInst,user=>{
+      fbAuthUser=user;
+      if(user){config.adminUnlocked=true;}
+      else{config.adminUnlocked=false;}
+      render();
+    });
     // Load inscripciones once (for flight sync lookups)
     const snap=await fb.getDocs(fb.collection(fbDB,'inscripciones'));
     fbInscripciones=[];snap.forEach(d=>fbInscripciones.push({id:d.id,...d.data()}));
@@ -149,9 +160,49 @@ function render(){
 
 function checkAdmin(){
   if(config.adminUnlocked)return true;
-  const p=prompt('Clave de administrador:');
-  if(p===ADMIN_PIN){config.adminUnlocked=true;return true}
-  alert('Clave incorrecta');return false;
+  // Already logged in via Firebase?
+  if(fbAuthUser){config.adminUnlocked=true;return true;}
+  // Show login modal
+  showLoginModal();
+  return false;
+}
+
+function showLoginModal(){
+  const ex=document.getElementById('loginModal');if(ex)ex.remove();
+  const m=document.createElement('div');m.id='loginModal';
+  m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999';
+  m.innerHTML=`<div style="background:#0D1F38;border:2px solid var(--border);border-radius:16px;padding:32px;width:min(380px,90vw);text-align:center">
+    <div style="font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:2px;margin-bottom:20px">🔒 ADMIN — CRONOGRAMA</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <input id="loginEmail" type="email" placeholder="Email admin" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%">
+      <input id="loginPass" type="password" placeholder="Contraseña" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%" onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="loginErr" style="color:var(--red);font-size:12px;display:none"></div>
+      <button onclick="doLogin()" style="padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:Oswald;font-size:14px;font-weight:700;cursor:pointer">Ingresar</button>
+      <button onclick="document.getElementById('loginModal').remove()" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;font-size:12px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  err.style.display='none';
+  try{
+    await fbAuthMod.signInWithEmailAndPassword(fbAuthInst,email,pass);
+    // onAuthStateChanged will set fbAuthUser and trigger render
+    document.getElementById('loginModal')?.remove();
+  }catch(e){
+    err.style.display='block';
+    err.textContent=e.code==='auth/wrong-password'||e.code==='auth/user-not-found'?'Email o contraseña incorrectos':'Error: '+e.message;
+  }
+}
+
+async function doLogout(){
+  await fbAuthMod.signOut(fbAuthInst);
+  fbAuthUser=null;config.adminUnlocked=false;
+  selectedEvent=null;render();
 }
 
 function updateConfig(key,val){
@@ -314,10 +365,10 @@ function renderCronograma(){
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
     <div><h2 class="os" style="font-size:22px;letter-spacing:1px">${ev.name}</h2>
     <p style="color:var(--muted);font-size:12px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p></div>
-    <div style="display:flex;gap:8px"><button class="btn btn-o" onclick="selectedEvent=null;config.adminUnlocked=false;render()">← Volver</button>
+    <div style="display:flex;gap:8px"><button class="btn btn-o" onclick="selectedEvent=null;render()">← Volver</button>
     <button class="btn btn-o" onclick="resetFlights()">↺ Regenerar</button>
     <button class="btn btn-o" onclick="addFlight()">+ Vuelo</button>
-    <button class="btn ${config.adminUnlocked?'btn-g':'btn-r'}" onclick="checkAdmin();render()">${config.adminUnlocked?'🔓 Admin':'🔒 Admin'}</button></div>
+    ${config.adminUnlocked?`<button class="btn btn-g" onclick="doLogout()" style="font-size:11px">🔓 ${fbAuthUser?.email?.split('@')[0]||'Admin'} · Salir</button>`:`<button class="btn btn-r" onclick="checkAdmin()" style="font-size:11px">🔒 Admin</button>`}</div>
   </div>`;
   
   // Config (password protected)

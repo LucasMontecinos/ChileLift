@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YourLift — Perfil de Atleta</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0A1628;--card:#0f1e35;--border:#1E3A5F;--text:#D4E1F0;--muted:#7A8FA6;--accent:#C41E3A;--green:#22c55e;--gold:#D4A843;--blue:#3b82f6;--orange:#f59e0b}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.os{font-family:'Oswald',sans-serif}
+.container{max-width:800px;margin:0 auto;padding:20px 16px 60px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.b-g{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.b-r{background:rgba(196,30,58,.15);color:var(--accent);border:1px solid rgba(196,30,58,.3)}
+.b-y{background:rgba(212,168,67,.15);color:var(--gold);border:1px solid rgba(212,168,67,.3)}
+.b-b{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.stat-val{font-family:Oswald;font-size:28px;font-weight:700}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.lift-row{display:flex;gap:6px;margin-top:8px}
+.lift-box{flex:1;background:var(--bg);border-radius:8px;padding:8px;text-align:center}
+.lift-lbl{font-size:9px;color:var(--muted);font-family:Oswald;letter-spacing:1px}
+.lift-val{font-family:Oswald;font-size:20px;font-weight:700;margin-top:2px}
+.bar-wrap{background:rgba(30,58,95,.3);border-radius:4px;height:6px;overflow:hidden;margin-top:4px}
+.bar-fill{height:100%;border-radius:4px;transition:width .5s}
+.search-box{display:flex;gap:10px;margin-bottom:24px}
+.inp{background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px 16px;font-size:15px;font-family:DM Sans;outline:none;transition:border-color .15s;width:100%}
+.inp:focus{border-color:var(--accent)}
+.btn{padding:12px 20px;border-radius:10px;border:none;font-family:Oswald;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .15s}
+.btn-r{background:var(--accent);color:#fff}
+.btn-r:hover{opacity:.9}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.comp-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(30,58,95,.4)}
+.comp-row:last-child{border-bottom:none}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.header-nav{display:flex;justify-content:space-between;align-items:center;padding:16px 16px 0;max-width:800px;margin:0 auto}
+</style>
+</head>
+<body>
+
+<div class="header-nav">
+  <a href="index.html" style="font-family:Oswald;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--text)">
+    YOUR<span style="color:var(--accent)">LIFT</span>
+  </a>
+  <span style="font-size:12px;color:var(--muted)">Perfil de Atleta</span>
+</div>
+
+<div class="container">
+
+  <!-- Search -->
+  <div id="searchSection">
+    <h1 class="os" style="font-size:clamp(22px,5vw,32px);font-weight:700;letter-spacing:2px;margin:24px 0 6px">
+      BUSCAR <span style="color:var(--accent)">ATLETA</span>
+    </h1>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:20px">
+      Busca por nombre o código FECHIPO. No se muestra el RUT en esta vista.
+    </p>
+    <div class="search-box">
+      <input class="inp" id="searchInput" placeholder="Nombre o código FECHIPO..." autocomplete="off"
+        oninput="onSearch(this.value)" onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="btn btn-r" onclick="doSearch()">Buscar</button>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <!-- Profile -->
+  <div id="profileSection" style="display:none"></div>
+
+</div>
+
+<script type="module">
+// ── Firebase ─────────────────────────────────────────────────
+const FB_CFG={apiKey:"AIzaSyA21IHMus2bklPLJm7ExRrVJJL9bzLhyp4",authDomain:"fechipo-db-13148.firebaseapp.com",projectId:"fechipo-db-13148",storageBucket:"fechipo-db-13148.firebasestorage.app",messagingSenderId:"551573388751",appId:"1:551573388751:web:5fcc377a8d595378ab26ba"};
+
+let fbDB=null,fbReady=false;
+let DB_FULL=[];     // data.json athletes
+let INSCRIPCIONES=[];
+let NOM_EVENTS=[];
+
+(async()=>{
+  try{
+    const{initializeApp}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const fb=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const app=initializeApp(FB_CFG);
+    fbDB=fb.getFirestore(app);
+    window._fb=fb; fbReady=true;
+    // Load inscripciones for status check
+    fb.onSnapshot(fb.collection(fbDB,'inscripciones'),(snap)=>{
+      INSCRIPCIONES=snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(window._currentCodigo)showProfile(window._currentCodigo);
+    });
+    // Load eventos
+    fb.onSnapshot(fb.collection(fbDB,'eventos'),(snap)=>{
+      NOM_EVENTS=snap.docs.map(d=>({...d.data(),id:d.id}))
+        .filter(e=>e.status!=='archived');
+    });
+  }catch(e){console.warn('Firebase unavailable',e)}
+  // Load data.json
+  try{
+    const d=await fetch('data.json').then(r=>r.json());
+    DB_FULL=d;
+    // Auto-load from URL ?codigo=
+    const params=new URLSearchParams(location.search);
+    const cod=params.get('codigo');
+    if(cod)showProfile(cod.toUpperCase());
+  }catch(e){console.warn('data.json unavailable',e)}
+})();
+
+// ── Search ──────────────────────────────────────────────────
+function nrm(s){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+
+window.onSearch=function(val){
+  if(val.length<2){document.getElementById('searchResults').innerHTML='';return}
+  const q=nrm(val);
+  const matches=DB_FULL.filter(a=>{
+    const n=nrm(a.nombre);
+    const c=(a.codigo||'').toLowerCase();
+    return n.includes(q)||c.includes(q)||q.split(' ').filter(w=>w.length>1).every(w=>n.includes(w));
+  }).slice(0,8);
+  renderSearchResults(matches);
+}
+
+window.doSearch=function(){
+  onSearch(document.getElementById('searchInput').value);
+}
+
+function renderSearchResults(matches){
+  const el=document.getElementById('searchResults');
+  if(!matches.length){el.innerHTML='<p style="color:var(--muted);font-size:13px;margin-top:8px">Sin resultados.</p>';return}
+  el.innerHTML=matches.map(a=>`
+    <div onclick="showProfile('${a.codigo}')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+      <div>
+        <div style="font-weight:600;font-size:14px">${a.nombre}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${a.club||'—'} · ${(a.competencias||[]).length} competencias</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:Oswald;font-size:12px;color:var(--gold)">${a.codigo}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${a.debut||'—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Profile ─────────────────────────────────────────────────
+window.showProfile=function(codigo){
+  window._currentCodigo=codigo;
+  const a=DB_FULL.find(x=>x.codigo===codigo);
+  if(!a){
+    document.getElementById('profileSection').innerHTML='<div class="empty">Atleta no encontrado</div>';
+    document.getElementById('profileSection').style.display='block';
+    return;
+  }
+  history.replaceState(null,'','?codigo='+codigo);
+
+  const comps=(a.competencias||[]).filter(c=>c.resultado&&c.resultado.total>0);
+  const bl=a.bestLifts||{};
+  const totalComps=(a.competencias||[]).length;
+
+  // GL points history (for chart)
+  const glHistory=comps
+    .filter(c=>c.resultado?.gl>0)
+    .sort((a,b)=>String(a.evento).localeCompare(String(b.evento)));
+
+  // Active inscriptions (not rejected)
+  const activeInsc=INSCRIPCIONES.filter(i=>
+    i.status!=='rejected'&&
+    (nrm(i.nombre)===nrm(a.nombre)||(i.codigo&&i.codigo===codigo))
+  );
+
+  const maxGL=Math.max(...glHistory.map(c=>c.resultado.gl),1);
+  const minGL=Math.min(...glHistory.filter(c=>c.resultado.gl>0).map(c=>c.resultado.gl),maxGL);
+
+  // Sex from most recent competition
+  let sex='';
+  const lastComp=[...(a.competencias||[])].reverse().find(c=>c.sexo);
+  if(lastComp)sex=lastComp.sexo;
+
+  const initials=a.nombre.split(' ').map(w=>w[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+
+  let h=`
+  <button onclick="backToSearch()" style="display:flex;align-items:center;gap:6px;background:transparent;border:none;color:var(--muted);font-family:DM Sans;font-size:13px;cursor:pointer;margin-bottom:16px;padding:0">
+    ← Volver a búsqueda
+  </button>
+
+  <!-- Header card -->
+  <div class="card" style="border-left:4px solid var(--accent)">
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="width:72px;height:72px;border-radius:14px;background:var(--bg);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <span class="os" style="font-size:28px;font-weight:700;color:var(--muted)">${initials}</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="os" style="font-size:clamp(18px,4vw,26px);font-weight:700;letter-spacing:1px">${a.nombre}</div>
+        <div style="font-size:13px;color:var(--gold);font-family:Oswald;margin-top:2px">${a.codigo}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${a.club||'—'}${a.debut?' · Debut '+a.debut:''}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${sex?`<span class="badge ${sex==='Hombre'||sex==='Masculino'?'b-b':'b-r'}">${sex==='Hombre'||sex==='Masculino'?'♂ Hombre':'♀ Mujer'}</span>`:''}
+          <span class="badge b-y">${totalComps} competencia${totalComps!==1?'s':''}</span>
+          ${comps.length?`<span class="badge b-g">${comps.length} resultado${comps.length!==1?'s':''}</span>`:''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // PRs
+  if(bl.sq||bl.bp||bl.dl||bl.total){
+    h+=`<div class="card">
+      <div class="os" style="font-size:12px;letter-spacing:2px;color:var(--muted);margin-bottom:12px">MEJORES MARCAS PERSONALES</div>
+      <div class="lift-row">
+        <div class="lift-box" style="border:1px solid rgba(59,130,246,.2)">
+          <div class="lift-lbl" style="color:var(--blue)">SQUAT</div>
+          <div class="lift-val" style="color:var(--blue)">${bl.sq||'—'}</div>
+          ${bl.sq?'<div style="font-size:9px;color:var(--muted);margin-top:1px">kg</div>':''}
+        </div>
+        <div class="lift-box" style="border:1px solid rgba(245,158,11,.2)">
+          <div class="lift-lbl" style="color:var(--orange)">BENCH</div>
+          <div class="lift-val" style="color:var(--orange)">${bl.bp||'—'}</div>
+          ${bl.bp?'<div style="font-size:9px;color:var(--muted);margin-top:1px">kg</div>':''}
+        </div>
+        <div class="lift-box" style="border:1px solid rgba(34,197,94,.2)">
+          <div class="lift-lbl" style="color:var(--green)">DEADLIFT</div>
+          <div class="lift-val" style="color:var(--green)">${bl.dl||'—'}</div>
+          ${bl.dl?'<div style="font-size:9px;color:var(--muted);margin-top:1px">kg</div>':''}
+        </div>
+        <div class="lift-box" style="border:1px solid rgba(212,168,67,.3)">
+          <div class="lift-lbl" style="color:var(--gold)">TOTAL</div>
+          <div class="lift-val" style="color:var(--gold)">${bl.total||'—'}</div>
+          ${bl.total?'<div style="font-size:9px;color:var(--muted);margin-top:1px">kg</div>':''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // GL chart
+  if(glHistory.length>1){
+    const chartW=340,chartH=80,padX=8,padY=8;
+    const pts=glHistory.map((c,i)=>{
+      const x=padX+i*(chartW-padX*2)/(glHistory.length-1);
+      const y=padY+(chartH-padY*2)*(1-(c.resultado.gl-minGL)/Math.max(maxGL-minGL,1));
+      return{x,y,gl:c.resultado.gl,ev:c.evento};
+    });
+    const polyline=pts.map(p=>`${p.x},${p.y}`).join(' ');
+    const area=`${padX},${chartH} `+polyline+` ${pts[pts.length-1].x},${chartH}`;
+    h+=`<div class="card">
+      <div class="os" style="font-size:12px;letter-spacing:2px;color:var(--muted);margin-bottom:10px">EVOLUCIÓN GL POINTS</div>
+      <svg viewBox="0 0 ${chartW} ${chartH+20}" style="width:100%;max-width:${chartW}px">
+        <defs><linearGradient id="glGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#D4A843" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#D4A843" stop-opacity="0.02"/>
+        </linearGradient></defs>
+        <polygon points="${area}" fill="url(#glGrad)"/>
+        <polyline points="${polyline}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${pts.map((p,i)=>`
+          <circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--gold)" stroke="var(--bg)" stroke-width="2"/>
+          <text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="rgba(212,168,67,.9)" font-family="Oswald" font-weight="700">${p.gl}</text>
+          <text x="${p.x}" y="${chartH+14}" text-anchor="middle" font-size="8" fill="rgba(120,143,166,.7)">${(p.ev||'').match(/20\d\d/)?.[0]||''}</text>`).join('')}
+      </svg>
+    </div>`;
+  }
+
+  // Active inscriptions
+  if(activeInsc.length){
+    h+=`<div class="card">
+      <div class="os" style="font-size:12px;letter-spacing:2px;color:var(--muted);margin-bottom:12px">INSCRIPCIONES ACTIVAS</div>`;
+    activeInsc.forEach(i=>{
+      const ev=NOM_EVENTS.find(e=>e.id===i.evento);
+      const evName=ev?.name||i.evento;
+      const isApproved=i.status==='approved';
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(30,58,95,.4)">
+        <div>
+          <div style="font-weight:600;font-size:13px">${evName}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">${i.division||'—'} · ${i.categoria||'—'} · ${i.modalidad||'—'}</div>
+          <div style="font-size:11px;color:var(--muted)">${i.club||'—'}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          <span class="badge ${isApproved?'b-g':'b-y'}">${isApproved?'✓ Confirmado':'⏳ Pendiente'}</span>
+          ${ev?.date?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${ev.date}</div>`:''}
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
+  // Competition history
+  if(comps.length){
+    h+=`<div class="card">
+      <div class="os" style="font-size:12px;letter-spacing:2px;color:var(--muted);margin-bottom:12px">HISTORIAL DE COMPETENCIAS</div>`;
+    [...comps].reverse().forEach(c=>{
+      const r=c.resultado||{};
+      const hasResult=r.total>0;
+      h+=`<div class="comp-row">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.evento}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.division||'—'} · ${c.categoria||'—'}${c.modalidad?' · '+c.modalidad:''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          ${hasResult?`<div class="os" style="font-size:16px;font-weight:700;color:var(--gold)">${r.total} kg</div>
+          <div style="font-size:11px;color:var(--muted)">GL ${r.gl||'—'}</div>
+          ${r.pos?`<div style="font-size:10px;color:var(--muted)">${r.pos}° lugar</div>`:''}`:
+          '<span class="badge b-b">Registrado</span>'}
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }else if(!activeInsc.length){
+    h+=`<div class="card" style="text-align:center;padding:32px;color:var(--muted)">Sin resultados registrados en la base de datos.</div>`;
+  }
+
+  document.getElementById('profileSection').innerHTML=h;
+  document.getElementById('profileSection').style.display='block';
+  document.getElementById('searchSection').style.display='none';
+  window.scrollTo(0,0);
+}
+
+window.backToSearch=function(){
+  document.getElementById('profileSection').style.display='none';
+  document.getElementById('searchSection').style.display='block';
+  window._currentCodigo=null;
+  history.replaceState(null,'','atleta.html');
+}
+</script>
+</body>
+</html>

@@ -96,7 +96,7 @@ let db = null, storage = null, firebaseReady = false;
 async function initFirebase() {
   try {
     const {initializeApp} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-    const {getFirestore, collection, addDoc, getDocs, doc, updateDoc, query, orderBy, where, serverTimestamp} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const {getFirestore, collection, addDoc, getDocs, doc, updateDoc, setDoc, deleteDoc, query, orderBy, where, serverTimestamp, onSnapshot} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
     const {getStorage, ref, uploadBytes, getDownloadURL} = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
     
     if (FIREBASE_CONFIG.apiKey === "TU_API_KEY_AQUI") {
@@ -109,8 +109,11 @@ async function initFirebase() {
     storage = getStorage(app);
     
     // Expose functions globally
-    window.FB = {collection, addDoc, getDocs, doc, updateDoc, query, orderBy, where, serverTimestamp, ref, uploadBytes, getDownloadURL};
+    window.FB = {collection, addDoc, getDocs, doc, updateDoc, setDoc, deleteDoc, query, orderBy, where, serverTimestamp, onSnapshot, ref, uploadBytes, getDownloadURL};
     firebaseReady = true;
+    loadEventos();
+    if (!window.FB.setDoc) window.FB.setDoc = fb.setDoc;
+    if (!window.FB.onSnapshot) window.FB.onSnapshot = fb.onSnapshot;
     return true;
   } catch(e) {
     console.error("Firebase init error:", e);
@@ -150,8 +153,13 @@ const CLUBS = [
   "REMA","Shoganai Strength","South Side Club","Otro"
 ];
 
-const EVENTS = [
-  {id:"Campeonato_de_debutantes", name:"Campeonato de Debutantes 2026", date:"2026-06-13", closeDate:"2026-05-12", location:"Santiago, Ñuñoa", org:"All Power CD"},
+// EVENTS loaded dynamically from Firestore (see loadEventos / state.eventos)
+let EVENTS = []; // populated on Firebase init — fallback to empty
+// Seed events (used if Firestore is empty / offline)
+const SEED_EVENTS = [
+  {id:"regional_centro_2026", name:"Campeonato Regional Centro FECHIPO 2026", date:"2026-05-09", closeDate:"2026-04-09", location:"Santiago, RM", org:"Athor Powerlifting", days:"09 y 10 de Mayo", status:"open", extraCols:["modalidad"]},
+  {id:"universitario_2026", name:"Primer Campeonato Nacional Universitario FECHIPO 2026", date:"2026-05-23", closeDate:"2026-04-23", location:"Talca", org:"Club Bushido Lifting", days:"23 de Mayo", status:"open", extraCols:["universidad"]},
+  {id:"Campeonato_de_debutantes", name:"Campeonato de Debutantes 2026", date:"2026-06-13", closeDate:"2026-05-12", location:"Santiago, Ñuñoa", org:"All Power CD", days:"13 de Junio", status:"open", extraCols:["modalidad"]},
 ];
 
 const CATEGORIES_M = ["-53 kg","-59 kg","-66 kg","-74 kg","-83 kg","-93 kg","-105 kg","-120 kg","+120 kg"];
@@ -247,7 +255,7 @@ function autoFillCode() {
 // STATE
 // ══════════════════════════════════════════════
 let state = {
-  view: 'form', // form, confirm, admin, edit_lookup, edit
+  view: 'form', // form, confirm, admin, edit_lookup, edit, admin_eventos, admin_evento_form
   step: 0,
   form: {evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''},
   carnetFile: null, carnetName: '',
@@ -257,11 +265,51 @@ let state = {
   inscripciones: [],
   adminFilter: 'all',
   adminEvent: '',
+  adminTab: 'inscripciones', // inscripciones | eventos
   error: '',
   success: '',
-  editDoc: null, // doc being edited
+  editDoc: null,
   editId: null,
+  eventoForm: null, // {id,name,date,closeDate,location,org,days,extraCols,status} for create/edit
+  eventoFormMode: 'create', // create | edit
 };
+
+// ── Firestore eventos ────────────────────────────────────────
+async function loadEventos() {
+  if (!firebaseReady) { EVENTS = SEED_EVENTS.filter(e=>e.status!=='archived'); render(); return; }
+  try {
+    // Seed Firestore if empty
+    const snap = await window.FB.getDocs(window.FB.collection(db, 'eventos'));
+    if (snap.empty) {
+      // First run: write seed events to Firestore
+      await Promise.all(SEED_EVENTS.map(ev =>
+        window.FB.setDoc(window.FB.doc(db, 'eventos', ev.id), {
+          ...ev, createdAt: window.FB.serverTimestamp(), updatedAt: window.FB.serverTimestamp()
+        })
+      ));
+    }
+    // Real-time listener
+    if (!window._eventosListener) {
+      window._eventosListener = window.FB.onSnapshot(
+        window.FB.collection(db, 'eventos'),
+        (snap) => {
+          const evs = snap.docs.map(d => ({...d.data(), id: d.id}))
+            .sort((a,b) => (a.date||'').localeCompare(b.date||''));
+          EVENTS = evs;
+          render();
+        }
+      );
+    }
+  } catch(e) {
+    console.warn('Eventos load error', e);
+    EVENTS = SEED_EVENTS.filter(e=>e.status!=='archived');
+    render();
+  }
+}
+
+function openEventsFromFirebase() {
+  return EVENTS.filter(e => e.status !== 'archived' && e.status !== 'draft');
+}
 
 const ADMIN_PIN = '2026';
 
@@ -282,8 +330,8 @@ function renderForm() {
   const steps = ['Evento','Datos Personales','Competencia','Documentos'];
   const s = state.step;
   const cats = f.sexo === 'Femenino' ? CATEGORIES_F : CATEGORIES_M;
-  const isUni = f.evento === 'universitario_2026';
   const ev = EVENTS.find(e => e.id === f.evento);
+  const isUni = (ev?.extraCols||[]).includes('universidad');
   const closed = ev && new Date() > new Date(ev.closeDate + 'T23:59:59');
 
   let h = `<div class="fade" style="margin-top:20px">`;
@@ -310,9 +358,9 @@ function renderForm() {
   // STEP 0: Event selection
   if (s === 0) {
     h += `<div class="card"><h3 class="os" style="font-size:16px;letter-spacing:1px;margin-bottom:16px">Selecciona la Competencia</h3>`;
-    EVENTS.forEach(ev => {
+    openEventsFromFirebase().forEach(ev => {
       const sel = f.evento === ev.id;
-      const isClosed = new Date() > new Date(ev.closeDate + 'T23:59:59');
+      const isClosed = ev.status==='closed' || (ev.closeDate && new Date() > new Date(ev.closeDate + 'T23:59:59'));
       h += `<div onclick="${isClosed?'':`selectEvent('${ev.id}')`}" style="padding:16px;border-radius:10px;border:2px solid ${sel?'var(--accent)':isClosed?'var(--border)':'var(--border)'};background:${sel?'rgba(196,30,58,.08)':'transparent'};margin-bottom:10px;cursor:${isClosed?'not-allowed':'pointer'};transition:all .2s;opacity:${isClosed?'.5':'1'}">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
@@ -523,7 +571,7 @@ function renderAdmin() {
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-green" onclick="exportNominas()" style="padding:8px 14px;font-size:11px">📥 Exportar Nóminas</button>
-        <button class="btn btn-outline" onclick="loadInscripciones()" style="padding:8px 14px;font-size:11px">↻ Recargar</button>
+        <span id="adminLiveStatus" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);color:var(--green);">🔴 EN VIVO</span><button class="btn btn-green" onclick="approveAllPending()" style="padding:8px 14px;font-size:11px">✓ Aprobar pendientes</button>
       </div>
     </div>`;
 
@@ -601,8 +649,8 @@ function renderEditLookup() {
 function renderEdit() {
   const f = state.form;
   const cats = f.sexo === 'Femenino' ? CATEGORIES_F : CATEGORIES_M;
-  const isUni = f.evento === 'universitario_2026';
   const ev = EVENTS.find(e => e.id === f.evento);
+  const isUni = (ev?.extraCols||[]).includes('universidad');
   
   let h = `<div class="fade" style="max-width:600px;margin:30px auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -825,6 +873,31 @@ async function submitForm() {
 
   try {
     const f = state.form;
+    
+    // ── Duplicate check ─────────────────────────────────
+    if (firebaseReady) {
+      const rutCleanCheck = f.rut.replace(/[^0-9kK]/gi,'').toUpperCase();
+      const nameNorm = f.nombre.trim().toLowerCase().replace(/\s+/g,' ');
+      const existing = state.inscripciones.filter(i => 
+        i.evento === f.evento && i.status !== 'rejected'
+      );
+      const dupRut = existing.find(i => 
+        i.rut && i.rut.replace(/[^0-9kK]/gi,'').toUpperCase() === rutCleanCheck
+      );
+      const dupName = existing.find(i => 
+        i.nombre && i.nombre.trim().toLowerCase().replace(/\s+/g,' ') === nameNorm
+      );
+      if (dupRut) {
+        state.error = `Ya existe una inscripción con ese RUT (${f.rut}) para este campeonato. Si necesitas modificarla, usa la opción "Editar mi inscripción".`;
+        state.submitting = false; render(); return;
+      }
+      if (dupName) {
+        state.error = `Ya existe una inscripción con ese nombre para este campeonato. Si es un error, contacta al organizador.`;
+        state.submitting = false; render(); return;
+      }
+    }
+    // ────────────────────────────────────────────────────
+    
     const entry = {
       evento: f.evento,
       nombre: f.nombre.trim(),
@@ -904,6 +977,16 @@ function authAdmin() {
 async function loadInscripciones() {
   if (firebaseReady) {
     try {
+      // Start real-time listener if not already running
+      if (!window._adminListener) {
+        const q = window.FB.query(window.FB.collection(db, 'inscripciones'), window.FB.orderBy('timestamp', 'desc'));
+        window._adminListener = window.FB.onSnapshot(q, (snap) => {
+          state.inscripciones = snap.docs.map(d => ({id: d.id, ...d.data()}));
+          // Only re-render if admin panel is visible
+          if (state.view === 'admin') render();
+        });
+      }
+      // Also do an immediate fetch for first load
       const q = window.FB.query(window.FB.collection(db, 'inscripciones'), window.FB.orderBy('timestamp', 'desc'));
       const snap = await window.FB.getDocs(q);
       state.inscripciones = snap.docs.map(d => ({id: d.id, ...d.data()}));
@@ -914,6 +997,23 @@ async function loadInscripciones() {
   render();
 }
 
+async function approveAllPending() {
+  const pending = state.inscripciones.filter(i => i.status === 'pending');
+  if (!pending.length) { alert('No hay inscripciones pendientes'); return; }
+  if (!confirm(`¿Aprobar ${pending.length} inscripción${pending.length !== 1 ? 'es' : ''} pendiente${pending.length !== 1 ? 's' : ''}?`)) return;
+  if (firebaseReady) {
+    try {
+      await Promise.all(pending.map(i =>
+        window.FB.updateDoc(window.FB.doc(db, 'inscripciones', i.id), {status: 'approved'})
+      ));
+      // listener will auto-update state.inscripciones
+    } catch(e) { console.error(e); alert('Error: ' + e.message); }
+  } else {
+    pending.forEach(i => demoUpdate(i.id, {status: 'approved'}));
+    state.inscripciones = demoGetAll().reverse();
+    render();
+  }
+}
 async function updateStatus(id, newStatus) {
   if (firebaseReady) {
     try {
