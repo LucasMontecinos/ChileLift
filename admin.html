@@ -663,6 +663,7 @@ function render(){
 function renderDashboard(){
   const D=ST.data,I=ST.inscripciones;
   const YEARS=['2017','2018','2019','2020','2021','2022','2023','2024','2025','2026'];
+  const isSA=ST.adminInfo?.role==='superadmin'||ST.adminInfo?.bootstrap||false;
 
   // ── SVG CHART HELPERS ───────────────────────────────────
   function barChart(series,opts={}){
@@ -874,6 +875,9 @@ function renderDashboard(){
   </div>`;
 
   // ── SECTION 2: Crecimiento ───────────────────────────────
+
+  // ── Secciones avanzadas — solo superadmin ────────────────
+  if(isSA){
   h+=`<div style="font-family:Oswald;font-size:11px;letter-spacing:2px;color:var(--muted);margin:20px 0 8px;text-transform:uppercase">Crecimiento y Adquisición</div>`;
   h+=`<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">`;
 
@@ -1092,6 +1096,9 @@ function renderDashboard(){
   </div>`;
   h+=`</div>`;
 
+  } else {
+    h+=`<div class="card" style="background:rgba(212,168,67,.05);border:1px solid rgba(212,168,67,.2);padding:20px;text-align:center"><div style="font-family:Oswald;font-size:13px;letter-spacing:2px;color:var(--gold);margin-bottom:8px">📊 ANÁLISIS AVANZADO</div><div style="font-size:13px;color:var(--muted)">El análisis de crecimiento, cohorte, divisiones y concentración de mercado está disponible solo para <strong style="color:var(--gold)">Superadmin</strong>.</div></div>`;
+  }
   return h;
 }
 
