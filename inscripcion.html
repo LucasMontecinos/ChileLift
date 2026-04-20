@@ -771,8 +771,8 @@ function renderEdit() {
       </div>
     </div>
     <div style="text-align:right;margin-top:12px">
-      <button class="btn btn-g" onclick="saveEdit()" ${state.submitting?'disabled':''}>
-        ${state.submitting?'Guardando...':'💾 Guardar Cambios'}
+      <button class="btn btn-g" onclick="saveEdit()" ${state.submitting||state.success?'disabled':''}>
+        ${state.submitting?'Enviando solicitud...':(state.success?'✓ Solicitud enviada':'📨 Enviar solicitud de edición')}
       </button>
     </div>
   </div>`;
@@ -782,26 +782,35 @@ function renderEdit() {
 // ══════════════════════════════════════════════
 // EDIT HANDLERS
 // ══════════════════════════════════════════════
+// La edición ya no es directa — el atleta envía una solicitud a
+// `edit_requests` y el admin la revisa (valida el PIN contra
+// `inscripciones_private`). Esto evita exponer el PIN en la colección
+// pública de inscripciones.
 async function lookupEdit() {
   const rut = formatRut(document.getElementById('editRut')?.value || '');
   const pin = document.getElementById('editPin')?.value || '';
   if (!rut || !pin) { state.error = 'Ingresa RUT y PIN'; render(); return; }
-  
+  if (!/^\d{4}$/.test(pin)) { state.error = 'El PIN debe ser de 4 dígitos'; render(); return; }
+
   state.error = '';
   try {
-    let found = null;
+    // Busca por RUT en la colección pública. El PIN ya no vive acá, así
+    // que no validamos aquí — el admin lo verifica al aprobar.
+    let candidates = [];
     if (firebaseReady) {
       const q = window.FB.query(window.FB.collection(db, 'inscripciones'), window.FB.where('rut', '==', rut));
       const snap = await window.FB.getDocs(q);
-      snap.forEach(d => { if (d.data().pin === pin) found = {id: d.id, ...d.data()}; });
+      snap.forEach(d => candidates.push({id: d.id, ...d.data()}));
     } else {
-      const all = demoGetAll();
-      found = all.find(i => formatRut(i.rut) === rut && i.pin === pin);
+      candidates = demoGetAll().filter(i => formatRut(i.rut) === rut);
     }
-    
-    if (!found) { state.error = 'No se encontró inscripción con ese RUT y PIN'; render(); return; }
-    
-    // Load into form for editing
+    // Solo inscripciones activas (no rechazadas).
+    candidates = candidates.filter(c => c.status !== 'rejected');
+    if (!candidates.length) { state.error = 'No se encontró inscripción activa con ese RUT'; render(); return; }
+    // Si hay varias, elegimos la más reciente por timestamp.
+    candidates.sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
+    const found = candidates[0];
+
     state.editId = found.id;
     state.editDoc = found;
     state.form = {
@@ -817,7 +826,7 @@ async function lookupEdit() {
       club: found.club || '',
       clubOtro: found.clubOtro || '',
       comuna: found.comuna || '',
-      pin: found.pin || '',
+      pin: pin, // del input, se usará al enviar la solicitud
       universidad: found.universidad || '',
     };
     state.view = 'edit';
@@ -835,34 +844,44 @@ async function saveEdit() {
   state.error = '';
   state.success = '';
   render();
-  
+
   try {
     const f = state.form;
-    const updates = {
-      nombre: f.nombre.trim(),
-      codigo: f.codigo.trim(),
+    // Solo campos editables por el atleta. NO evento, status, flight,
+    // sortOrder, rut, carnetURL, wadeURL, pin.
+    const changes = {
+      nombre: sanitizeInput(f.nombre.trim()),
+      codigo: sanitizeInput(f.codigo.trim()),
       sexo: f.sexo,
       fechaNac: f.fechaNac,
       division: f.division,
       categoria: f.categoria,
       modalidad: f.modalidad,
-      club: f.club,
-      clubOtro: f.clubOtro,
-      comuna: f.comuna,
-      universidad: f.universidad || '',
+      club: sanitizeInput(f.club),
+      clubOtro: sanitizeInput(f.clubOtro),
+      comuna: sanitizeInput(f.comuna),
+      universidad: sanitizeInput(f.universidad || ''),
     };
-    
+
     if (firebaseReady) {
-      await window.FB.updateDoc(window.FB.doc(db, 'inscripciones', state.editId), updates);
+      // Crea una solicitud de edición. El admin la revisa y aplica.
+      await window.FB.addDoc(window.FB.collection(db, 'edit_requests'), {
+        inscripcionId: state.editId,
+        rut: f.rut,
+        pin: f.pin,
+        changes: changes,
+        status: 'pending',
+        ts: window.FB.serverTimestamp(),
+      });
     } else {
-      demoUpdate(state.editId, updates);
+      demoUpdate(state.editId, changes);
     }
-    
+
     state.submitting = false;
-    state.success = 'Inscripción actualizada correctamente';
+    state.success = 'Tu solicitud de edición fue enviada. El organizador la revisará y se aplicarán los cambios si el PIN es correcto.';
     render();
   } catch(e) {
-    state.error = 'Error al guardar: ' + e.message;
+    state.error = 'Error al enviar solicitud: ' + e.message;
     state.submitting = false;
     render();
   }
@@ -935,7 +954,8 @@ async function submitForm() {
     }
     // ────────────────────────────────────────────────────
     
-    const entry = {
+    // Datos PÚBLICOS (inscripciones): legibles por cualquiera en la nómina live.
+    const publicEntry = {
       evento: f.evento,
       nombre: sanitizeInput(f.nombre),
       rut: sanitizeInput(f.rut),
@@ -951,8 +971,12 @@ async function submitForm() {
       universidad: sanitizeInput(f.universidad || ''),
       carnetName: state.carnetName,
       wadeName: state.wadeName,
-      pin: f.pin,
       status: 'pending',
+    };
+
+    // Datos PRIVADOS (inscripciones_private): solo admin.
+    const privateEntry = {
+      pin: f.pin,
     };
 
     if (firebaseReady) {
@@ -963,28 +987,30 @@ async function submitForm() {
       if (state.carnetFile) {
         const carnetRef = window.FB.ref(storage, `inscripciones/${f.evento}/${rutClean}_carnet_${ts}`);
         await window.FB.uploadBytes(carnetRef, state.carnetFile);
-        entry.carnetURL = await window.FB.getDownloadURL(carnetRef);
+        privateEntry.carnetURL = await window.FB.getDownloadURL(carnetRef);
       }
       if (state.wadeFile) {
         const wadeRef = window.FB.ref(storage, `inscripciones/${f.evento}/${rutClean}_wada_${ts}`);
         await window.FB.uploadBytes(wadeRef, state.wadeFile);
-        entry.wadeURL = await window.FB.getDownloadURL(wadeRef);
+        privateEntry.wadeURL = await window.FB.getDownloadURL(wadeRef);
       }
 
-      entry.timestamp = window.FB.serverTimestamp();
+      publicEntry.timestamp = window.FB.serverTimestamp();
+      privateEntry.ts = window.FB.serverTimestamp();
 
-      // Transacción atómica contra doble inscripción por RUT+evento.
-      // ID determinístico: ${evento}_${rutClean}. Si ya existe y no está
-      // rechazada, falla. Rechazadas pueden reemplazarse (permite reintentar).
+      // Transacción atómica: escribe ambos docs o ninguno. ID determinístico
+      // `${evento}_${rutClean}` para pairear public/private y evitar duplicados.
       const docId = `${f.evento}_${rutClean}`;
       const inscRef = window.FB.doc(db, 'inscripciones', docId);
+      const privRef = window.FB.doc(db, 'inscripciones_private', docId);
       try {
         await window.FB.runTransaction(db, async (tx) => {
           const existing = await tx.get(inscRef);
           if (existing.exists() && existing.data().status !== 'rejected') {
             throw new Error('DUPLICATE_RUT');
           }
-          tx.set(inscRef, entry);
+          tx.set(inscRef, publicEntry);
+          tx.set(privRef, privateEntry);
         });
       } catch(txErr) {
         if (txErr.message === 'DUPLICATE_RUT') {
@@ -994,8 +1020,8 @@ async function submitForm() {
         throw txErr;
       }
     } else {
-      // Demo mode
-      demoSave(entry);
+      // Demo mode: aplana en un solo objeto para localStorage.
+      demoSave({...publicEntry, ...privateEntry});
     }
 
     state.view = 'confirm';
