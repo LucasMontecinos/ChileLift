@@ -60,16 +60,30 @@ async function initCronoFB(){
     window._fb=fb;window._fbAuth=authMod;
     window._fb.getDoc=fb.getDoc;window._fb.where=fb.where;window._fb.query=fb.query;
     fbAuthMod=authMod;fbAuthInst=authMod.getAuth(app);
-    authMod.onAuthStateChanged(fbAuthInst,user=>{
-      if(user){
-        fb.getDoc(fb.doc(fbDB,'admins',user.uid)).then(snap=>{
-          fbAuthUser=snap.exists()?user:null;
-          config.adminUnlocked=snap.exists();
-          render();
-        }).catch(()=>{fbAuthUser=user;config.adminUnlocked=true;render();});
-      } else {
-        fbAuthUser=null;config.adminUnlocked=false;render();
+    authMod.onAuthStateChanged(fbAuthInst, async user=>{
+      if(!user){
+        fbAuthUser=null; coachUser=null; config.adminUnlocked=false; render(); return;
       }
+      try{
+        const adminSnap=await fb.getDoc(fb.doc(fbDB,'admins',user.uid));
+        if(adminSnap.exists()){
+          fbAuthUser=user; config.adminUnlocked=true; coachUser=null;
+          render(); return;
+        }
+        const coachSnap=await fb.getDoc(fb.doc(fbDB,'coaches',user.uid));
+        if(coachSnap.exists()){
+          const d=coachSnap.data();
+          coachUser={email:d.email||user.email,nombre:d.nombre||user.email,grado:d.grado||'',rut:d.rut||'',uid:user.uid};
+          fbAuthUser=null; config.adminUnlocked=false;
+          if(selectedEvent) await loadAccreditations();
+          render(); return;
+        }
+        // Signed in but not admin nor coach — sign out
+        try{ await authMod.signOut(fbAuthInst);}catch(_){}
+        fbAuthUser=null; coachUser=null; config.adminUnlocked=false;
+        alert('Cuenta sin rol asignado. Contacta al administrador.');
+        render();
+      }catch(e){ console.warn('[Crono auth]', e); render(); }
     });
     const auth=authMod.getAuth(app);
     // Load inscripciones to get IDs for updating flight
@@ -142,10 +156,10 @@ function showCoachLogin(){
   m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999';
   m.innerHTML=`<div style="background:#0D1F38;border:2px solid var(--gold);border-radius:16px;padding:32px;width:min(380px,90vw);text-align:center">
     <div style="font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:2px;margin-bottom:4px;color:var(--gold)">🏋️ ENTRENADOR / HANDLER</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Correo electrónico y RUT sin puntos ni guión</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Ingresa con el email y contraseña que te entregó el administrador</div>
     <div style="display:flex;flex-direction:column;gap:12px">
-      <input id="coachEmail" type="email" placeholder="tu@correo.cl" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%">
-      <input id="coachPass" type="password" placeholder="RUT sin puntos ni guión (ej: 214543508)" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%" onkeydown="if(event.key==='Enter')doCoachLogin()">
+      <input id="coachEmail" type="email" autocomplete="email" placeholder="tu@correo.cl" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%">
+      <input id="coachPass" type="password" autocomplete="current-password" placeholder="Contraseña" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;width:100%" onkeydown="if(event.key==='Enter')doCoachLogin()">
       <div id="coachErr" style="color:var(--red);font-size:12px;display:none"></div>
       <button onclick="doCoachLogin()" style="padding:10px;border-radius:8px;border:none;background:var(--gold);color:#000;font-family:Oswald;font-size:14px;font-weight:700;cursor:pointer">Ingresar</button>
       <button onclick="document.getElementById('coachModal').remove()" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer">Cancelar</button>
@@ -157,25 +171,27 @@ function showCoachLogin(){
 
 async function doCoachLogin(){
   const email=(document.getElementById('coachEmail').value||'').trim().toLowerCase();
-  const pass=(document.getElementById('coachPass').value||'').trim();
+  const pass=document.getElementById('coachPass').value||'';
   const err=document.getElementById('coachErr');
   err.style.display='none';
   if(!email||!pass){err.style.display='block';err.textContent='Completa ambos campos';return;}
-  if(!fbReady){err.style.display='block';err.textContent='Sin conexión a Firebase';return;}
+  if(!fbAuthInst){err.style.display='block';err.textContent='Sin conexión a Firebase';return;}
   try{
-    const id=email.replace(/[.@]/g,'_');
-    const snap=await window._fb.getDoc(window._fb.doc(fbDB,'coaches',id));
-    if(!snap.exists()){err.style.display='block';err.textContent='Correo no registrado como entrenador';return;}
-    const data=snap.data();
-    if(data.password!==pass){err.style.display='block';err.textContent='Contraseña incorrecta — usa tu RUT sin puntos ni guión';return;}
-    coachUser={email:data.email,nombre:data.nombre,grado:data.grado,rut:data.rut};
+    await fbAuthMod.signInWithEmailAndPassword(fbAuthInst,email,pass);
+    // onAuthStateChanged valida que el UID esté en coaches/{uid} y rellena coachUser
     document.getElementById('coachModal')?.remove();
-    if(selectedEvent)await loadAccreditations();
-    render();
-  }catch(e){err.style.display='block';err.textContent='Error: '+e.message;}
+  }catch(e){
+    let msg='Error: '+e.message;
+    if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'||e.code==='auth/user-not-found')msg='Email o contraseña incorrectos';
+    else if(e.code==='auth/too-many-requests')msg='Demasiados intentos. Espera unos minutos.';
+    err.style.display='block';err.textContent=msg;
+  }
 }
 
-function doCoachLogout(){coachUser=null;render();}
+async function doCoachLogout(){
+  try{ await fbAuthMod.signOut(fbAuthInst); }catch(e){}
+  coachUser=null; render();
+}
 
 async function loadAccreditations(){
   if(!fbReady||!selectedEvent)return;

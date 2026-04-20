@@ -133,6 +133,15 @@ function _peerPerc(myTotal,key){const g=PEERS[key];if(!g)return null;const all=[
 const ST={user:null,adminInfo:null,view:'dashboard',data:null,nominas:null,inscripciones:[],auditLog:[],events:[],eventos:[],filterEv:'',search:'',filterLetter:'',eventoForm:null,eventoFormMode:'create',athleteProfile:null,pendingResults:0,competitionResults:[]};
 window.ST=ST;
 
+// HTML-escape helper — defensa contra XSS al inyectar datos en innerHTML
+function esc(s){
+  if(s==null)return'';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+window.esc=esc;
+
 // ═══════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════
@@ -195,6 +204,37 @@ window.doLogout=async function(){
   await signOut(auth);
   sessionStorage.removeItem('fechipo_admin_session');
   ST.user=null;ST.adminInfo=null;render();
+}
+
+// Crea una cuenta de entrenador: Firebase Auth user + doc coaches/{uid}.
+// Usa una "secondary app" para no cerrar la sesión del admin actual.
+// Uso desde la consola del navegador (tras login admin):
+//   await createCoach('coach@yourlift.cl', 'Passw0rd!', 'Nombre Apellido', 'Nacional', '12345678')
+window.createCoach=async function(email,password,nombre,grado,rut){
+  if(!ST.user) throw new Error('Debes estar autenticado como admin.');
+  if(!email||!password||!nombre) throw new Error('email, password y nombre son obligatorios.');
+  if(password.length<8) throw new Error('La contraseña debe tener al menos 8 caracteres.');
+  const secondary=initSecondaryApp(FB_CFG,'coachCreate_'+Date.now());
+  const secondaryAuth=getAuth(secondary);
+  try{
+    const cred=await createUserWithEmailAndPassword(secondaryAuth,email,password);
+    const uid=cred.user.uid;
+    await setDoc(doc(db,'coaches',uid),{
+      email:email.toLowerCase(),
+      nombre,
+      grado:grado||'',
+      rut:rut||'',
+      createdAt:serverTimestamp(),
+      createdBy:ST.user.email
+    });
+    try{await signOut(secondaryAuth);}catch(_){}
+    await logAction('coach_create','coaches/'+uid,null,{email,nombre,grado,rut});
+    console.log('✓ Coach creado:',email,'UID:',uid);
+    return uid;
+  }catch(e){
+    console.error('createCoach falló:',e.code||'',e.message);
+    throw e;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -477,6 +517,7 @@ window.deleteAthlete=async function(cod){
 // APPROVE / REJECT INSCRIPCIONES
 // ═══════════════════════════════════════════
 window.setStatus=async function(insId,status){
+  insId=decodeURIComponent(insId);
   const ins=ST.inscripciones.find(x=>x.id===insId);if(!ins)return;
   const old=ins.status;
   try{
@@ -491,6 +532,7 @@ window.setStatus=async function(insId,status){
 }
 
 window.deleteInsc=async function(insId){
+  insId=decodeURIComponent(insId);
   const ins=ST.inscripciones.find(x=>x.id===insId);if(!ins)return;
   if(!confirm(`¿Eliminar a ${ins.nombre} de la nómina?`))return;
   try{
@@ -603,6 +645,7 @@ window.resetLivecast=async function(eventName){
 // CRONOGRAMA / FLIGHTS
 // ═══════════════════════════════════════════
 window.assignFlight=async function(insId,flight){
+  insId=decodeURIComponent(insId);
   const ins=ST.inscripciones.find(x=>x.id===insId);if(!ins)return;
   const old=ins.flight||'';
   try{
@@ -1268,16 +1311,17 @@ function renderNominas(){
           const editable=!i._json;
           const click=(f)=>editable?`onclick="editInsc('${i.id}','${f}')"`:'';
           const cls=editable?'editable':'';
+          const sid=encodeURIComponent(i.id||'');
           return `<tr>
             <td style="color:var(--muted);font-family:Oswald">${idx+1}</td>
-            <td>${i.nombre}<br><span style="font-size:9px;color:var(--muted)">${i.rut||''}</span></td>
-            <td><span class="${cls}" ${click('sexo')}>${i.sexo||'?'}</span></td>
-            <td><span class="${cls}" ${click('division')}>${i.division||'—'}</span></td>
-            <td><span class="${cls}" ${click('categoria')}>${i.categoria||'—'}</span></td>
-            <td><span class="${cls}" ${click('modalidad')}>${i.modalidad||'—'}</span></td>
-            <td><span class="${cls}" ${click('club')}>${i.club||'—'}</span></td>
-            <td><span class="badge ${i.status==='approved'?'b-g':i.status==='pending'?'b-y':'b-r'}">${i.status||'approved'}</span></td>
-            <td>${editable?`<button onclick="deleteInsc('${i.id}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Eliminar">✕</button>`:''}</td>
+            <td>${esc(i.nombre)}<br><span style="font-size:9px;color:var(--muted)">${esc(i.rut||'')}</span></td>
+            <td><span class="${cls}" ${click('sexo')}>${esc(i.sexo||'?')}</span></td>
+            <td><span class="${cls}" ${click('division')}>${esc(i.division||'—')}</span></td>
+            <td><span class="${cls}" ${click('categoria')}>${esc(i.categoria||'—')}</span></td>
+            <td><span class="${cls}" ${click('modalidad')}>${esc(i.modalidad||'—')}</span></td>
+            <td><span class="${cls}" ${click('club')}>${esc(i.club||'—')}</span></td>
+            <td><span class="badge ${i.status==='approved'?'b-g':i.status==='pending'?'b-y':'b-r'}">${esc(i.status||'approved')}</span></td>
+            <td>${editable?`<button onclick="deleteInsc('${sid}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Eliminar">✕</button>`:''}</td>
           </tr>`;
         }).join('')}
       </table>
@@ -1295,13 +1339,14 @@ function renderApprovals(){
         <tr><th>Fecha</th><th>Nombre</th><th>Evento</th><th>Cat.</th><th>Club</th><th>Acción</th></tr>
         ${pend.map(i=>{
           const d=i.timestamp?new Date(i.timestamp.seconds?i.timestamp.seconds*1000:i.timestamp):null;
+          const sid=encodeURIComponent(i.id||'');
           return `<tr>
             <td style="font-size:10px;color:var(--muted)">${d?d.toLocaleDateString('es-CL'):'—'}</td>
-            <td>${i.nombre}<br><span style="font-size:9px;color:var(--muted)">${i.sexo||''} · ${i.division||''}</span></td>
-            <td style="font-size:10px">${i.evento||''}</td>
-            <td><span class="badge b-y">${i.categoria||'?'}</span></td>
-            <td style="font-size:11px">${i.club||'—'}</td>
-            <td><button class="btn btn-g" style="padding:5px 10px;font-size:10px" onclick="setStatus('${i.id}','approved')">✓ APROBAR</button> <button class="btn btn-r" style="padding:5px 10px;font-size:10px" onclick="setStatus('${i.id}','rejected')">✗ RECHAZAR</button></td>
+            <td>${esc(i.nombre)}<br><span style="font-size:9px;color:var(--muted)">${esc(i.sexo||'')} · ${esc(i.division||'')}</span></td>
+            <td style="font-size:10px">${esc(i.evento||'')}</td>
+            <td><span class="badge b-y">${esc(i.categoria||'?')}</span></td>
+            <td style="font-size:11px">${esc(i.club||'—')}</td>
+            <td><button class="btn btn-g" style="padding:5px 10px;font-size:10px" onclick="setStatus('${sid}','approved')">✓ APROBAR</button> <button class="btn btn-r" style="padding:5px 10px;font-size:10px" onclick="setStatus('${sid}','rejected')">✗ RECHAZAR</button></td>
           </tr>`;
         }).join('')}
       </table>
@@ -1325,13 +1370,13 @@ function renderCronograma(){
     <div class="card" style="padding:0;overflow-x:auto">
       <table class="tbl">
         <tr><th>#</th><th>Nombre</th><th>Cat.</th><th>Sexo</th><th>Vuelo asignado</th></tr>
-        ${filtered.map((i,idx)=>`<tr>
+        ${filtered.map((i,idx)=>{const sid=encodeURIComponent(i.id||'');return `<tr>
           <td style="color:var(--muted)">${idx+1}</td>
-          <td>${i.nombre}</td>
-          <td><span class="badge b-y">${i.categoria||'?'}</span></td>
-          <td>${(i.sexo||'?').substring(0,1)}</td>
-          <td>${flights.map(f=>`<button onclick="assignFlight('${i.id}','${f}')" style="background:${i.flight===f?'var(--accent)':'transparent'};color:${i.flight===f?'#fff':'var(--muted)'};border:1px solid var(--border);padding:4px 9px;border-radius:5px;font-family:Oswald;font-size:11px;font-weight:700;cursor:pointer;margin-right:3px">${f}</button>`).join('')}</td>
-        </tr>`).join('')}
+          <td>${esc(i.nombre)}</td>
+          <td><span class="badge b-y">${esc(i.categoria||'?')}</span></td>
+          <td>${esc((i.sexo||'?').substring(0,1))}</td>
+          <td>${flights.map(f=>`<button onclick="assignFlight('${sid}','${f}')" style="background:${i.flight===f?'var(--accent)':'transparent'};color:${i.flight===f?'#fff':'var(--muted)'};border:1px solid var(--border);padding:4px 9px;border-radius:5px;font-family:Oswald;font-size:11px;font-weight:700;cursor:pointer;margin-right:3px">${f}</button>`).join('')}</td>
+        </tr>`;}).join('')}
       </table>
       ${filtered.length===0?'<div class="empty">Sin atletas aprobados</div>':''}
     </div>`;
