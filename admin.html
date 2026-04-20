@@ -109,7 +109,7 @@ input,select,button,textarea{font-family:inherit;outline:none}
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {initializeApp as initSecondaryApp} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import {getFirestore,collection,getDocs,getDoc,doc,setDoc,updateDoc,deleteDoc,addDoc,query,where,orderBy,limit,onSnapshot,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {getFirestore,collection,getDocs,getDoc,doc,setDoc,updateDoc,deleteDoc,deleteField,addDoc,query,where,orderBy,limit,onSnapshot,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const FB_CFG={apiKey:"AIzaSyA21IHMus2bklPLJm7ExRrVJJL9bzLhyp4",authDomain:"fechipo-db-13148.firebaseapp.com",projectId:"fechipo-db-13148",storageBucket:"fechipo-db-13148.firebasestorage.app",messagingSenderId:"551573388751",appId:"1:551573388751:web:5fcc377a8d595378ab26ba"};
 const app=initializeApp(FB_CFG);
@@ -130,7 +130,7 @@ function _getPeerKey(a){
 }
 function _peerPerc(myTotal,key){const g=PEERS[key];if(!g)return null;const all=[...g.members.map(m=>m.total),myTotal].sort((a,b)=>b-a);const rank=all.indexOf(myTotal)+1;return{rank,n:all.length,pct:Math.round((1-rank/all.length)*100),g};}
 
-const ST={user:null,adminInfo:null,view:'dashboard',data:null,nominas:null,inscripciones:[],auditLog:[],events:[],eventos:[],filterEv:'',search:'',filterLetter:'',eventoForm:null,eventoFormMode:'create',athleteProfile:null,pendingResults:0,competitionResults:[]};
+const ST={user:null,adminInfo:null,view:'dashboard',data:null,nominas:null,inscripciones:[],auditLog:[],events:[],eventos:[],filterEv:'',search:'',filterLetter:'',eventoForm:null,eventoFormMode:'create',athleteProfile:null,pendingResults:0,competitionResults:[],editRequests:[],inscripcionesPrivate:{}};
 window.ST=ST;
 
 // HTML-escape helper — defensa contra XSS al inyectar datos en innerHTML
@@ -277,6 +277,21 @@ async function loadAll(){
     ST.inscripciones.sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0));
   }catch(e){console.warn('[loadAll] inscripciones:',e.message);ST.inscripciones=[];}
 
+  // Load inscripciones_private (campos sensibles: pin, carnetURL, wadeURL).
+  // Solo admin puede leer. Se indexa por docId para merge rápido.
+  try{
+    const privSnap=await getDocs(collection(db,'inscripciones_private'));
+    ST.inscripcionesPrivate={};
+    privSnap.forEach(d=>{ST.inscripcionesPrivate[d.id]=d.data();});
+  }catch(e){console.warn('[loadAll] inscripciones_private:',e.message);ST.inscripcionesPrivate={};}
+
+  // Load edit_requests (solicitudes de edición pendientes de atletas).
+  try{
+    const reqSnap=await getDocs(collection(db,'edit_requests'));
+    ST.editRequests=reqSnap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>(b.ts?.seconds||0)-(a.ts?.seconds||0));
+  }catch(e){console.warn('[loadAll] edit_requests:',e.message);ST.editRequests=[];}
+
   // Real-time listeners (non-blocking, set up once)
   if(!window._inscListener){
     try{
@@ -286,6 +301,23 @@ async function loadAll(){
         if(ST.view==='nominas'||ST.view==='dashboard'||ST.view==='approvals')render();
       },(e)=>console.warn('[listener] inscripciones:',e.message));
     }catch(e){console.warn('[loadAll] insc listener:',e.message);}
+  }
+  if(!window._privListener){
+    try{
+      window._privListener=onSnapshot(collection(db,'inscripciones_private'),(snap)=>{
+        ST.inscripcionesPrivate={};
+        snap.forEach(d=>{ST.inscripcionesPrivate[d.id]=d.data();});
+      },(e)=>console.warn('[listener] inscripciones_private:',e.message));
+    }catch(e){console.warn('[loadAll] priv listener:',e.message);}
+  }
+  if(!window._editReqListener){
+    try{
+      window._editReqListener=onSnapshot(collection(db,'edit_requests'),(snap)=>{
+        ST.editRequests=snap.docs.map(d=>({id:d.id,...d.data()}))
+          .sort((a,b)=>(b.ts?.seconds||0)-(a.ts?.seconds||0));
+        if(ST.view==='editRequests'||ST.view==='dashboard')render();
+      },(e)=>console.warn('[listener] edit_requests:',e.message));
+    }catch(e){console.warn('[loadAll] edit_req listener:',e.message);}
   }
   if(!window._eventosListener){
     try{
@@ -537,9 +569,82 @@ window.deleteInsc=async function(insId){
   if(!confirm(`¿Eliminar a ${ins.nombre} de la nómina?`))return;
   try{
     await deleteDoc(doc(db,'inscripciones',insId));
+    // Borrar también el doc privado asociado (pin, carnetURL, wadeURL).
+    // No falla si no existe.
+    try{await deleteDoc(doc(db,'inscripciones_private',insId));}catch(_){}
     await logAction('delete_inscripcion',insId,ins.nombre,'deleted',{evento:ins.evento,club:ins.club||''});
     showToast(`${ins.nombre} eliminado de nómina`);
   }catch(e){showToast('Error: '+e.message,null,true)}
+}
+
+// ═══════════════════════════════════════════
+// EDIT REQUESTS (solicitudes de edición de atletas)
+// ═══════════════════════════════════════════
+// El atleta crea un doc en edit_requests con RUT+PIN+cambios. Acá el admin
+// valida el PIN contra inscripciones_private y aplica los cambios.
+window.approveEditRequest=async function(reqId){
+  reqId=decodeURIComponent(reqId);
+  const req=ST.editRequests.find(r=>r.id===reqId);if(!req)return;
+  const priv=ST.inscripcionesPrivate[req.inscripcionId];
+  if(!priv){
+    if(!confirm(`No encontramos el doc privado para ${req.inscripcionId}. ¿Aplicar los cambios SIN validar el PIN? (úsalo solo si verificaste la identidad por otro medio)`))return;
+  }else if(priv.pin!==req.pin){
+    if(!confirm(`El PIN enviado (${req.pin}) NO coincide con el registrado. ¿Aplicar igual los cambios? (úsalo solo si verificaste la identidad por otro medio)`))return;
+  }
+  try{
+    // Aplicar cambios al doc público (solo campos permitidos).
+    const allowed=['nombre','codigo','sexo','fechaNac','division','categoria','modalidad','club','clubOtro','comuna','universidad'];
+    const updates={};
+    for(const k of allowed){if(req.changes&&req.changes[k]!==undefined)updates[k]=req.changes[k];}
+    if(Object.keys(updates).length){
+      await updateDoc(doc(db,'inscripciones',req.inscripcionId),updates);
+    }
+    await deleteDoc(doc(db,'edit_requests',reqId));
+    await logAction('approve_edit_request',req.inscripcionId,JSON.stringify(updates).substring(0,200),'applied',{rut:req.rut});
+    showToast('✓ Solicitud aplicada');
+  }catch(e){showToast('Error: '+e.message,null,true)}
+}
+
+window.rejectEditRequest=async function(reqId){
+  reqId=decodeURIComponent(reqId);
+  const req=ST.editRequests.find(r=>r.id===reqId);if(!req)return;
+  if(!confirm(`¿Rechazar la solicitud de edición de ${req.rut}?`))return;
+  try{
+    await deleteDoc(doc(db,'edit_requests',reqId));
+    await logAction('reject_edit_request',req.inscripcionId,req.rut,'rejected');
+    showToast('Solicitud rechazada');
+  }catch(e){showToast('Error: '+e.message,null,true)}
+}
+
+// Helper de migración one-shot: copia pin/carnetURL/wadeURL de inscripciones
+// viejas a inscripciones_private y limpia el doc público. Correr UNA VEZ
+// desde consola tras deploy de reglas nuevas:
+//   await migrateToPrivateCollection()
+window.migrateToPrivateCollection=async function(){
+  if(!ST.user) throw new Error('Debes estar autenticado como admin.');
+  let migrated=0,skipped=0,errors=0;
+  for(const ins of ST.inscripciones){
+    const priv={};
+    if(ins.pin)priv.pin=String(ins.pin);
+    if(ins.carnetURL)priv.carnetURL=ins.carnetURL;
+    if(ins.wadeURL)priv.wadeURL=ins.wadeURL;
+    if(!Object.keys(priv).length){skipped++;continue;}
+    priv.ts=serverTimestamp();
+    try{
+      // Escribir doc privado (merge para no pisar si ya existe).
+      await setDoc(doc(db,'inscripciones_private',ins.id),priv,{merge:true});
+      // Limpiar campos sensibles del doc público.
+      const cleanup={};
+      if(ins.pin!==undefined)cleanup.pin=deleteField();
+      if(ins.carnetURL!==undefined)cleanup.carnetURL=deleteField();
+      if(ins.wadeURL!==undefined)cleanup.wadeURL=deleteField();
+      await updateDoc(doc(db,'inscripciones',ins.id),cleanup);
+      migrated++;
+    }catch(e){errors++;console.warn('migrate fail',ins.id,e.message);}
+  }
+  await logAction('migrate_private',null,null,`migrated=${migrated} skipped=${skipped} errors=${errors}`);
+  console.log(`Migración: ${migrated} movidos, ${skipped} omitidos (sin campos sensibles), ${errors} errores.`);
+  return {migrated,skipped,errors};
 }
 
 // ═══════════════════════════════════════════
@@ -700,6 +805,7 @@ function render(){
       <button class="side-btn ${ST.view==='athletes'?'active':''}" onclick="go('athletes')"><span class="icon">🏋️</span>Atletas (DB)</button>
       <button class="side-btn ${ST.view==='nominas'?'active':''}" onclick="go('nominas')"><span class="icon">📋</span>Nóminas</button>
       <button class="side-btn ${ST.view==='approvals'?'active':''}" onclick="go('approvals')"><span class="icon">✓</span>Aprobaciones</button>
+      <button class="side-btn ${ST.view==='editRequests'?'active':''}" onclick="go('editRequests')"><span class="icon">✏️</span>Solicitudes edit${ST.editRequests.length?` <span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${ST.editRequests.length}</span>`:''}</button>
       <button class="side-btn ${ST.view==='cronograma'?'active':''}" onclick="go('cronograma')"><span class="icon">✈️</span>Cronograma</button>
       <div class="side-label">Sistema</div>
       <a href="cronograma.html" target="_blank" class="side-btn" style="text-decoration:none"><span class="icon">📅</span>Cronograma</a>
@@ -720,6 +826,7 @@ function render(){
   else if(ST.view==='athletes')content=renderAthletes();
   else if(ST.view==='nominas')content=renderNominas();
   else if(ST.view==='approvals')content=renderApprovals();
+  else if(ST.view==='editRequests')content=renderEditRequests();
   else if(ST.view==='cronograma')content=renderCronograma();
   else if(ST.view==='campeonatos')content=renderCampeonatos();
   else if(ST.view==='exports')content=renderExports();
@@ -1351,6 +1458,50 @@ function renderApprovals(){
         }).join('')}
       </table>
       ${pend.length===0?'<div class="empty">No hay pendientes 🎉</div>':''}
+    </div>`;
+}
+
+function renderEditRequests(){
+  const reqs=ST.editRequests||[];
+  const rows=reqs.map(r=>{
+    const ins=ST.inscripciones.find(x=>x.id===r.inscripcionId);
+    const priv=ST.inscripcionesPrivate[r.inscripcionId];
+    const rid=encodeURIComponent(r.id);
+    const pinOK=priv?(priv.pin===r.pin):null;
+    const pinBadge=pinOK===true
+      ?`<span style="background:rgba(34,197,94,.15);color:#22c55e;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">PIN ✓</span>`
+      :pinOK===false
+        ?`<span style="background:rgba(239,68,68,.15);color:#ef4444;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">PIN ✗</span>`
+        :`<span style="background:rgba(160,160,160,.15);color:var(--muted);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">sin privado</span>`;
+    const d=r.ts?new Date(r.ts.seconds?r.ts.seconds*1000:r.ts):null;
+    const changes=r.changes||{};
+    const changesHtml=Object.keys(changes).map(k=>{
+      const cur=ins?ins[k]:undefined;
+      const nv=changes[k];
+      const same=String(cur||'')===String(nv||'');
+      return `<div style="padding:2px 0;${same?'opacity:.5':''}"><span style="color:var(--muted);font-size:10px">${esc(k)}:</span> <span style="text-decoration:${same?'none':'line-through'};color:var(--muted);font-size:11px">${esc(String(cur||'—'))}</span> → <span style="color:${same?'var(--muted)':'var(--gold)'};font-size:11px;font-weight:600">${esc(String(nv||'—'))}</span></div>`;
+    }).join('');
+    return `<tr>
+      <td style="font-size:10px;color:var(--muted)">${d?d.toLocaleString('es-CL'):'—'}</td>
+      <td>${esc(ins?ins.nombre:'(?)')}<br><span style="font-size:9px;color:var(--muted)">${esc(r.rut||'')}</span></td>
+      <td style="font-size:10px">${esc(ins?ins.evento:r.inscripcionId)}</td>
+      <td>${pinBadge}<div style="font-size:10px;color:var(--muted);margin-top:2px">enviado: ${esc(r.pin||'')}</div></td>
+      <td style="font-size:11px;max-width:340px">${changesHtml||'<span style="color:var(--muted);font-size:10px">sin cambios</span>'}</td>
+      <td>
+        <button class="btn btn-g" style="padding:5px 10px;font-size:10px" onclick="approveEditRequest('${rid}')">✓ APROBAR</button>
+        <button class="btn btn-r" style="padding:5px 10px;font-size:10px;margin-top:4px" onclick="rejectEditRequest('${rid}')">✗ RECHAZAR</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="h1">Solicitudes de edición</div>
+    <p class="subtitle">${reqs.length} solicitudes pendientes · el PIN se valida contra inscripciones_private</p>
+    <div class="card" style="padding:0;overflow-x:auto">
+      <table class="tbl">
+        <tr><th>Fecha</th><th>Atleta</th><th>Evento</th><th>PIN</th><th>Cambios propuestos</th><th>Acción</th></tr>
+        ${rows}
+      </table>
+      ${reqs.length===0?'<div class="empty">No hay solicitudes pendientes 🎉</div>':''}
     </div>`;
 }
 
