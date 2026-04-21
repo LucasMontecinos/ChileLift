@@ -442,7 +442,7 @@ window.importNominaToFB=async function(eventName){
   // Get existing RUTs in Firebase for this event
   const existing=new Set(ST.inscripciones.filter(i=>i.evento===eventName).map(i=>(i.rut||'').replace(/[^0-9kK]/gi,'').toUpperCase()));
   
-  let imported=0,skipped=0;
+  let imported=0,skipped=0,errors=0,lastErr=null;
   for(const a of ev.athletes){
     const rutClean=(a.rut||'').replace(/[^0-9kK]/gi,'').toUpperCase();
     if(rutClean&&existing.has(rutClean)){skipped++;continue}
@@ -463,10 +463,17 @@ window.importNominaToFB=async function(eventName){
         importedFromJson:true
       });
       imported++;
-    }catch(e){console.warn('Error importing',a.nombre,e)}
+    }catch(e){
+      errors++; lastErr=e;
+      console.warn('Error importing',a.nombre,e);
+    }
   }
-  await logAction('import_nomina',eventName,null,`${imported} imported, ${skipped} skipped`);
-  showToast(`Importado: ${imported} atletas (${skipped} duplicados omitidos)`);
+  await logAction('import_nomina',eventName,null,`${imported} imported, ${skipped} skipped, ${errors} errors`);
+  if(errors){
+    showToast(`⚠️ ${imported} OK · ${skipped} dup · ${errors} ERR (${lastErr?.code||lastErr?.message||'desconocido'})`,null,true);
+  } else {
+    showToast(`Importado: ${imported} atletas (${skipped} duplicados omitidos)`);
+  }
 }
 
 window.editInsc=async function(insId,field){
@@ -2076,10 +2083,13 @@ function renderAthleteProfile(){
     const W=460,H=90,PX=8,PY=8;
     const gls=glHistory.map(c=>c.resultado.glp||c.resultado.gl||0);
     const maxG=Math.max(...gls),minG=Math.min(...gls.filter(v=>v>0));
+    const catPalette=['#D4A843','#3B82F6','#22C55E','#F59E0B','#C41E3A','#A78BFA','#F472B6'];
+    const uniqueCats=[...new Set(glHistory.map(c=>(c.categoria||'').trim()).filter(Boolean))];
+    const catColor=c=>{const i=uniqueCats.indexOf((c||'').trim());return i>=0?catPalette[i%catPalette.length]:'#D4A843'};
     const pts=glHistory.map((c,i)=>{
       const x=PX+i*(W-PX*2)/(glHistory.length-1);
       const y=PY+(H-PY*2)*(1-(gls[i]-minG)/Math.max(maxG-minG,1));
-      return{x,y,v:gls[i],ev:c.evento||'',fecha:c.fecha||''};
+      return{x,y,v:gls[i],ev:c.evento||'',fecha:c.fecha||'',cat:(c.categoria||'').trim()};
     });
     const poly=pts.map(p=>p.x+','+p.y).join(' ');
     const area=PX+','+H+' '+poly+' '+pts[pts.length-1].x+','+H;
@@ -2091,10 +2101,14 @@ function renderAthleteProfile(){
         </linearGradient></defs>
         <polygon points="${area}" fill="url(#gg2)"/>
         <polyline points="${poly}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-        ${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--gold)" stroke="var(--card)" stroke-width="2"/>
+        ${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${catColor(p.cat)}" stroke="var(--card)" stroke-width="2"/>
           <text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="rgba(212,168,67,.9)" font-family="Oswald" font-weight="700">${p.v}</text>
           <text x="${p.x}" y="${H+16}" text-anchor="middle" font-size="8" fill="rgba(120,143,166,.7)">${(p.ev.match(/20\d\d/)||[''])[0]}</text>`).join('')}
-      </svg></div>`;
+      </svg>
+      ${uniqueCats.length>1?`<div style="display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;font-size:10px;color:var(--muted);margin-top:6px;padding-top:8px;border-top:1px solid rgba(30,58,95,.3)">
+        ${uniqueCats.map(cat=>`<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:${catColor(cat)};display:inline-block"></span>${cat}</span>`).join('')}
+      </div>`:''}
+    </div>`;
   }
 
   // ── Peer comparison ───────────────────────────────────────
