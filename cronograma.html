@@ -100,7 +100,7 @@ async function syncFlightsToFB(){
   let updated=0;
   for(const[nombre,flight] of Object.entries(map)){
     // Find matching inscripcion by name + event
-    const ins=fbInscripciones.find(i=>i.nombre===nombre&&i.evento===selectedEvent.id);
+    const ins=fbInscripciones.find(i=>i.nombre===nombre&&(i.evento===selectedEvent.id||i.evento===selectedEvent.name));
     if(ins&&ins.flight!==flight){
       try{
         await window._fb.updateDoc(window._fb.doc(fbDB,'inscripciones',ins.id),{flight});
@@ -116,7 +116,39 @@ initCronoFB();
 Promise.all([
   fetch('nominas.json').then(r=>r.json()).catch(()=>({events:[]})),
   fetch('data.json').then(r=>r.json()).catch(()=>[])
-]).then(([n,d])=>{NM=n;DB=d;render()});
+]).then(([n,d])=>{NM=n;DB=d;render();syncEventsWithFirestore()});
+
+// ── Merge Firestore eventos metadata over nominas.json ──────
+// Firestore `eventos/{id}` is the source of truth for date/closeDate/location/org/days.
+// nominas.json only provides the athletes list until imported to Firebase.
+function syncEventsWithFirestore(){
+  const tryStart=()=>{
+    if(!fbReady||!window._fb){setTimeout(tryStart,400);return}
+    try{
+      window._fb.onSnapshot(window._fb.collection(fbDB,'eventos'),(snap)=>{
+        const fbEvs={};
+        snap.forEach(d=>{const e=d.data();if(e.status!=='archived')fbEvs[d.id]=e});
+        let changed=false;
+        (NM.events||[]).forEach(ev=>{
+          const fe=fbEvs[ev.id]||fbEvs[ev.name]||Object.values(fbEvs).find(x=>x.name===ev.name);
+          if(!fe)return;
+          ['date','closeDate','location','org','organizer','days','extraCols','status'].forEach(k=>{
+            if(fe[k]!==undefined&&fe[k]!==ev[k]){ev[k]=fe[k];changed=true}
+          });
+        });
+        if(changed){
+          // Update selectedEvent if user is viewing one
+          if(selectedEvent){
+            const fresh=NM.events.find(e=>e.name===selectedEvent.name||e.id===selectedEvent.id);
+            if(fresh)selectedEvent=fresh;
+          }
+          render();
+        }
+      });
+    }catch(e){console.warn('[Crono eventos sync]',e)}
+  };
+  tryStart();
+}
 
 function render(){
   if(!selectedEvent){renderEventList();return}
