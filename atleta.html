@@ -233,10 +233,13 @@ window.showProfile=function(codigo){
     const W=340,H=80,PX=8,PY=8;
     const gls=glHistory.map(c=>c.resultado.glp||c.resultado.gl||0);
     const maxG=Math.max(...gls),minG=Math.min(...gls.filter(v=>v>0));
+    const catPalette=['#D4A843','#3B82F6','#22C55E','#F59E0B','#C41E3A','#A78BFA','#F472B6'];
+    const uniqueCats=[...new Set(glHistory.map(c=>(c.categoria||'').trim()).filter(Boolean))];
+    const catColor=c=>{const i=uniqueCats.indexOf((c||'').trim());return i>=0?catPalette[i%catPalette.length]:'#D4A843'};
     const pts=glHistory.map((c,i)=>{
       const x=PX+i*(W-PX*2)/(glHistory.length-1);
       const y=PY+(H-PY*2)*(1-(gls[i]-minG)/Math.max(maxG-minG,1));
-      return {x,y,v:gls[i],ev:c.evento||''};
+      return {x,y,v:gls[i],ev:c.evento||'',cat:(c.categoria||'').trim()};
     });
     const poly=pts.map(p=>p.x+','+p.y).join(' ');
     const area=PX+','+H+' '+poly+' '+pts[pts.length-1].x+','+H;
@@ -245,11 +248,15 @@ window.showProfile=function(codigo){
       +'<defs><linearGradient id="gg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D4A843" stop-opacity="0.3"/><stop offset="100%" stop-color="#D4A843" stop-opacity="0.02"/></linearGradient></defs>'
       +'<polygon points="'+area+'" fill="url(#gg)"/>'
       +'<polyline points="'+poly+'" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
-      +pts.map(p=>'<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="var(--gold)" stroke="var(--bg)" stroke-width="2"/>'
+      +pts.map(p=>'<circle cx="'+p.x+'" cy="'+p.y+'" r="4.5" fill="'+catColor(p.cat)+'" stroke="var(--bg)" stroke-width="2"/>'
         +'<text x="'+p.x+'" y="'+(p.y-8)+'" text-anchor="middle" font-size="9" fill="rgba(212,168,67,.9)" font-family="Oswald" font-weight="700">'+p.v+'</text>'
         +'<text x="'+p.x+'" y="'+(H+16)+'" text-anchor="middle" font-size="8" fill="rgba(120,143,166,.7)">'+((p.ev.match(/20\d\d/)||[''])[0])+'</text>'
       ).join('')
-      +'</svg></div>';
+      +'</svg>'
+      +(uniqueCats.length>1?'<div style="display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;font-size:10px;color:var(--muted);margin-top:6px;padding-top:8px;border-top:1px solid rgba(30,58,95,.3)">'
+        +uniqueCats.map(cat=>'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:'+catColor(cat)+'"></span>'+cat+'</span>').join('')
+      +'</div>':'')
+      +'</div>';
   }
 
   // ── Peer comparison ─────────────────────────────────────
