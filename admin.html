@@ -1830,7 +1830,8 @@ function renderCampeonatos(){
         <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
           <a href="inscripcion.html" target="_blank" style="font-size:10px;color:var(--blue);text-decoration:none;padding:3px 8px;border:1px solid rgba(59,130,246,.3);border-radius:4px">🔗 Formulario público</a>
           <a href="cronograma.html?evento=${encodeURIComponent(ev.id)}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none;padding:3px 8px;border:1px solid var(--border);border-radius:4px">📅 Cronograma</a>
-          <a href="livecast.html?evento=${encodeURIComponent(ev.id)}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none;padding:3px 8px;border:1px solid var(--border);border-radius:4px">📡 LiveCast</a>
+          <a href="livecast.html?evento=${encodeURIComponent(ev.id)}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none;padding:3px 8px;border:1px solid var(--border);border-radius:4px">📡 LiveCast (operador)</a>
+          <button onclick="copyPublicLink('${ev.id}',this)" style="font-size:10px;color:var(--gold);background:transparent;text-decoration:none;padding:3px 8px;border:1px solid rgba(212,168,67,.4);border-radius:4px;cursor:pointer;font-family:inherit">🔗 Link público en vivo</button>
         </div>
       </div>`;
     }).join('')}
@@ -1878,6 +1879,25 @@ window.saveEvento = async function(){
     ST.eventoForm = null;
     render();
   }catch(e){ showToast('Error: '+e.message, null, true); console.error(e); }
+};
+
+window.copyPublicLink = function(id, btn){
+  const base = location.origin + location.pathname.replace(/[^/]+$/, '');
+  const url = base + 'livecast.html?evento=' + encodeURIComponent(id);
+  const ok = ()=>{
+    if(btn){
+      const t=btn.textContent;
+      btn.textContent='✓ Copiado — pegalo en WhatsApp';
+      btn.style.color='var(--green)';
+      btn.style.borderColor='var(--green)';
+      setTimeout(()=>{btn.textContent=t;btn.style.color='var(--gold)';btn.style.borderColor='rgba(212,168,67,.4)'},2200);
+    }
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(ok).catch(()=>prompt('Copia este link:',url));
+  } else {
+    prompt('Copia este link:',url);
+  }
 };
 
 window.closeNomina = async function(id){

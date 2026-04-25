@@ -95,10 +95,18 @@ if(TX_MODE){
   const ready=()=>{
     if(TX_MODE==='profile'||TX_MODE==='leaderboard')document.body.classList.add('tx-opaque');
     const d=document.createElement('div');d.id='txWidget';document.body.appendChild(d);
-    // Placeholder until data arrives
-    d.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(212,168,67,.35);font-size:13px;letter-spacing:2px">ESPERANDO DATOS…</div>';
+    // Sin placeholder: queda transparente hasta que llegan los datos.
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready);else ready();
+  // Replay de animación cuando la escena de OBS se activa (sin recargar).
+  // Funciona con OBS Browser Source y al volver al tab en navegador normal.
+  window.txReplay=function(){
+    if(typeof _txLastLifter!=='undefined')_txLastLifter=null;
+    if(typeof renderTxWidget==='function')renderTxWidget();
+  };
+  window.addEventListener('obsSourceActiveChanged',e=>{if(e&&e.detail&&e.detail.active)window.txReplay()});
+  window.addEventListener('obsSourceVisibleChanged',e=>{if(e&&e.detail&&e.detail.visible)window.txReplay()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)window.txReplay()});
 }
 
 // ══════════════════════════════════════════════
@@ -1190,10 +1198,12 @@ function renderObsTx(){
   h+='<ol style="color:var(--muted);font-size:12px;line-height:1.9;padding-left:20px;margin:0">';
   h+='<li>En OBS: <b style="color:var(--text)">Sources → +  → Browser</b> → pegá la URL del widget.</li>';
   h+='<li>Width/Height según el widget (Profile y Leaderboard: 1920×1080 · Scoreboard: 1920×1080 también, ya queda posicionado abajo).</li>';
-  h+='<li>Marcá <b style="color:var(--text)">"Refresh browser when scene becomes active"</b> para que la animación cascada se vuelva a disparar.</li>';
+  h+='<li><b style="color:#ff6b6b">DESMARCAR</b> <b style="color:var(--text)">"Refresh browser when scene becomes active"</b>. La animación se reproduce automáticamente cuando OBS activa la escena (vía evento <code>obsSourceActiveChanged</code>), así nunca se ve el flash de carga.</li>';
+  h+='<li>Tampoco marqués <b style="color:var(--text)">"Shutdown source when not visible"</b> — mantené el browser source siempre cargado en memoria para que el replay sea instantáneo.</li>';
   h+='<li>Creá <b style="color:var(--text)">escenas separadas</b>: "Cámara + Scoreboard" (cámara de fondo + browser source scoreboard encima), "Profile fullscreen", "Leaderboard fullscreen".</li>';
-  h+='<li>Transiciones de OBS (Stinger/Fade) entre escenas — la animación de salida la maneja OBS, no la página.</li>';
+  h+='<li>Transiciones de OBS (Stinger/Fade/Cut) entre escenas — la animación de entrada la maneja la página al activarse la escena.</li>';
   h+='<li>Los widgets leen el estado en vivo: lifter actual, intento, peso, timer. Cuando marcás ✓/✗ en "Control en Vivo", todos los widgets se actualizan en tiempo real.</li>';
+  h+='<li>Si una escena no se anima al activarse (versiones viejas de OBS), recargá manualmente el browser source con click derecho → "Refresh".</li>';
   h+='</ol></div>';
   h+='</div>';
   return h;
@@ -1247,7 +1257,9 @@ function renderTxWidget(){
   const c=document.getElementById('txWidget');if(!c)return true;
   const cur=liftQueue()[0];
   if(!cur&&TX_MODE!=='leaderboard'){
-    c.innerHTML='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:22px;color:#d4a843;letter-spacing:3px">RONDA COMPLETADA</div>';
+    // Sin levantador actual o aun cargando datos: dejá el widget transparente
+    // (el operador OBS corta a otra escena cuando termina la ronda).
+    c.innerHTML='';
     return true;
   }
   const lifterChanged=(cur?.id||null)!==_txLastLifter;
