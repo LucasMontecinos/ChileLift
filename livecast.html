@@ -63,7 +63,7 @@ let DATA={phase:'setup',events:[],event:null,athletes:[],lift:'sq',round:0,fligh
 // Standalone widgets for OBS Browser Sources. Read-only.
 // ══════════════════════════════════════════════
 const TX_URL=new URLSearchParams(location.search);
-const TX_MODE=TX_URL.get('tx')||null; // 'profile' | 'scoreboard' | 'leaderboard' | 'slam' | 'timer' | 'lights' | null
+const TX_MODE=TX_URL.get('tx')||null; // 'profile' | 'scoreboard' | 'leaderboard' | 'lbauto' | 'slam' | 'timer' | 'lights' | null
 if(TX_MODE){
   const css=document.createElement('style');
   css.textContent=`
@@ -83,6 +83,8 @@ if(TX_MODE){
     @keyframes txSlamFlash{0%,100%{background:rgba(0,0,0,0)}40%{background:rgba(0,0,0,.45)}}
     @keyframes txLightOn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
     @keyframes txTimerPulse{0%,100%{opacity:1}50%{opacity:.55}}
+    @keyframes txScoreboardCycle{0%{transform:translateY(110%);opacity:0}3%{transform:translateY(0);opacity:1}97%{transform:translateY(0);opacity:1}100%{transform:translateY(110%);opacity:0}}
+    @keyframes txLbCycle{0%{transform:scale(.92);opacity:0}5%{transform:scale(1);opacity:1}95%{transform:scale(1);opacity:1}100%{transform:scale(1.04);opacity:0;filter:blur(4px)}}
     .txCascade>*{animation:txSlideRight .55s cubic-bezier(.2,.8,.2,1) backwards}
     .txCascade>*:nth-child(1){animation-delay:.15s}
     .txCascade>*:nth-child(2){animation-delay:.32s}
@@ -1187,8 +1189,9 @@ function renderObsTx(){
   const enc=encodeURIComponent(evId);
   const widgets=[
     {id:'profile',icon:'🪪',title:'Perfil del atleta',desc:'Pantalla completa con foto placeholder, nombre, club, categoría, edad, años compitiendo y PB. Animación cascada al entrar. Mostrar ~10s antes de la tarima.',obsBg:'Opaca (azul oscuro). Escena fullscreen.',size:'1920×1080'},
-    {id:'scoreboard',icon:'📊',title:'Scoreboard (lower-third)',desc:'Barra inferior con categoría, rank, timer, nombre, club e intentos. Fondo transparente. Overlay sobre cámara de tarima.',obsBg:'Transparente (superpuesto sobre cámara).',size:'1920×320 (parte inferior)'},
-    {id:'leaderboard',icon:'🏆',title:'Tabla de clasificación',desc:'Ranking completo de la categoría actual con nombre, total, forecast, posición. Cascada fila por fila. Pantalla completa entre rondas.',obsBg:'Opaca (azul oscuro). Escena fullscreen.',size:'1920×1080'},
+    {id:'scoreboard',icon:'📊',title:'Scoreboard (lower-third)',desc:'Barra inferior con categoría, rank, timer, nombre, club e intentos. Aparece al cambiar levantador / intento / peso, queda 20s en pantalla y se va con animación. Hasta el próximo cambio queda oculto.',obsBg:'Transparente (superpuesto sobre cámara).',size:'1920×320 (parte inferior)'},
+    {id:'leaderboard',icon:'🏆',title:'Tabla de clasificación (FIJO)',desc:'Ranking completo de la categoría actual. Cascada fila por fila. SIEMPRE visible mientras la escena esté activa — usalo para escenas de pausa entre rondas que vos manejás manualmente.',obsBg:'Opaca (azul oscuro). Escena fullscreen.',size:'1920×1080'},
+    {id:'lbauto',icon:'🔁',title:'Tabla de clasificación (AUTO)',desc:'Igual al leaderboard fijo, pero APARECE SOLO al detectar fin de ronda (cuando cambia lift/round/flight). Queda 10s en pantalla y se va. Ideal como overlay siempre activo en una escena de cámara.',obsBg:'Transparente (overlay sobre cámara).',size:'1920×1080 (overlay fullscreen)'},
     {id:'slam',icon:'⚡',title:'Slam GOOD LIFT / NO LIFT',desc:'Flash de 2s con texto enorme verde (GOOD LIFT) o rojo (NO LIFT) cuando marcás ✓/✗ en Control en Vivo. Se dispara automáticamente. Overlay sobre la cámara de tarima.',obsBg:'Transparente. Sumar como capa encima de la cámara, siempre visible.',size:'1920×1080 (overlay fullscreen)'},
     {id:'timer',icon:'⏱',title:'Timer independiente',desc:'Reloj 1:00 → 0:00 en grande. Verde/ámbar/rojo según se acerca a 0. Pulsa cuando quedan ≤10s. Sincronizado con el timer del operador.',obsBg:'Transparente. Posicionalo donde quieras (esquina, banner, etc).',size:'1920×1080 (autoescala)'},
     {id:'lights',icon:'💡',title:'Luces de jueces',desc:'3 círculos para izq / central / der. Se prenden blanco (good) o rojo (no lift) cuando los jueces votan en su panel. Ideal arriba de la cámara o en pantalla aparte.',obsBg:'Transparente. Funciona solo si activás "Modo Jueces" en Control en Vivo.',size:'1920×1080 (autoescala)'},
@@ -1288,15 +1291,18 @@ let _txLastLifter=null;
 function renderTxWidget(){
   if(!TX_MODE)return false;
   const c=document.getElementById('txWidget');if(!c)return true;
-  // Widgets que NO dependen del lifter actual
-  if(TX_MODE==='slam'){c.innerHTML=renderTxSlam();return true}
+  // Widgets que NO dependen de DATA.athletes
   if(TX_MODE==='timer'){c.innerHTML=renderTxTimer();return true}
   if(TX_MODE==='lights'){c.innerHTML=renderTxLights();return true}
+  // Boot gate: el resto de widgets necesitan que llegue el snapshot de Firestore.
+  // Hasta entonces, transparente — evita el "pestañeo" (render vacío → render con datos).
+  if(!DATA.athletes||DATA.athletes.length===0){c.innerHTML='';return true}
+  // Widgets que NO dependen del lifter actual (pero sí de athletes)
+  if(TX_MODE==='slam'){c.innerHTML=renderTxSlam();return true}
+  if(TX_MODE==='lbauto'){c.innerHTML=renderTxLbAuto();return true}
   // Widgets que dependen del lifter actual
   const cur=liftQueue()[0];
   if(!cur&&TX_MODE!=='leaderboard'){
-    // Sin levantador actual o aun cargando datos: dejá el widget transparente
-    // (el operador OBS corta a otra escena cuando termina la ronda).
     c.innerHTML='';
     return true;
   }
@@ -1306,9 +1312,31 @@ function renderTxWidget(){
   if(TX_MODE==='profile')html=renderTxProfile(cur);
   else if(TX_MODE==='scoreboard')html=renderTxScoreboard(cur,lifterChanged);
   else if(TX_MODE==='leaderboard')html=renderTxLeaderboard(cur,lifterChanged);
-  else html='<div style="color:#fff;padding:40px;font-family:Oswald">Widget desconocido: '+TX_MODE+'. Valores: profile | scoreboard | leaderboard | slam | timer | lights</div>';
+  else html='<div style="color:#fff;padding:40px;font-family:Oswald">Widget desconocido: '+TX_MODE+'. Valores: profile | scoreboard | leaderboard | lbauto | slam | timer | lights</div>';
   c.innerHTML=html;
   return true;
+}
+
+// ─── LBAUTO (leaderboard que aparece 10s al terminar cada ronda) ─
+let _txLbAutoLastKey=null;
+let _txLbAutoShownAt=0;
+const TX_LBAUTO_DURATION=10000;
+function renderTxLbAuto(){
+  // La ronda cambia cuando se mueve (lift, round, flight). En el primer
+  // render solo registramos la clave actual (sin disparar el show).
+  const key=DATA.lift+'-'+DATA.round+'-'+DATA.flight;
+  if(_txLbAutoLastKey===null){_txLbAutoLastKey=key;return ''}
+  if(key!==_txLbAutoLastKey){
+    _txLbAutoLastKey=key;
+    _txLbAutoShownAt=Date.now();
+    setTimeout(()=>{if(typeof renderTxWidget==='function')renderTxWidget()},TX_LBAUTO_DURATION+400);
+  }
+  if(Date.now()-_txLbAutoShownAt>TX_LBAUTO_DURATION)return '';
+  // Re-usá el render de leaderboard fijo, envolviéndolo en el ciclo de animación.
+  const cur=liftQueue()[0];
+  const inner=renderTxLeaderboard(cur,false);
+  if(!inner)return '';
+  return '<div style="position:fixed;inset:0;animation:txLbCycle '+(TX_LBAUTO_DURATION/1000)+'s ease-in-out forwards">'+inner+'</div>';
 }
 
 // ─── SLAM (GOOD LIFT / NO LIFT flash) ──────────────────────────
@@ -1462,8 +1490,23 @@ function renderTxProfile(cur){
     </div>`;
 }
 
+let _txSbSig=null;
+let _txSbShownAt=0;
+const TX_SCOREBOARD_DURATION=20000; // 20s visible
 function renderTxScoreboard(cur,lifterChanged){
   if(!cur)return '';
+  // Auto-hide: el marcador aparece al cambiar levantador / intento / peso / lift,
+  // queda 20s en pantalla y se va con animación. Hasta el próximo cambio: oculto.
+  // En modo widget (?tx=scoreboard), el render que importa es éste.
+  if(TX_MODE==='scoreboard'){
+    const sig=cur.id+'-'+DATA.lift+'-'+DATA.round+'-'+(cur.att[DATA.lift][DATA.round].w||0);
+    if(sig!==_txSbSig){
+      _txSbSig=sig;
+      _txSbShownAt=Date.now();
+      setTimeout(()=>{if(typeof renderTxWidget==='function')renderTxWidget()},TX_SCOREBOARD_DURATION+400);
+    }
+    if(Date.now()-_txSbShownAt>TX_SCOREBOARD_DURATION)return '';
+  }
   const parts=(cur.name||'').trim().split(/\s+/);
   const firstName=parts.length>2?parts.slice(0,-2).join(' '):parts.slice(0,-1).join(' ');
   const lastName=(parts.length>2?parts.slice(-2).join(' '):parts[parts.length-1]).toUpperCase();
@@ -1486,7 +1529,7 @@ function renderTxScoreboard(cur,lifterChanged){
   const timerStr=DATA.timerOn?String(Math.floor(DATA.timer/60)).padStart(2,'0')+':'+String(DATA.timer%60).padStart(2,'0'):'';
   const rankTxt=(rk.pos&&simPos&&rk.pos!==simPos)?'RANK '+rk.pos+' to '+simPos:'RANK '+(rk.pos||simPos||'—');
   return `
-    <div style="position:absolute;bottom:0;left:0;right:0;${lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':''}">
+    <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':(lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':'')}">
       <div style="display:grid;grid-template-columns:180px 1fr 130px;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:10px 22px;align-items:center">
         <div style="font-family:Oswald;font-size:15px;color:rgba(200,215,240,.85);letter-spacing:1px">${catLabel}</div>
         <div style="text-align:center;font-family:Oswald;font-size:17px;letter-spacing:2px">${rankTxt.split(' ').map((w,i)=>/^\d+$/.test(w)?'<span style="color:#D4A843;font-weight:700">'+w+'</span>':w).join(' ')}</div>
@@ -1521,7 +1564,7 @@ function renderTxScoreboard(cur,lifterChanged){
 function renderTxLeaderboard(cur,lifterChanged){
   // Determine category to show: current lifter's, or first athlete of current flight if none
   const ref=cur||DATA.athletes.find(a=>a.flight===DATA.flight&&!a.bombed);
-  if(!ref)return '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:22px;color:#d4a843;letter-spacing:3px">SIN DATOS</div>';
+  if(!ref)return '';
   const sameCat=DATA.athletes.filter(a=>a.cat===ref.cat&&a.flight===DATA.flight&&!a.bombed);
   const ranked=sameCat.map(a=>({...a,total:totalOf(a),fTotal:forecastTotal(a),fPlace:0}));
   ranked.sort((a,b)=>b.fTotal-a.fTotal);
