@@ -1653,7 +1653,7 @@ function renderManage(){
   ath.forEach(a=>{
     h+='<tr style="border-bottom:1px solid rgba(30,58,95,.3);'+(a.bombed?'opacity:.4':'')+'">';
     h+='<td class="os" style="padding:6px 4px;text-align:center;color:var(--gold);font-weight:700">'+a.lot+'</td>';
-    h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="font-size:9px;color:var(--muted)">'+a.club+' \u00b7 '+a.div+' \u00b7 '+a.cat+'</div></td>';
+    h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)">'+(window.clubLogoImg?window.clubLogoImg(a.club,14,'background:rgba(10,22,40,.4);padding:1px;'):'')+'<span>'+a.club+' \u00b7 '+a.div+' \u00b7 '+a.cat+'</span></div></td>';
     h+='<td style="padding:3px 2px"><select class="inp-sm" onchange="updA('+a.id+',\'flight\',this.value);R()" style="width:38px;padding:4px 1px;font-size:11px">'+['A','B','C','D','E','F'].map(f=>'<option '+(a.flight===f?'selected':'')+'>'+f+'</option>').join('')+'</select></td>';
     h+='<td style="padding:3px 2px;text-align:center">';
     if(a.weighedIn){
@@ -1832,7 +1832,7 @@ function renderResults(){
     const pos=catPos[a.id]||'\u2014';
     h+='<tr style="border-bottom:1px solid rgba(30,58,95,.25);'+(a.bombed?'opacity:.4':'')+'">';
     h+='<td class="os" style="padding:6px 4px;text-align:center;color:'+(typeof pos==="number"&&pos<=3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:14px">'+pos+'</td>';
-    h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="font-size:9px;color:var(--muted)">'+a.club+'</div></td>';
+    h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)">'+(window.clubLogoImg?window.clubLogoImg(a.club,14,'background:rgba(10,22,40,.4);padding:1px;'):'')+'<span>'+a.club+'</span></div></td>';
     h+='<td style="padding:6px 3px;text-align:center;font-size:11px">'+(a.bw||'\u2014')+'</td>';
     h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.div||'\u2014')+'</td>';
     h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.cat||'\u2014')+'</td>';
@@ -2488,7 +2488,7 @@ function renderAtletaInfo(){
     h+='<div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+a.name+'</div>';
     if(codigo)h+='<div style="font-size:10px;color:var(--gold);font-family:Oswald;letter-spacing:.5px">'+codigo+'</div>';
     h+='<div style="font-size:11px;color:var(--muted);margin-top:2px">'+a.div+' · '+a.cat+'</div>';
-    h+='<div style="font-size:10px;color:var(--muted)">'+a.club+(debut?' · Debut '+debut:'')+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)">'+(window.clubLogoImg?window.clubLogoImg(a.club,16,'background:rgba(10,22,40,.4);padding:1px;'):'')+'<span>'+a.club+(debut?' · Debut '+debut:'')+'</span></div>';
     h+='<span class="flight-badge" style="background:'+(FL_C[a.flight]||'#666')+';margin-top:4px;display:inline-block">Vuelo '+a.flight+'</span>';
     h+='</div></div>';
     

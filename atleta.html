@@ -326,10 +326,11 @@ window.showProfile=function(codigo){
       const ev=NOM_EVENTS.find(e=>e.id===i.evento);
       const evName=ev?.name||i.evento;
       const ok=i.status==='approved';
+      const ilg=window.clubLogoImg?window.clubLogoImg(i.club,18,'background:var(--bg);padding:1px;vertical-align:middle;margin-right:5px;'):'';
       h+='<div class="comp-row" style="align-items:center">'
         +'<div><div style="font-weight:600;font-size:13px">'+evName+'</div>'
         +'<div style="font-size:11px;color:var(--muted);margin-top:3px">'+(i.division||'—')+' · '+(i.categoria||'—')+' · '+(i.modalidad||'—')+'</div>'
-        +'<div style="font-size:11px;color:var(--muted)">'+(i.club||'—')+'</div></div>'
+        +'<div style="font-size:11px;color:var(--muted)">'+ilg+(i.club||'—')+'</div></div>'
         +'<span class="badge '+(ok?'b-g':'b-y')+'" style="flex-shrink:0;margin-left:12px">'+(ok?'✓ Confirmado':'⏳ Pendiente')+'</span>'
       +'</div>';
     });

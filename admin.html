@@ -79,6 +79,7 @@ input,select,button,textarea{font-family:inherit;outline:none}
 </style>
 </head>
 <body>
+<script src="clubs.js"></script>
 <div id="app"><div class="login"><div class="login-c"><div class="spinner"></div><p style="text-align:center" id="loadingMsg">Cargando...</p><p id="loadingBtn" style="text-align:center;margin-top:12px;display:none"><button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:1px solid #C41E3A;background:transparent;color:#C41E3A;cursor:pointer;font-size:13px">↻ Reintentar</button></p></div></div></div>
 
 <script>
@@ -1499,7 +1500,7 @@ function renderNominas(){
             <td><span class="${cls}" ${click('division')}>${esc(i.division||'—')}</span></td>
             <td><span class="${cls}" ${click('categoria')}>${esc(i.categoria||'—')}</span></td>
             <td><span class="${cls}" ${click('modalidad')}>${esc(i.modalidad||'—')}</span></td>
-            <td><span class="${cls}" ${click('club')}>${esc(i.club||'—')}</span></td>
+            <td><span class="${cls}" ${click('club')} style="display:inline-flex;align-items:center;gap:5px">${window.clubLogoImg?window.clubLogoImg(i.club,18,'background:var(--bg);padding:1px;'):''}${esc(i.club||'—')}</span></td>
             <td><span class="badge ${i.status==='approved'?'b-g':i.status==='pending'?'b-y':'b-r'}">${esc(i.status||'approved')}</span></td>
             <td>${editable?`<button onclick="deleteInsc('${sid}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Eliminar">✕</button>`:''}</td>
           </tr>`;
@@ -1525,7 +1526,7 @@ function renderApprovals(){
             <td>${esc(i.nombre)}<br><span style="font-size:9px;color:var(--muted)">${esc(i.sexo||'')} · ${esc(i.division||'')}</span></td>
             <td style="font-size:10px">${esc(i.evento||'')}</td>
             <td><span class="badge b-y">${esc(i.categoria||'?')}</span></td>
-            <td style="font-size:11px">${esc(i.club||'—')}</td>
+            <td style="font-size:11px"><span style="display:inline-flex;align-items:center;gap:5px">${window.clubLogoImg?window.clubLogoImg(i.club,18,'background:var(--bg);padding:1px;'):''}${esc(i.club||'—')}</span></td>
             <td><button class="btn btn-g" style="padding:5px 10px;font-size:10px" onclick="setStatus('${sid}','approved')">✓ APROBAR</button> <button class="btn btn-r" style="padding:5px 10px;font-size:10px" onclick="setStatus('${sid}','rejected')">✗ RECHAZAR</button></td>
           </tr>`;
         }).join('')}
@@ -2294,7 +2295,7 @@ function renderAthleteProfile(){
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(30,58,95,.3)">
         <div>
           <div style="font-weight:600;font-size:13px">${evName}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${i.division||'—'} · ${i.categoria||'—'} · ${i.modalidad||'—'} · ${i.club||'—'}</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:2px"><span>${i.division||'—'} · ${i.categoria||'—'} · ${i.modalidad||'—'} · </span>${window.clubLogoImg?window.clubLogoImg(i.club,16,'background:var(--bg);padding:1px;'):''}<span>${i.club||'—'}</span></div>
         </div>
         <span class="badge ${ok?'b-g':'b-y'}" style="flex-shrink:0;margin-left:12px">${ok?'✓ Confirmado':'⏳ Pendiente'}</span>
       </div>`;
