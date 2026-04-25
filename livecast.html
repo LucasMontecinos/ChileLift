@@ -62,7 +62,7 @@ let DATA={phase:'setup',events:[],event:null,athletes:[],lift:'sq',round:0,fligh
 // Standalone widgets for OBS Browser Sources. Read-only.
 // ══════════════════════════════════════════════
 const TX_URL=new URLSearchParams(location.search);
-const TX_MODE=TX_URL.get('tx')||null; // 'profile' | 'scoreboard' | 'leaderboard' | null
+const TX_MODE=TX_URL.get('tx')||null; // 'profile' | 'scoreboard' | 'leaderboard' | 'slam' | 'timer' | 'lights' | null
 if(TX_MODE){
   const css=document.createElement('style');
   css.textContent=`
@@ -77,6 +77,11 @@ if(TX_MODE){
     @keyframes txScaleIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
     @keyframes txGrowLine{from{transform:scaleY(0);transform-origin:top}to{transform:scaleY(1);transform-origin:top}}
     @keyframes txGrowLineH{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}
+    @keyframes txSlamIn{0%{transform:scale(.4) rotate(-8deg);opacity:0;letter-spacing:30px}55%{transform:scale(1.15) rotate(0);opacity:1;letter-spacing:8px}75%{transform:scale(.95)}100%{transform:scale(1);letter-spacing:8px}}
+    @keyframes txSlamOut{from{transform:scale(1);opacity:1}to{transform:scale(1.6);opacity:0;filter:blur(8px)}}
+    @keyframes txSlamFlash{0%,100%{background:rgba(0,0,0,0)}40%{background:rgba(0,0,0,.45)}}
+    @keyframes txLightOn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+    @keyframes txTimerPulse{0%,100%{opacity:1}50%{opacity:.55}}
     .txCascade>*{animation:txSlideRight .55s cubic-bezier(.2,.8,.2,1) backwards}
     .txCascade>*:nth-child(1){animation-delay:.15s}
     .txCascade>*:nth-child(2){animation-delay:.32s}
@@ -1183,6 +1188,9 @@ function renderObsTx(){
     {id:'profile',icon:'🪪',title:'Perfil del atleta',desc:'Pantalla completa con foto placeholder, nombre, club, categoría, edad, años compitiendo y PB. Animación cascada al entrar. Mostrar ~10s antes de la tarima.',obsBg:'Opaca (azul oscuro). Escena fullscreen.',size:'1920×1080'},
     {id:'scoreboard',icon:'📊',title:'Scoreboard (lower-third)',desc:'Barra inferior con categoría, rank, timer, nombre, club e intentos. Fondo transparente. Overlay sobre cámara de tarima.',obsBg:'Transparente (superpuesto sobre cámara).',size:'1920×320 (parte inferior)'},
     {id:'leaderboard',icon:'🏆',title:'Tabla de clasificación',desc:'Ranking completo de la categoría actual con nombre, total, forecast, posición. Cascada fila por fila. Pantalla completa entre rondas.',obsBg:'Opaca (azul oscuro). Escena fullscreen.',size:'1920×1080'},
+    {id:'slam',icon:'⚡',title:'Slam GOOD LIFT / NO LIFT',desc:'Flash de 2s con texto enorme verde (GOOD LIFT) o rojo (NO LIFT) cuando marcás ✓/✗ en Control en Vivo. Se dispara automáticamente. Overlay sobre la cámara de tarima.',obsBg:'Transparente. Sumar como capa encima de la cámara, siempre visible.',size:'1920×1080 (overlay fullscreen)'},
+    {id:'timer',icon:'⏱',title:'Timer independiente',desc:'Reloj 1:00 → 0:00 en grande. Verde/ámbar/rojo según se acerca a 0. Pulsa cuando quedan ≤10s. Sincronizado con el timer del operador.',obsBg:'Transparente. Posicionalo donde quieras (esquina, banner, etc).',size:'1920×1080 (autoescala)'},
+    {id:'lights',icon:'💡',title:'Luces de jueces',desc:'3 círculos para izq / central / der. Se prenden blanco (good) o rojo (no lift) cuando los jueces votan en su panel. Ideal arriba de la cámara o en pantalla aparte.',obsBg:'Transparente. Funciona solo si activás "Modo Jueces" en Control en Vivo.',size:'1920×1080 (autoescala)'},
   ];
   let h='<div class="fade"><h2 class="os" style="font-size:22px;letter-spacing:1px;margin-bottom:6px">🎬 WIDGETS PARA OBS</h2>';
   h+='<p style="color:var(--muted);font-size:12px;margin-bottom:18px">Cada widget es una URL que se agrega como Browser Source en OBS. Actualiza en tiempo real desde Firestore — no necesita login.</p>';
@@ -1279,6 +1287,11 @@ let _txLastLifter=null;
 function renderTxWidget(){
   if(!TX_MODE)return false;
   const c=document.getElementById('txWidget');if(!c)return true;
+  // Widgets que NO dependen del lifter actual
+  if(TX_MODE==='slam'){c.innerHTML=renderTxSlam();return true}
+  if(TX_MODE==='timer'){c.innerHTML=renderTxTimer();return true}
+  if(TX_MODE==='lights'){c.innerHTML=renderTxLights();return true}
+  // Widgets que dependen del lifter actual
   const cur=liftQueue()[0];
   if(!cur&&TX_MODE!=='leaderboard'){
     // Sin levantador actual o aun cargando datos: dejá el widget transparente
@@ -1292,9 +1305,109 @@ function renderTxWidget(){
   if(TX_MODE==='profile')html=renderTxProfile(cur);
   else if(TX_MODE==='scoreboard')html=renderTxScoreboard(cur,lifterChanged);
   else if(TX_MODE==='leaderboard')html=renderTxLeaderboard(cur,lifterChanged);
-  else html='<div style="color:#fff;padding:40px;font-family:Oswald">Widget desconocido: '+TX_MODE+'. Valores: profile | scoreboard | leaderboard</div>';
+  else html='<div style="color:#fff;padding:40px;font-family:Oswald">Widget desconocido: '+TX_MODE+'. Valores: profile | scoreboard | leaderboard | slam | timer | lights</div>';
   c.innerHTML=html;
   return true;
+}
+
+// ─── SLAM (GOOD LIFT / NO LIFT flash) ──────────────────────────
+let _txSlamSeen=null;          // Map<key, 'g'|'r'|null>
+let _txSlamUntil=0;            // timestamp until which to show
+let _txSlamType=null;          // 'g' | 'r'
+let _txSlamLifterName='';
+function _txSlamScan(){
+  // Detecta nueva transición null → g/r en cualquier intento.
+  // Primera pasada: solo poblar el set, no disparar nada.
+  const isFirst=(_txSlamSeen===null);
+  if(isFirst)_txSlamSeen={};
+  let fired=null;
+  DATA.athletes.forEach(a=>{
+    LIFTS.forEach(l=>{
+      (a.att&&a.att[l]||[]).forEach((att,i)=>{
+        const k=a.id+'-'+l+'-'+i;
+        const prev=_txSlamSeen[k];
+        const now=att.r||null;
+        if(!isFirst&&(prev==null||prev===undefined)&&(now==='g'||now==='r')){
+          fired={type:now,name:a.name||'',lift:l,round:i};
+        }
+        _txSlamSeen[k]=now;
+      });
+    });
+  });
+  if(fired){
+    _txSlamUntil=Date.now()+2200;
+    _txSlamType=fired.type;
+    _txSlamLifterName=fired.name;
+    setTimeout(()=>{if(typeof renderTxWidget==='function')renderTxWidget()},2300);
+  }
+}
+function renderTxSlam(){
+  _txSlamScan();
+  if(!_txSlamType||Date.now()>=_txSlamUntil){
+    return '';
+  }
+  const isGood=_txSlamType==='g';
+  const text=isGood?'GOOD LIFT':'NO LIFT';
+  const color=isGood?'#22c55e':'#ef4444';
+  const glow=isGood?'rgba(34,197,94,.85)':'rgba(239,68,68,.85)';
+  return '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:txSlamFlash 2.1s ease-in-out forwards">'
+    +'<div style="font-family:Oswald,sans-serif;font-size:clamp(80px,14vw,200px);font-weight:900;letter-spacing:8px;color:'+color+';text-shadow:0 0 60px '+glow+',0 0 120px '+glow+',0 8px 30px rgba(0,0,0,.9);animation:txSlamIn .55s cubic-bezier(.2,.9,.2,1) backwards,txSlamOut .35s ease-in 1.75s forwards;-webkit-text-stroke:3px rgba(0,0,0,.4)">'+text+'</div>'
+    +(_txSlamLifterName?'<div style="margin-top:18px;font-family:Oswald,sans-serif;font-size:clamp(18px,2vw,28px);letter-spacing:6px;color:#fff;text-shadow:0 4px 16px rgba(0,0,0,.9);animation:txFade .8s ease .35s backwards">'+_txSlamLifterName.toUpperCase()+'</div>':'')
+    +'</div>';
+}
+
+// ─── TIMER (1:00 → 0:00 standalone) ────────────────────────────
+function renderTxTimer(){
+  const t=Math.max(0,DATA.timer||0);
+  const m=Math.floor(t/60),s=t%60;
+  const txt=m+':'+(s<10?'0':'')+s;
+  const low=t<=10;
+  const color=low?'#ef4444':(t<=20?'#f59e0b':'#22c55e');
+  const pulse=low&&DATA.timerOn?'animation:txTimerPulse .55s ease-in-out infinite;':'';
+  return '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">'
+    +'<div style="font-family:Oswald,sans-serif;font-size:clamp(120px,18vw,280px);font-weight:900;color:'+color+';text-shadow:0 0 40px '+color+'88,0 8px 30px rgba(0,0,0,.85);letter-spacing:6px;-webkit-text-stroke:2px rgba(0,0,0,.35);'+pulse+'">'+txt+'</div>'
+    +'</div>';
+}
+
+// ─── LIGHTS (3 luces de jueces) ────────────────────────────────
+let _txLightsUnsub=null;
+let _txLights={izq:null,central:null,der:null};
+let _txLightsResetTs=0;
+let _txLightsPoll=null;
+function _txStartLightsListener(){
+  if(_txLightsUnsub)return;
+  if(!fbReady||!window._fb){
+    if(!_txLightsPoll){
+      _txLightsPoll=setInterval(()=>{
+        if(fbReady&&window._fb){clearInterval(_txLightsPoll);_txLightsPoll=null;_txStartLightsListener()}
+      },300);
+    }
+    return;
+  }
+  try{
+    _txLightsUnsub=window._fb.onSnapshot(window._fb.doc(fbDB,'judge_decisions','current'),(snap)=>{
+      if(!snap.exists())return;
+      const d=snap.data();
+      _txLights={izq:d.izq||null,central:d.central||null,der:d.der||null};
+      _txLightsResetTs=d.reset_ts||0;
+      if(typeof renderTxWidget==='function')renderTxWidget();
+    });
+  }catch(e){console.warn('[TX] lights subscribe fail',e)}
+}
+function renderTxLights(){
+  if(TX_MODE==='lights')_txStartLightsListener();
+  const order=['izq','central','der'];
+  let h='<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:clamp(20px,3vw,60px)">';
+  order.forEach((j,i)=>{
+    const v=_txLights[j];
+    const lit=v==='white'||v==='red';
+    const bg=v==='white'?'#fff':(v==='red'?'#ef4444':'rgba(255,255,255,.08)');
+    const border=v==='white'?'#fff':(v==='red'?'#ef4444':'rgba(255,255,255,.25)');
+    const glow=v==='white'?'0 0 60px rgba(255,255,255,.85),0 0 120px rgba(255,255,255,.45)':(v==='red'?'0 0 60px rgba(239,68,68,.85),0 0 120px rgba(239,68,68,.45)':'none');
+    h+='<div style="width:clamp(120px,14vw,220px);height:clamp(120px,14vw,220px);border-radius:50%;background:'+bg+';border:6px solid '+border+';box-shadow:'+glow+',inset 0 0 30px rgba(0,0,0,'+(lit?'.15':'.5')+');'+(lit?'animation:txLightOn .35s cubic-bezier(.2,.9,.2,1) backwards;animation-delay:'+(i*0.08)+'s':'')+'"></div>';
+  });
+  h+='</div>';
+  return h;
 }
 
 function renderTxProfile(cur){
