@@ -883,6 +883,7 @@ function render(){
       <button class="side-btn ${ST.view==='approvals'?'active':''}" onclick="go('approvals')"><span class="icon">✓</span>Aprobaciones</button>
       <button class="side-btn ${ST.view==='editRequests'?'active':''}" onclick="go('editRequests')"><span class="icon">✏️</span>Solicitudes edit${ST.editRequests.length?` <span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${ST.editRequests.length}</span>`:''}</button>
       <button class="side-btn ${ST.view==='entrenadores'?'active':''}" onclick="go('entrenadores')"><span class="icon">👥</span>Entrenadores</button>
+      <button class="side-btn ${ST.view==='importar'?'active':''}" onclick="go('importar')"><span class="icon">📥</span>Importar LiftingCast</button>
       <button class="side-btn ${ST.view==='cronograma'?'active':''}" onclick="go('cronograma')"><span class="icon">✈️</span>Cronograma</button>
       <div class="side-label">Sistema</div>
       <a href="cronograma.html" target="_blank" class="side-btn" style="text-decoration:none"><span class="icon">📅</span>Cronograma</a>
@@ -905,6 +906,7 @@ function render(){
   else if(ST.view==='approvals')content=renderApprovals();
   else if(ST.view==='editRequests')content=renderEditRequests();
   else if(ST.view==='entrenadores')content=renderEntrenadores();
+  else if(ST.view==='importar')content=renderImportar();
   else if(ST.view==='cronograma')content=renderCronograma();
   else if(ST.view==='campeonatos')content=renderCampeonatos();
   else if(ST.view==='exports')content=renderExports();
