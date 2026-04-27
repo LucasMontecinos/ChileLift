@@ -2148,6 +2148,47 @@ window.dirShowLb=async function(cat,seconds){
 window.dirShowSlam=async function(type){
   await window.dirShow('slam',2,{type});
 };
+// Toggle ON/OFF (mismo botón / misma tecla = on si está off, off si está on)
+window.dirToggle=async function(comp){
+  const c=_dirState&&_dirState[comp];
+  const isOn=c&&c.active&&(!c.until||c.until>Date.now());
+  if(isOn) await window.dirHide(comp);
+  else await window.dirShow(comp,0); // permanente
+};
+window.dirToggleLb=async function(){
+  const c=_dirState&&_dirState.leaderboard;
+  const isOn=c&&c.active&&(!c.until||c.until>Date.now());
+  if(isOn) await window.dirHide('leaderboard');
+  else {
+    // Usa la categoría seleccionada en el dropdown (vacía = auto = cat del lifter actual)
+    const cat=document.getElementById('dirLbCat')?.value||'';
+    await window.dirShowLb(cat,0);
+  }
+};
+window.dirToggleBreak=async function(){
+  const bt=_dirState&&_dirState.breakTimer;
+  if(bt&&bt.active){await window.dirBreakHide();return}
+  await window.dirBreakStart();
+};
+// Atajos de teclado para Stream Deck
+window._dirKeyHandler=function(e){
+  if(DATA.phase!=='director')return;
+  // Ignorar si hay foco en un input/textarea/select (no pisar la edición)
+  const tag=(document.activeElement?.tagName||'').toUpperCase();
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+  const k=(e.key||'').toLowerCase();
+  const map={p:'profile',s:'scoreboard',t:'timer'};
+  if(map[k]){e.preventDefault();window.dirToggle(map[k]);return}
+  if(k==='l'){e.preventDefault();window.dirToggleLb();return}
+  if(k==='g'){e.preventDefault();window.dirShowSlam('g');return}
+  if(k==='n'){e.preventDefault();window.dirShowSlam('n');return}
+  if(k==='b'){e.preventDefault();window.dirToggleBreak();return}
+  if(k==='0'||k==='escape'){e.preventDefault();window.dirHideAll();return}
+};
+if(typeof window!=='undefined'&&!window._dirKeyBound){
+  window.addEventListener('keydown',function(e){if(window._dirKeyHandler)window._dirKeyHandler(e)});
+  window._dirKeyBound=true;
+}
 // ── Break timer (descanso configurable) ─────────────────────
 window.dirBreakStart=async function(){
   const m=parseInt(document.getElementById('dirBreakMin')?.value||'0',10)||0;
@@ -2192,24 +2233,25 @@ function renderDirector(){
   const cats=[...new Set(DATA.athletes.filter(a=>!a.bombed).map(a=>a.cat))].filter(Boolean).sort((a,b)=>(parseFloat(a)||999)-(parseFloat(b)||999));
   const fmtTime=t=>{if(!t||t<=Date.now())return '';const s=Math.ceil((t-Date.now())/1000);return s+'s restantes'};
   const widgetUrl=location.origin+location.pathname.replace(/[^/]+$/,'')+'livecast.html?tx=director&evento='+encodeURIComponent(DATA.event?.id||DATA.event?.name||'');
-  const compRow=(key,icon,title,desc,extra)=>{
+  const kbd=(k)=>'<kbd style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 10px;background:#0a1628;border:2px solid #D4A843;border-radius:6px;font-family:Oswald;font-size:16px;font-weight:700;color:#D4A843;letter-spacing:1px;box-shadow:0 2px 0 #D4A84355">'+k+'</kbd>';
+  const compToggle=(key,icon,title,desc,shortcut,onClick)=>{
     const c=_dirState[key]||{};
     const isOn=c.active&&(!c.until||c.until>Date.now());
-    return '<div class="card" style="padding:14px 18px;border-left:4px solid '+(isOn?'var(--green)':'var(--border)')+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
+    return '<div class="card" style="padding:14px 18px;border-left:4px solid '+(isOn?'var(--green)':'var(--border)')+';background:'+(isOn?'rgba(34,197,94,.04)':'transparent')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">'
       +'<div style="flex:1;min-width:200px">'
-        +'<div style="font-family:Oswald;font-size:15px;font-weight:700;letter-spacing:1px">'+icon+' '+title+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5">'+desc+'</div>'
-        +(isOn&&c.until?'<div style="font-size:10px;color:var(--green);margin-top:4px;font-family:Oswald;letter-spacing:1px">⏱ '+fmtTime(c.until)+'</div>':'')
-        +(isOn&&!c.until?'<div style="font-size:10px;color:var(--green);margin-top:4px;font-family:Oswald;letter-spacing:1px">🔵 EN PANTALLA</div>':'')
+        +'<div style="display:flex;align-items:center;gap:10px"><div style="font-family:Oswald;font-size:15px;font-weight:700;letter-spacing:1px">'+icon+' '+title+'</div>'+kbd(shortcut)+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">'+desc+'</div>'
+        +(isOn?'<div style="font-size:10px;color:var(--green);margin-top:4px;font-family:Oswald;letter-spacing:1px">🔵 EN PANTALLA</div>':'')
       +'</div>'
-      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end">'+extra+'</div>'
+      +'<button class="btn '+(isOn?'btn-r':'btn-g')+'" onclick="'+onClick+'" style="padding:14px 28px;font-size:14px;font-family:Oswald;font-weight:700;letter-spacing:2px;min-width:160px">'+(isOn?'⏸ DESACTIVAR':'▶ ACTIVAR')+'</button>'
       +'</div></div>';
   };
   let h='<div class="fade">';
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:12px">';
-  h+='<div><h2 class="os" style="font-size:22px;letter-spacing:1px">🎮 CONTROL DE TRANSMISIÓN</h2><p style="color:var(--muted);font-size:12px">Botones para mostrar/esconder componentes en pantalla en vivo. Sin tocar OBS.</p></div>';
-  h+='<button class="btn btn-r" onclick="dirHideAll()" style="padding:10px 18px;font-size:13px">🙈 ESCONDER TODO</button>';
+  h+='<div><h2 class="os" style="font-size:22px;letter-spacing:1px">🎮 CONTROL DE TRANSMISIÓN</h2><p style="color:var(--muted);font-size:12px">Toggle on/off por componente. Compatible con Stream Deck — cada acción tiene una tecla asignada.</p></div>';
+  h+='<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-r" onclick="dirHideAll()" style="padding:12px 20px;font-size:13px;font-family:Oswald;font-weight:700;letter-spacing:2px">🙈 ESCONDER TODO</button>'
+    +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><kbd style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:28px;padding:0 8px;background:#0a1628;border:2px solid #ef4444;border-radius:6px;font-family:Oswald;font-size:14px;font-weight:700;color:#ef4444;letter-spacing:1px">0</kbd><span style="font-size:9px;color:var(--muted)">o ESC</span></div></div>';
   h+='</div>';
   // Setup card
   h+='<div class="card" style="margin-bottom:14px;padding:12px 16px;background:rgba(212,168,67,.06);border-color:rgba(212,168,67,.3)">';
@@ -2224,39 +2266,37 @@ function renderDirector(){
     h+='👤 <b>Levantador actual:</b> <span style="color:var(--gold);font-family:Oswald">'+cur.name+'</span> · '+cur.cat+' · '+cur.div+' · Vuelo '+cur.flight+' · '+LIFT_S[DATA.lift]+(DATA.round+1);
     h+='</div>';
   }
-  // Componentes
+  // Componentes — TOGGLES (1 botón / 1 tecla por componente, listo para Stream Deck)
   h+='<div style="display:grid;gap:12px">';
-  h+=compRow('profile','🪪','Perfil del atleta','Pantalla completa con foto placeholder, nombre, categoría, club, edad, PB. Mostrá antes de que suba a la tarima.',
-    '<button class="btn btn-g" onclick="dirShow(\'profile\',5)" style="padding:8px 14px;font-size:11px">▶ 5s</button>'
-    +'<button class="btn btn-g" onclick="dirShow(\'profile\',10)" style="padding:8px 14px;font-size:11px">▶ 10s</button>'
-    +'<button class="btn btn-g" onclick="dirShow(\'profile\',0)" style="padding:8px 14px;font-size:11px">▶ Permanente</button>'
-    +'<button class="btn" onclick="dirHide(\'profile\')" style="padding:8px 14px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted)">⏸ Esconder</button>'
-  );
-  h+=compRow('scoreboard','📊','Marcador (lower-third)','Barra inferior izquierda con nombre, categoría, intentos cargados.',
-    '<button class="btn btn-g" onclick="dirShow(\'scoreboard\',15)" style="padding:8px 14px;font-size:11px">▶ 15s</button>'
-    +'<button class="btn btn-g" onclick="dirShow(\'scoreboard\',30)" style="padding:8px 14px;font-size:11px">▶ 30s</button>'
-    +'<button class="btn btn-g" onclick="dirShow(\'scoreboard\',60)" style="padding:8px 14px;font-size:11px">▶ 60s</button>'
-    +'<button class="btn btn-g" onclick="dirShow(\'scoreboard\',0)" style="padding:8px 14px;font-size:11px">▶ Permanente</button>'
-    +'<button class="btn" onclick="dirHide(\'scoreboard\')" style="padding:8px 14px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted)">⏸ Esconder</button>'
-  );
-  // Leaderboard con selector de categoría
-  const curCat=_dirState.leaderboard?.cat||(cur?cur.cat:'');
-  let lbExtra='<select id="dirLbCat" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:11px"><option value="">— Auto (cat actual) —</option>';
-  cats.forEach(c=>{lbExtra+='<option value="'+c+'" '+(c===curCat?'selected':'')+'>'+c+'</option>'});
-  lbExtra+='</select>';
-  lbExtra+='<button class="btn btn-g" onclick="dirShowLb(document.getElementById(\'dirLbCat\').value,10)" style="padding:8px 14px;font-size:11px">▶ 10s</button>';
-  lbExtra+='<button class="btn btn-g" onclick="dirShowLb(document.getElementById(\'dirLbCat\').value,30)" style="padding:8px 14px;font-size:11px">▶ 30s</button>';
-  lbExtra+='<button class="btn btn-g" onclick="dirShowLb(document.getElementById(\'dirLbCat\').value,0)" style="padding:8px 14px;font-size:11px">▶ Permanente</button>';
-  lbExtra+='<button class="btn" onclick="dirHide(\'leaderboard\')" style="padding:8px 14px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted)">⏸ Esconder</button>';
-  h+=compRow('leaderboard','🏆','Tabla de clasificación','Ranking de la categoría elegida (si "Auto", usa la del lifter actual). Pantalla completa.',lbExtra);
-  h+=compRow('timer','⏱','Timer grande','Reloj 1:00 → 0:00 en la esquina superior derecha. Sincronizado con el timer del operador.',
-    '<button class="btn btn-g" onclick="dirShow(\'timer\',0)" style="padding:8px 14px;font-size:11px">▶ Permanente</button>'
-    +'<button class="btn" onclick="dirHide(\'timer\')" style="padding:8px 14px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted)">⏸ Esconder</button>'
-  );
-  h+=compRow('slam','⚡','Slam manual GOOD/NO LIFT','Cartel de 2s en la esquina superior izquierda. Lo disparás vos cuando los jueces dictaminen.',
-    '<button class="btn btn-g" onclick="dirShowSlam(\'g\')" style="padding:8px 16px;font-size:12px;background:#22c55e;border-color:#22c55e">✓ GOOD LIFT</button>'
-    +'<button class="btn btn-r" onclick="dirShowSlam(\'n\')" style="padding:8px 16px;font-size:12px">✗ NO LIFT</button>'
-  );
+  h+=compToggle('profile','🪪','Perfil del atleta','Pantalla completa con nombre, categoría, club, edad, PB del atleta actual.','P','dirToggle(\'profile\')');
+  h+=compToggle('scoreboard','📊','Marcador (lower-third)','Barra inferior izquierda con nombre, categoría e intentos cargados.','S','dirToggle(\'scoreboard\')');
+  // Leaderboard: selector de cat + toggle
+  const curCat=_dirState.leaderboard?.cat||'';
+  const lbActive=_dirState.leaderboard?.active&&(!_dirState.leaderboard?.until||_dirState.leaderboard.until>Date.now());
+  h+='<div class="card" style="padding:14px 18px;border-left:4px solid '+(lbActive?'var(--green)':'var(--border)')+';background:'+(lbActive?'rgba(34,197,94,.04)':'transparent')+'">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">';
+  h+='<div style="flex:1;min-width:200px">';
+  h+='<div style="display:flex;align-items:center;gap:10px"><div style="font-family:Oswald;font-size:15px;font-weight:700;letter-spacing:1px">🏆 Tabla de clasificación</div>'+kbd('L')+'</div>';
+  h+='<div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">Ranking de la categoría seleccionada abajo. Si "Auto", usa la del lifter actual.</div>';
+  h+='<div style="margin-top:8px"><select id="dirLbCat" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;min-width:240px"><option value="">— Auto (cat del lifter actual) —</option>';
+  cats.forEach(c=>{h+='<option value="'+c+'" '+(c===curCat?'selected':'')+'>'+c+'</option>'});
+  h+='</select></div>';
+  h+=(lbActive?'<div style="font-size:10px;color:var(--green);margin-top:6px;font-family:Oswald;letter-spacing:1px">🔵 EN PANTALLA</div>':'');
+  h+='</div>';
+  h+='<button class="btn '+(lbActive?'btn-r':'btn-g')+'" onclick="dirToggleLb()" style="padding:14px 28px;font-size:14px;font-family:Oswald;font-weight:700;letter-spacing:2px;min-width:160px">'+(lbActive?'⏸ DESACTIVAR':'▶ ACTIVAR')+'</button>';
+  h+='</div></div>';
+  h+=compToggle('timer','⏱','Timer grande','Reloj 1:00 → 0:00 en la esquina superior derecha. Sincronizado con el del operador.','T','dirToggle(\'timer\')');
+  // Slam — dos botones momentáneos (GOOD / NO LIFT, no toggle)
+  h+='<div class="card" style="padding:14px 18px;border-left:4px solid var(--border)">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">';
+  h+='<div style="flex:1;min-width:200px">';
+  h+='<div style="font-family:Oswald;font-size:15px;font-weight:700;letter-spacing:1px">⚡ Slam GOOD / NO LIFT</div>';
+  h+='<div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">Flash de 2s en la esquina superior izquierda. Disparalo vos cuando los jueces dictaminen.</div>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  h+='<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><button class="btn btn-g" onclick="dirShowSlam(\'g\')" style="padding:14px 22px;font-size:13px;background:#22c55e;border-color:#22c55e;font-family:Oswald;font-weight:700;letter-spacing:2px;min-width:140px">✓ GOOD LIFT</button>'+kbd('G')+'</div>';
+  h+='<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><button class="btn btn-r" onclick="dirShowSlam(\'n\')" style="padding:14px 22px;font-size:13px;font-family:Oswald;font-weight:700;letter-spacing:2px;min-width:140px">✗ NO LIFT</button>'+kbd('N')+'</div>';
+  h+='</div></div></div>';
   // Break timer — sección con inputs propios
   const bt=_dirState.breakTimer||{active:false};
   let btStatus='';
