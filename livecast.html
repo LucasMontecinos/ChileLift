@@ -2104,6 +2104,9 @@ window.setLot=function(id,val){
   save();R();
 };
 
+// Helper para escapar HTML en strings interpolados (usado en renderDirector)
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
 // ─── OBS WEBSOCKET (Stream Deck → OBS → Panel) ─────────────────
 // Permite controlar el director con cualquier botón de Stream Deck que
 // envíe un "Custom Event" a OBS via WebSocket. El panel escucha los
@@ -2306,6 +2309,8 @@ window.dirBreakAdd=async function(secs){
   await _dirPush();R();
 };
 function renderDirector(){
+  // Escaper local (independiente del helper global por si el browser cachea la vieja versión)
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   _dirEnsureListener();
   if(!_dirState){_dirState={profile:{active:false,until:0},scoreboard:{active:false,until:0},leaderboard:{active:false,until:0,cat:''},timer:{active:false,until:0},slam:{active:false,until:0,type:'g'}};}
   const cur=liftQueue()[0];
