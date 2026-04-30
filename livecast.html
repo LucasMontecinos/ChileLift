@@ -54,6 +54,7 @@ input,select,button{font-family:inherit;outline:none}
 <body>
 <div id="R"></div>
 <script src="clubs.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5/dist/obs-ws.min.js"></script>
 <script>
 
 let DATA={phase:'setup',events:[],event:null,athletes:[],lift:'sq',round:0,flight:'A',timer:60,timerOn:false,changeTimers:{},lotsGenerated:false};
@@ -2103,6 +2104,75 @@ window.setLot=function(id,val){
   save();R();
 };
 
+// ─── OBS WEBSOCKET (Stream Deck → OBS → Panel) ─────────────────
+// Permite controlar el director con cualquier botón de Stream Deck que
+// envíe un "Custom Event" a OBS via WebSocket. El panel escucha los
+// CustomEvents y los mapea a las funciones dir* existentes.
+let _obsWs=null, _obsWsConnected=false, _obsWsError='';
+let _obsWsSettings=(()=>{try{return JSON.parse(localStorage.getItem('obs_ws_settings')||'')}catch(e){}return{host:'localhost',port:4455,password:'',autoConnect:false}})();
+let _obsWsLog=[]; // últimos eventos recibidos para debug (max 10)
+async function obsWsConnect(){
+  if(!window.OBSWebSocket){_obsWsError='Librería obs-websocket-js no cargó (revisá conexión a internet)';if(DATA.phase==='director')R();return}
+  if(_obsWs){try{await _obsWs.disconnect()}catch(e){}_obsWs=null}
+  _obsWsError='';
+  _obsWs=new window.OBSWebSocket();
+  try{
+    const url='ws://'+(_obsWsSettings.host||'localhost')+':'+(_obsWsSettings.port||4455);
+    await _obsWs.connect(url,_obsWsSettings.password||'');
+    _obsWsConnected=true;
+    _obsWs.on('CustomEvent',(d)=>{
+      _obsWsLog.unshift({ts:Date.now(),data:d});
+      if(_obsWsLog.length>10)_obsWsLog.pop();
+      handleObsCustomEvent(d);
+      if(DATA.phase==='director')R();
+    });
+    _obsWs.on('ConnectionClosed',()=>{_obsWsConnected=false;if(DATA.phase==='director')R()});
+    if(DATA.phase==='director')R();
+  }catch(e){
+    _obsWsError=e.message||String(e);
+    _obsWs=null;_obsWsConnected=false;
+    if(DATA.phase==='director')R();
+  }
+}
+async function obsWsDisconnect(){
+  if(_obsWs){try{await _obsWs.disconnect()}catch(e){}_obsWs=null}
+  _obsWsConnected=false;
+  if(DATA.phase==='director')R();
+}
+function handleObsCustomEvent(data){
+  if(!data)return;
+  const action=data.action||'';
+  if(action==='toggle'){
+    if(data.component==='leaderboard')return window.dirToggleLb();
+    if(data.component==='breakTimer')return window.dirToggleBreak();
+    if(data.component)return window.dirToggle(data.component);
+  }
+  if(action==='slam'&&data.type)return window.dirShowSlam(data.type);
+  if(action==='hideAll')return window.dirHideAll();
+  if(action==='breakStart')return window.dirBreakStart();
+  if(action==='breakStop')return window.dirBreakHide();
+  if(action==='breakAdd'&&typeof data.seconds==='number')return window.dirBreakAdd(data.seconds);
+  if(action==='showLb'&&data.cat)return window.dirShowLb(data.cat,0);
+}
+window.obsWsSaveAndConnect=function(){
+  _obsWsSettings={
+    host:document.getElementById('obsWsHost')?.value||'localhost',
+    port:parseInt(document.getElementById('obsWsPort')?.value,10)||4455,
+    password:document.getElementById('obsWsPass')?.value||'',
+    autoConnect:document.getElementById('obsWsAuto')?.checked||false
+  };
+  try{localStorage.setItem('obs_ws_settings',JSON.stringify(_obsWsSettings))}catch(e){}
+  obsWsConnect();
+};
+window.obsWsToggleConnection=function(){
+  if(_obsWsConnected)obsWsDisconnect();else obsWsConnect();
+};
+// Auto-conectar al cargar (si está habilitado)
+if(_obsWsSettings.autoConnect){
+  // Esperar a que la lib esté lista
+  let tries=0;const w=setInterval(()=>{tries++;if(window.OBSWebSocket||tries>30){clearInterval(w);if(window.OBSWebSocket)obsWsConnect()}},200);
+}
+
 // ─── DIRECTOR PANEL (control manual del widget ?tx=director) ───
 let _dirState=null;
 let _dirUnsub=null;
@@ -2253,9 +2323,59 @@ function renderDirector(){
   h+='<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-r" onclick="dirHideAll()" style="padding:12px 20px;font-size:13px;font-family:Oswald;font-weight:700;letter-spacing:2px">🙈 ESCONDER TODO</button>'
     +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><kbd style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:28px;padding:0 8px;background:#0a1628;border:2px solid #ef4444;border-radius:6px;font-family:Oswald;font-size:14px;font-weight:700;color:#ef4444;letter-spacing:1px">0</kbd><span style="font-size:9px;color:var(--muted)">o ESC</span></div></div>';
   h+='</div>';
-  // Setup card
+  // OBS WebSocket card — status + settings
+  const wsStatus=_obsWsConnected?{c:'var(--green)',label:'CONECTADO',icon:'🟢'}:(_obsWsError?{c:'var(--red)',label:'ERROR',icon:'🔴'}:{c:'var(--muted)',label:'DESCONECTADO',icon:'⚫'});
+  h+='<div class="card" style="margin-bottom:14px;padding:14px 18px;border-color:'+wsStatus.c+';background:rgba(34,197,94,'+(_obsWsConnected?'.06':'.0')+')">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px">';
+  h+='<div><div style="font-family:Oswald;font-size:11px;color:var(--gold);letter-spacing:2px">🔌 OBS WEBSOCKET (STREAM DECK)</div>';
+  h+='<div style="font-size:13px;font-family:Oswald;margin-top:2px;color:'+wsStatus.c+'">'+wsStatus.icon+' '+wsStatus.label+(_obsWsError?' · <span style="color:var(--muted);font-size:11px">'+esc(_obsWsError)+'</span>':'')+'</div></div>';
+  h+='<button class="btn '+(_obsWsConnected?'btn-r':'btn-g')+'" onclick="obsWsToggleConnection()" style="padding:8px 16px;font-size:12px">'+(_obsWsConnected?'Desconectar':'▶ Conectar')+'</button>';
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 90px 1fr auto;gap:8px;align-items:end;font-size:11px">';
+  h+='<div><label style="color:var(--muted);display:block;margin-bottom:3px">Host</label><input id="obsWsHost" value="'+esc(_obsWsSettings.host||'localhost')+'" style="width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px"></div>';
+  h+='<div><label style="color:var(--muted);display:block;margin-bottom:3px">Puerto</label><input id="obsWsPort" type="number" value="'+(_obsWsSettings.port||4455)+'" style="width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px"></div>';
+  h+='<div><label style="color:var(--muted);display:block;margin-bottom:3px">Password</label><input id="obsWsPass" type="password" value="'+esc(_obsWsSettings.password||'')+'" placeholder="(opcional)" style="width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px"></div>';
+  h+='<button class="btn btn-o" onclick="obsWsSaveAndConnect()" style="padding:6px 14px;font-size:11px">Guardar y conectar</button>';
+  h+='</div>';
+  h+='<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted);cursor:pointer"><input id="obsWsAuto" type="checkbox" '+(_obsWsSettings.autoConnect?'checked':'')+'> Conectar automáticamente al abrir el panel</label>';
+  // Log de eventos recibidos (debug)
+  if(_obsWsLog.length){
+    h+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:11px;color:var(--muted)">Últimos eventos recibidos ('+_obsWsLog.length+')</summary>';
+    h+='<div style="margin-top:6px;max-height:120px;overflow-y:auto;font-family:monospace;font-size:10px;background:rgba(10,22,40,.6);padding:8px;border-radius:6px">';
+    _obsWsLog.forEach(e=>{const t=new Date(e.ts).toLocaleTimeString();h+='<div style="padding:2px 0">['+t+'] '+esc(JSON.stringify(e.data))+'</div>'});
+    h+='</div></details>';
+  }
+  // Setup help
+  h+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:11px;color:var(--gold);font-family:Oswald;letter-spacing:1px">📖 CÓMO CONFIGURAR (CLICK PARA EXPANDIR)</summary>';
+  h+='<div style="margin-top:8px;font-size:11px;line-height:1.7;color:var(--muted)">';
+  h+='<b style="color:var(--text)">1. Habilitar WebSocket en OBS</b> (una sola vez):<br>OBS → menú <code>Tools → WebSocket Server Settings</code> → ✓ Enable WebSocket Server → poné un password → Apply.<br><br>';
+  h+='<b style="color:var(--text)">2. Pegá host (<code>localhost</code> si OBS corre en la misma PC), puerto y password arriba</b> → click "Guardar y conectar". Debería ponerse 🟢 CONECTADO.<br><br>';
+  h+='<b style="color:var(--text)">3. Configurar Stream Deck</b> (Elgato Stream Deck app):<br>';
+  h+='• Si tenés el plugin <i>"OBS Studio"</i> instalado: agregá un botón con acción <code>OBS Studio → Send Custom Event</code>.<br>';
+  h+='• Event name: <code>tx</code> (cualquiera, lo importante es el JSON del payload).<br>';
+  h+='• Event data (JSON): según qué quieras hacer, mirá la tabla abajo.<br><br>';
+  h+='<b style="color:var(--text)">Payloads JSON aceptados:</b>';
+  h+='<div style="margin-top:6px;background:rgba(10,22,40,.6);padding:10px;border-radius:6px;font-family:monospace;font-size:10px;color:rgba(200,215,240,.85)">';
+  h+='<div>{"action":"toggle","component":"profile"}</div>';
+  h+='<div>{"action":"toggle","component":"scoreboard"}</div>';
+  h+='<div>{"action":"toggle","component":"leaderboard"}</div>';
+  h+='<div>{"action":"toggle","component":"timer"}</div>';
+  h+='<div>{"action":"toggle","component":"breakTimer"}</div>';
+  h+='<div>{"action":"slam","type":"g"}        ← GOOD LIFT</div>';
+  h+='<div>{"action":"slam","type":"n"}        ← NO LIFT</div>';
+  h+='<div>{"action":"showLb","cat":"-83 kg (Hombre)"}  ← cat específica</div>';
+  h+='<div>{"action":"hideAll"}</div>';
+  h+='<div>{"action":"breakStart"}             ← arranca con valores actuales</div>';
+  h+='<div>{"action":"breakStop"}</div>';
+  h+='<div>{"action":"breakAdd","seconds":60} ← +1 min</div>';
+  h+='</div>';
+  h+='<br><b style="color:var(--orange,#f59e0b)">⚠️ Nota:</b> esto reemplaza los hotkeys. Una vez conectado a OBS WS, no hace falta tener el panel en foco — los eventos llegan por WebSocket.';
+  h+='</div></details>';
+  h+='</div>';
+
+  // Setup widget URL card
   h+='<div class="card" style="margin-bottom:14px;padding:12px 16px;background:rgba(212,168,67,.06);border-color:rgba(212,168,67,.3)">';
-  h+='<div style="font-family:Oswald;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">📡 SETUP EN OBS (UNA SOLA VEZ)</div>';
+  h+='<div style="font-family:Oswald;font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:6px">📡 URL DEL WIDGET PARA OBS (UNA SOLA VEZ)</div>';
   h+='<div style="font-size:12px;color:var(--muted);line-height:1.6">En OBS: Sources → + → Browser → pegá esta URL → 1920×1080 → DESMARCAR "Refresh on activate" y "Shutdown when not visible".</div>';
   h+='<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><code style="flex:1;background:rgba(10,22,40,.6);padding:8px 12px;border-radius:6px;font-size:10px;color:rgba(200,215,240,.8);word-break:break-all">'+widgetUrl+'</code>';
   h+='<button class="btn btn-g" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent).then(()=>{this.textContent=\'✓ Copiado\';setTimeout(()=>this.textContent=\'📋 Copiar\',1500)})" style="padding:7px 14px;font-size:11px;flex-shrink:0">📋 Copiar</button></div>';
