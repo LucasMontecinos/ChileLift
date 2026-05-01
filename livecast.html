@@ -1572,13 +1572,18 @@ function _renderTxCerRecordBadge(d){
     +'</div>'
   +'</div>';
 }
-function _renderTxCerTimerCorner(){
+function _renderTxCerTimerCorner(scale){
   const t=Math.max(0,DATA.timer||0);
   const txt=String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
   const color=DATA.timerOn&&t<=10?'#ef4444':DATA.timerOn&&t<=30?'#f59e0b':'#fff';
-  return '<div id="cerTimer" style="position:fixed;top:24px;right:24px;font-family:Oswald,sans-serif;font-size:clamp(48px,5vw,72px);font-weight:900;color:'+color+';letter-spacing:3px;text-shadow:0 4px 20px rgba(0,0,0,.85);background:rgba(10,22,40,.6);padding:8px 22px;border-radius:10px;border:2px solid rgba(212,168,67,.4);-webkit-text-stroke:1px rgba(0,0,0,.35)">'+txt+'</div>';
+  const s=scale||1;
+  const tx=s!==1?'transform:scale('+s+');transform-origin:top right;':'';
+  return '<div id="cerTimer" style="position:fixed;top:24px;right:24px;font-family:Oswald,sans-serif;font-size:clamp(48px,5vw,72px);font-weight:900;color:'+color+';letter-spacing:3px;text-shadow:0 4px 20px rgba(0,0,0,.85);background:rgba(10,22,40,.6);padding:8px 22px;border-radius:10px;border:2px solid rgba(212,168,67,.4);-webkit-text-stroke:1px rgba(0,0,0,.35);'+tx+'">'+txt+'</div>';
 }
-function _renderTxCerScoreboardBL(cur){
+function _renderTxCerScoreboardBL(cur,opts){
+  opts=opts||{};
+  const scale=opts.scale||1;
+  const noAnimate=!!opts.noAnimate;
   // Variante compacta del scoreboard, posicionada abajo-izquierda
   const parts=(cur.name||'').trim().split(/\s+/);
   const firstName=parts.length>2?parts.slice(0,-2).join(' '):parts.slice(0,-1).join(' ');
@@ -1588,7 +1593,10 @@ function _renderTxCerScoreboardBL(cur){
   const cw=cur.att[DATA.lift][DATA.round].w;
   const timerStr=DATA.timerOn?String(Math.floor(DATA.timer/60)).padStart(2,'0')+':'+String(DATA.timer%60).padStart(2,'0'):'';
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
-  return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);animation:txScoreboardCycle '+(TX_CEREMONY.scoreboardMs/1000)+'s ease-in-out forwards;border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
+  const animOrTx=noAnimate
+    ? (scale!==1?'transform:scale('+scale+');transform-origin:bottom left;':'')
+    : 'animation:txScoreboardCycle '+(TX_CEREMONY.scoreboardMs/1000)+'s ease-in-out forwards;';
+  return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:6px 14px">'
       +'<div style="font-family:Oswald;font-size:12px;color:rgba(200,215,240,.85);letter-spacing:1px">'+catLabel+'</div>'
       +'<div style="font-family:Oswald;font-size:18px;font-weight:700;color:'+(DATA.timerOn&&DATA.timer<=10?'#ef4444':'#fff')+';letter-spacing:2px">'+(timerStr||'—:—')+'</div>'
@@ -1615,16 +1623,20 @@ function _renderTxCerScoreboardBL(cur){
     +'</div>'
   +'</div>';
 }
-function _renderTxCerSlamCorner(type){
+function _renderTxCerSlamCorner(type,scale){
   const isGood=type==='g';
   const text=isGood?'GOOD LIFT':'NO LIFT';
   const color=isGood?'#22c55e':'#ef4444';
   const glow=isGood?'rgba(34,197,94,.85)':'rgba(239,68,68,.85)';
-  return '<div style="position:fixed;top:24px;left:24px;animation:txSlamIn .45s cubic-bezier(.2,.9,.2,1) backwards,txSlamOut .35s ease-in 1.55s forwards">'
+  const s=scale||1;
+  const wrapStart=s!==1?'<div style="position:fixed;top:24px;left:24px;transform:scale('+s+');transform-origin:top left">':'';
+  const wrapEnd=s!==1?'</div>':'';
+  const innerPos=s!==1?'':'position:fixed;top:24px;left:24px;';
+  return wrapStart+'<div style="'+innerPos+'animation:txSlamIn .45s cubic-bezier(.2,.9,.2,1) backwards,txSlamOut .35s ease-in 1.55s forwards">'
     +'<div style="font-family:Oswald,sans-serif;font-size:clamp(40px,5vw,68px);font-weight:900;letter-spacing:4px;color:'+color+';text-shadow:0 0 30px '+glow+',0 4px 20px rgba(0,0,0,.85);-webkit-text-stroke:2px rgba(0,0,0,.4);background:rgba(10,22,40,.55);padding:10px 22px;border-radius:8px;border:2px solid '+color+'">'
       +text
     +'</div>'
-  +'</div>';
+  +'</div>'+wrapEnd;
 }
 
 // ─── DIRECTOR direct OBS WS (widget independiente) ─────────────
@@ -1704,7 +1716,7 @@ function _widgetHandleDirectObsEvent(d){
 // Lee comandos desde Firestore livecast_director/current.
 // Cada componente tiene {active, until?} independiente; el panel del
 // admin pushea cambios y este widget renderiza lo que esté activo.
-const TX_DIR_DEFAULT={profile:{active:false,until:0},scoreboard:{active:false,until:0},leaderboard:{active:false,until:0,cat:''},timer:{active:false,until:0},slam:{active:false,until:0,type:'g'},breakTimer:{active:false,startedAt:0,durationSec:0,label:'',pausedAt:0}};
+const TX_DIR_DEFAULT={profile:{active:false,until:0,scale:1},scoreboard:{active:false,until:0,scale:1},leaderboard:{active:false,until:0,cat:'',scale:1},timer:{active:false,until:0,scale:1},slam:{active:false,until:0,type:'g',scale:1},breakTimer:{active:false,startedAt:0,durationSec:0,label:'',pausedAt:0,scale:1}};
 let _txDirState=null;
 let _txDirUnsub=null;
 let _txDirPoll=null;
@@ -1811,7 +1823,7 @@ function renderTxDirector(container){
     setTimeout(()=>{if(typeof renderTxWidget==='function')renderTxWidget()},1000);
   }
 }
-function _renderTxBreakTimer(bt){
+function _renderTxBreakTimer(bt,scale){
   const elapsed=bt.pausedAt?(bt.pausedAt-bt.startedAt):(Date.now()-bt.startedAt);
   const rem=Math.max(0,Math.ceil((bt.durationSec*1000-elapsed)/1000));
   const m=Math.floor(rem/60),s=rem%60;
@@ -1819,7 +1831,9 @@ function _renderTxBreakTimer(bt){
   const color=rem<=10?'#ef4444':rem<=30?'#f59e0b':'#fff';
   const labelText=(bt.label||'DESCANSO').toUpperCase();
   const pausedBadge=bt.pausedAt?'<div style="margin-top:18px;display:inline-block;padding:6px 18px;background:rgba(245,158,11,.18);border:2px solid #f59e0b;border-radius:8px;font-family:Oswald;font-size:18px;letter-spacing:6px;color:#f59e0b">⏸ PAUSADO</div>':'';
-  return '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
+  const sc=scale||1;
+  const tx=sc!==1?'transform:scale('+sc+');transform-origin:center center;':'';
+  return '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;'+tx+'">'
     +'<div style="font-family:Oswald,sans-serif;font-size:clamp(28px,4vw,56px);letter-spacing:12px;color:#D4A843;margin-bottom:20px;animation:txFade .6s ease backwards">'+labelText+'</div>'
     +'<div id="dirBreakDisplay" style="font-family:Oswald,sans-serif;font-size:clamp(160px,22vw,340px);font-weight:900;color:'+color+';line-height:.95;letter-spacing:6px;text-shadow:0 8px 40px rgba(0,0,0,.85);-webkit-text-stroke:3px rgba(0,0,0,.35)">'+txt+'</div>'
     +pausedBadge
@@ -2317,7 +2331,7 @@ function _dirEnsureListener(){
   if(_dirUnsub||!fbReady||!window._fb)return;
   try{
     _dirUnsub=window._fb.onSnapshot(window._fb.doc(fbDB,'livecast_director','current'),(snap)=>{
-      const DEFAULT={profile:{active:false,until:0},scoreboard:{active:false,until:0},leaderboard:{active:false,until:0,cat:''},timer:{active:false,until:0},slam:{active:false,until:0,type:'g'},breakTimer:{active:false,startedAt:0,durationSec:0,label:'',pausedAt:0}};
+      const DEFAULT={profile:{active:false,until:0,scale:1},scoreboard:{active:false,until:0,scale:1},leaderboard:{active:false,until:0,cat:'',scale:1},timer:{active:false,until:0,scale:1},slam:{active:false,until:0,type:'g',scale:1},breakTimer:{active:false,startedAt:0,durationSec:0,label:'',pausedAt:0,scale:1}};
       if(snap.exists()){
         const d=snap.data();
         _dirState=Object.assign({},DEFAULT,d.show||{});
@@ -2372,6 +2386,15 @@ window.dirToggleLb=async function(){
     await window.dirShowLb(cat,0);
   }
 };
+window.dirSetScale=async function(comp,scale){
+  if(!_dirState)_dirState={};
+  const s=Math.max(0.5,Math.min(2.0,parseFloat(scale)||1));
+  _dirState[comp]=Object.assign({},_dirState[comp]||{},{scale:s});
+  await _dirPush();
+  // Solo re-render si está activo (cambia visual en pantalla)
+  if(DATA.phase==='director')R();
+};
+window.dirResetScale=async function(comp){await window.dirSetScale(comp,1)};
 window.dirToggleBreak=async function(){
   const bt=_dirState&&_dirState.breakTimer;
   if(bt&&bt.active){await window.dirBreakHide();return}
