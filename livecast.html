@@ -3436,18 +3436,44 @@ else if(!DATA.events.length)R();
 // ── Accept ?evento=<id|name> URL param ──
 // If the URL asks for a specific event and it differs from the saved session,
 // force phase back to 'setup' so the user picks again (or auto-pick if match).
+let _applyEvtRetries=0;
 function applyEventURLParam(){
   try{
     const p=new URLSearchParams(location.search).get('evento');
-    if(!p||!DATA.events?.length)return;
+    if(!p)return;
     const want=decodeURIComponent(p);
-    const i=DATA.events.findIndex(e=>e.id===want||e.name===want);
-    if(i<0)return;
-    const wanted=DATA.events[i];
-    // TX widget mode: read-only. Just set DATA.event and subscribe to livecast_sync.
+    // 1) Buscar en nominas.json (DATA.events)
+    let i=(DATA.events||[]).findIndex(e=>e.id===want||e.name===want);
+    let wanted=i>=0?DATA.events[i]:null;
+    // 2) Si no está, buscar en Firestore eventos (LIVE_EVENT_META).
+    //    Permite que un evento creado en admin (que no está en nominas.json)
+    //    sea encontrado por su id o nombre.
+    if(!wanted&&window.LIVE_EVENT_META){
+      const fbEntry=Object.entries(window.LIVE_EVENT_META).find(function(e){return e[0]===want||e[1].name===want});
+      if(fbEntry){
+        const id=fbEntry[0],meta=fbEntry[1];
+        wanted={id:id,name:meta.name,organizer:meta.org||'',location:meta.location||'',athletes:[],_fromFirestore:true};
+        if(!DATA.events)DATA.events=[];
+        DATA.events.push(wanted);
+        i=DATA.events.length-1;
+        console.log('[LC] Evento resuelto desde Firestore: id='+id+' name='+meta.name);
+      }
+    }
+    // 3) Si todavía no se encontró, retry hasta 10 veces (espera a que Firestore listener cargue)
+    if(!wanted){
+      _applyEvtRetries++;
+      if(_applyEvtRetries<=10){
+        setTimeout(applyEventURLParam,500);
+        if(_applyEvtRetries===1)console.log('[LC] Esperando que Firestore cargue el evento "'+want+'"...');
+      } else {
+        console.warn('[LC] No pude encontrar evento "'+want+'" después de 5s. Verificá nombre/id.');
+      }
+      return;
+    }
+    _applyEvtRetries=0;
+    // TX widget mode: read-only. Just set DATA.event y suscribir a livecast_sync.
     if(TX_MODE){
       DATA.event=wanted;
-      // Subscribe to Firestore livecast_sync as soon as FB is ready.
       const tryStart=()=>{if(!fbReady){setTimeout(tryStart,300);return}startFBSync();R();};
       tryStart();
       return;
@@ -3455,7 +3481,6 @@ function applyEventURLParam(){
     // If already on this event with an active session, keep it.
     if(DATA.event&&(DATA.event.id===wanted.id||DATA.event.name===wanted.name)){R();return}
     // If there is an active session for a different event, do NOT auto-wipe it.
-    // Send the user to setup so they can explicitly pick and see the picker.
     if(DATA.phase!=='setup'&&DATA.athletes?.length){
       DATA.phase='setup';DATA.event=null;DATA.athletes=[];DATA.changeTimers={};
       try{localStorage.removeItem(SAVE_KEY)}catch(e){}
