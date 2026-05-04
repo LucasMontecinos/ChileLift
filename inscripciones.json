@@ -68,41 +68,7 @@
         "nombre":  "Jesus antonio fredes benavides",
         "categoria":  "83"
     },
-    {
-        "id":  "3QpRi3LuBsgBhn1bSETq",
-        "modalidad":  "",
-        "importedFromJson":  true,
-        "division":  "Universitario",
-        "universidad":  "Universidad De Concepción",
-        "status":  "approved",
-        "timestamp":  1775955801424,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "club":  "Himalaya Powerlifting",
-        "flight":  "B",
-        "nombre":  "Daniel alejandro mansilla schulz",
-        "categoria":  "66",
-        "fechaNac":  "2007-03-07",
-        "rut":  "22345643-k",
-        "sexo":  "Hombre",
-        "sortOrder":  2
-    },
-    {
-        "id":  "3gPQYojnYgX3gT3i23Sn",
-        "universidad":  "Universidad Andrés Bello",
-        "division":  "Universitario",
-        "importedFromJson":  true,
-        "modalidad":  "",
-        "status":  "approved",
-        "categoria":  "63",
-        "nombre":  "Antonia belén olave vega",
-        "club":  "Himalaya Powerlifting",
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "timestamp":  1775955803459,
-        "sortOrder":  38,
-        "sexo":  "Mujer",
-        "rut":  "22251908-k",
-        "fechaNac":  "2006-11-03"
-    },
+
     {
         "id":  "4",
         "timestamp":  "",
@@ -376,24 +342,7 @@
         "universidad":  "Universidad Adolfo Ibáñez",
         "modalidad":  ""
     },
-    {
-        "id":  "FBcdcJSgDliW0wyaX118",
-        "modalidad":  "",
-        "division":  "Universitario",
-        "universidad":  "Universidad De Chile",
-        "importedFromJson":  true,
-        "status":  "approved",
-        "club":  "Potencia Muscular",
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "timestamp":  1775955799548,
-        "nombre":  "Lukas Benjamin Valdés Palazuelos",
-        "categoria":  "66",
-        "flight":  "B",
-        "fechaNac":  "2004-01-21",
-        "rut":  "21491228-7",
-        "sexo":  "Hombre",
-        "sortOrder":  3
-    },
+ 
     {
         "id":  "Fd77W3t1M10zpynvup11",
         "modalidad":  "",
@@ -496,23 +445,7 @@
         "timestamp":  1775955801143,
         "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026"
     },
-    {
-        "id":  "IveXybYgWqGiK6kRunM2",
-        "status":  "approved",
-        "importedFromJson":  true,
-        "division":  "Universitario",
-        "universidad":  "Universidad Andrés Bello",
-        "modalidad":  "",
-        "sortOrder":  34,
-        "fechaNac":  "2005-09-06",
-        "rut":  "21926482-8",
-        "sexo":  "Hombre",
-        "nombre":  "Benjamin Ignacio Meza Aguilar",
-        "categoria":  "120+",
-        "timestamp":  1775955804624,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "club":  "Himalaya Powerlifting"
-    },
+
     {
         "id":  "JqIhxIm6qBD8UmTVuVfL",
         "status":  "approved",
@@ -835,23 +768,7 @@
         "rut":  "16623271-6",
         "fechaNac":  "1987-05-23"
     },
-    {
-        "id":  "VGZLzBJPJxXjGlgSakxs",
-        "nombre":  "Andy Alex Flores Muñoz",
-        "categoria":  "93",
-        "club":  "Club Bushido Lifting",
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "timestamp":  1775955808647,
-        "sortOrder":  17,
-        "fechaNac":  "2005-04-14",
-        "rut":  "21822604-3",
-        "sexo":  "Hombre",
-        "division":  "Universitario",
-        "universidad":  "Universidad Adventista De Chile",
-        "importedFromJson":  true,
-        "modalidad":  "",
-        "status":  "approved"
-    },
+  
     {
         "id":  "VUTyAnXUWcejvJTfdt9h",
         "modalidad":  "",
@@ -903,57 +820,7 @@
         "rut":  "23013779-K",
         "fechaNac":  "2009-05-05"
     },
-    {
-        "id":  "WXxcmpt6A1n1qA9c64sw",
-        "sortOrder":  45,
-        "sexo":  "Mujer",
-        "rut":  "20679226-4",
-        "fechaNac":  "2001-07-12",
-        "categoria":  "69",
-        "nombre":  "María Ignacia Arrieta Plaza",
-        "club":  "South Side Club",
-        "timestamp":  1775955805213,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "status":  "approved",
-        "universidad":  "Pontificia Universidad Católica De Chile",
-        "division":  "Universitario",
-        "importedFromJson":  true,
-        "modalidad":  ""
-    },
-    {
-        "id":  "YNxv7larLhzr7kDyhQeu",
-        "sortOrder":  46,
-        "fechaNac":  "2004-12-15",
-        "rut":  "21727161-4",
-        "sexo":  "Mujer",
-        "nombre":  "Antonia Isabel Guerrero Olmedo",
-        "categoria":  "69",
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "timestamp":  1775955796895,
-        "club":  "Himalaya Powerlifting",
-        "status":  "approved",
-        "importedFromJson":  true,
-        "division":  "Universitario",
-        "universidad":  "Universidad Andrés Bello",
-        "modalidad":  ""
-    },
-    {
-        "id":  "Z5oy9EQRDIfNwulLyebh",
-        "universidad":  "Pontificia Universidad Católica De Chile",
-        "division":  "Universitario",
-        "importedFromJson":  true,
-        "modalidad":  "",
-        "status":  "approved",
-        "categoria":  "63",
-        "nombre":  "Ignacia Andrea González Muñoz",
-        "club":  "Hannya Strength",
-        "timestamp":  1775955798954,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "sortOrder":  41,
-        "sexo":  "Mujer",
-        "rut":  "21093903-2",
-        "fechaNac":  "2002-08-25"
-    },
+
     {
         "id":  "ZCVK04oXdkjCy4B02OLd",
         "rut":  "21657667-5",
@@ -1022,23 +889,7 @@
         "nombre":  "Elias Ariel Loewe Steckkonig",
         "categoria":  "-93 kg (Hombre)"
     },
-    {
-        "id":  "blwdfuBAz8EkSYWPXXhK",
-        "universidad":  "Universidad De Santiago De Chile",
-        "division":  "Universitario",
-        "importedFromJson":  true,
-        "modalidad":  "",
-        "status":  "approved",
-        "categoria":  "105",
-        "nombre":  "Martin vicente henriquez piña",
-        "club":  "Iron Forces Powerlifting",
-        "timestamp":  1775955804347,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "sortOrder":  28,
-        "sexo":  "Hombre",
-        "rut":  "22023676-5",
-        "fechaNac":  "2006-01-12"
-    },
+
     {
         "id":  "buPZ2k4KEXkRQKgLCpm7",
         "club":  "All Power CD",
@@ -1142,40 +993,7 @@
         "fechaNac":  "2002-01-18",
         "rut":  "20809863-2"
     },
-    {
-        "id":  "krc51iadhwpn7VdnpUXi",
-        "fechaNac":  "2005-07-27",
-        "rut":  "21915682-0",
-        "sexo":  "Hombre",
-        "sortOrder":  21,
-        "club":  "Iron Forces Powerlifting",
-        "timestamp":  1775955794974,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "nombre":  "Germán Cristóbal Quintanilla Pardo",
-        "categoria":  "93",
-        "status":  "approved",
-        "modalidad":  "",
-        "division":  "Universitario",
-        "universidad":  "Pontificia Universidad Católica De Valparaíso",
-        "importedFromJson":  true
-    },
-    {
-        "id":  "lEl2MywkaTIwIUzSV0Is",
-        "sexo":  "Hombre",
-        "rut":  "21678540-1",
-        "fechaNac":  "2005-12-05",
-        "sortOrder":  8,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "timestamp":  1775955803157,
-        "club":  "Iron Forces Powerlifting",
-        "categoria":  "74",
-        "nombre":  "Sebastian Carlos Olivos Salas",
-        "status":  "approved",
-        "modalidad":  "",
-        "importedFromJson":  true,
-        "universidad":  "Universidad De Chile",
-        "division":  "Universitario"
-    },
+
     {
         "id":  "mJNQEHTs3eHzgrwYdLl0",
         "club":  "Himalaya Powerlifting",
@@ -1381,23 +1199,7 @@
         "timestamp":  1775955801721,
         "club":  "Himalaya Powerlifting"
     },
-    {
-        "id":  "tWE4MaWwCcpKKW1nTEdC",
-        "sortOrder":  23,
-        "sexo":  "Hombre",
-        "fechaNac":  "2004-11-14",
-        "rut":  "21.709.315-5",
-        "categoria":  "93",
-        "nombre":  "Mateo Ortiz Molina",
-        "club":  "South Side Club",
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "timestamp":  1775955808397,
-        "status":  "approved",
-        "universidad":  "Universidad De Valparaíso",
-        "division":  "Universitario",
-        "importedFromJson":  true,
-        "modalidad":  ""
-    },
+ 
     {
         "id":  "uexhlDWNKEiOOk2lFWvG",
         "status":  "approved",
@@ -1415,23 +1217,7 @@
         "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
         "timestamp":  1775955795962
     },
-    {
-        "id":  "wC2PXwvMvNspYQx6RX5p",
-        "timestamp":  1775955804935,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "club":  "Himalaya Powerlifting",
-        "categoria":  "93",
-        "nombre":  "Ignacio Alonso de la fuente letelier",
-        "sexo":  "Hombre",
-        "rut":  "21823659-6",
-        "fechaNac":  "2005-04-02",
-        "sortOrder":  24,
-        "modalidad":  "",
-        "importedFromJson":  true,
-        "universidad":  "Universidad De Las Américas",
-        "division":  "Universitario",
-        "status":  "approved"
-    },
+  
     {
         "id":  "wrBRYYXG9efEtxOSPEIB",
         "modalidad":  "",
@@ -1499,22 +1285,6 @@
         "sexo":  "Hombre",
         "rut":  "21521492-3",
         "fechaNac":  "2004-03-05"
-    },
-    {
-        "id":  "yRnGJziEZiIbggVDnKEF",
-        "status":  "approved",
-        "modalidad":  "",
-        "universidad":  "Universidad De Chile",
-        "division":  "Universitario",
-        "importedFromJson":  true,
-        "sexo":  "Hombre",
-        "rut":  "21600248-2",
-        "fechaNac":  "2004-06-15",
-        "sortOrder":  26,
-        "club":  "Shoganai Strength",
-        "timestamp":  1775955808149,
-        "evento":  "Primer Campeonato Nacional Universitario FECHIPO 2026",
-        "categoria":  "93",
-        "nombre":  "Cristobal Alonso Aguirre FLores"
     }
+
 ]
