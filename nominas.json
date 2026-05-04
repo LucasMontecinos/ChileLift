@@ -435,16 +435,7 @@
           "club": "All Power CD",
           "universidad": "Universidad Santo Tomás"
         },
-        {
-          "nombre": "Germán Cristóbal Quintanilla Pardo",
-          "rut": "21915682-0",
-          "sexo": "Hombre",
-          "dob": "2005-07-27",
-          "division": "Universitario",
-          "categoria": "93",
-          "club": "Iron Forces Powerlifting",
-          "universidad": "Pontificia Universidad Católica De Valparaíso"
-        },
+      
         {
           "nombre": "Annais Madelynne Arriagada Lagos",
           "rut": "22537211-K",
@@ -465,16 +456,7 @@
           "club": "Club Bushido Lifting",
           "universidad": "Universidad Autónoma De Chile"
         },
-        {
-          "nombre": "Krisna Catalina Baeza Flores",
-          "rut": "21633963-0",
-          "sexo": "Mujer",
-          "dob": "2004-07-08",
-          "division": "Universitario",
-          "categoria": "69",
-          "club": "South Side Club",
-          "universidad": "Universidad De Concepción"
-        },
+    
         {
           "nombre": "Antonia González Carrasco",
           "rut": "21431175-5",
@@ -495,16 +477,7 @@
           "club": "Iron Forces Powerlifting",
           "universidad": "Universidad De Chile"
         },
-        {
-          "nombre": "Antonia Isabel Guerrero Olmedo",
-          "rut": "21727161-4",
-          "sexo": "Mujer",
-          "dob": "2004-12-15",
-          "division": "Universitario",
-          "categoria": "69",
-          "club": "Himalaya Powerlifting",
-          "universidad": "Universidad Andrés Bello"
-        },
+    
         {
           "nombre": "Mario Benjamín Suárez Soto",
           "rut": "21733645-7",
@@ -555,16 +528,7 @@
           "club": "Himalaya Powerlifting",
           "universidad": "Universidad Bernardo O'Higgins"
         },
-        {
-          "nombre": "Ignacia Andrea González Muñoz",
-          "rut": "21093903-2",
-          "sexo": "Mujer",
-          "dob": "2002-08-25",
-          "division": "Universitario",
-          "categoria": "63",
-          "club": "Hannya Strength",
-          "universidad": "Pontificia Universidad Católica De Chile"
-        },
+    
         {
           "nombre": "Diego Vicente Rodríguez Lawrence",
           "rut": "21654416-1",
@@ -575,16 +539,7 @@
           "club": "Kaizen",
           "universidad": "Universidad Andrés Bello"
         },
-        {
-          "nombre": "Lukas Benjamin Valdés Palazuelos",
-          "rut": "21491228-7",
-          "sexo": "Hombre",
-          "dob": "2004-01-21",
-          "division": "Universitario",
-          "categoria": "66",
-          "club": "Potencia Muscular",
-          "universidad": "Universidad De Chile"
-        },
+     
         {
           "nombre": "Bastián Benjamín Ignacio Miranda González",
           "rut": "21373897-6",
@@ -632,19 +587,10 @@
           "dob": "2001-02-08",
           "division": "Universitario",
           "categoria": "105",
-          "club": "Potencia Muscular",
+          "club": "All Power CD",
           "universidad": "Universidad Andrés Bello"
         },
-        {
-          "nombre": "Daniel alejandro mansilla schulz",
-          "rut": "22345643-k",
-          "sexo": "Hombre",
-          "dob": "2007-03-07",
-          "division": "Universitario",
-          "categoria": "66",
-          "club": "Himalaya Powerlifting",
-          "universidad": "Universidad De Concepción"
-        },
+      
         {
           "nombre": "Benjamín Matias Salinas Tapia",
           "rut": "22452878-7",
@@ -695,26 +641,8 @@
           "club": "All Power CD",
           "universidad": "Pontificia Universidad Católica De Chile"
         },
-        {
-          "nombre": "Sebastian Carlos Olivos Salas",
-          "rut": "21678540-1",
-          "sexo": "Hombre",
-          "dob": "2005-12-05",
-          "division": "Universitario",
-          "categoria": "74",
-          "club": "Iron Forces Powerlifting",
-          "universidad": "Universidad De Chile"
-        },
-        {
-          "nombre": "Antonia belén olave vega",
-          "rut": "22251908-k",
-          "sexo": "Mujer",
-          "dob": "2006-11-03",
-          "division": "Universitario",
-          "categoria": "63",
-          "club": "Himalaya Powerlifting",
-          "universidad": "Universidad Andrés Bello"
-        },
+      
+   
         {
           "nombre": "Aaron David Maldonado Pino",
           "rut": "21430316-7",
@@ -735,46 +663,7 @@
           "club": "Potencia Muscular",
           "universidad": "Pontificia Universidad Católica De Valparaíso"
         },
-        {
-          "nombre": "Martin vicente henriquez piña",
-          "rut": "22023676-5",
-          "sexo": "Hombre",
-          "dob": "2006-01-12",
-          "division": "Universitario",
-          "categoria": "105",
-          "club": "Iron Forces Powerlifting",
-          "universidad": "Universidad De Santiago De Chile"
-        },
-        {
-          "nombre": "Benjamin Ignacio Meza Aguilar",
-          "rut": "21926482-8",
-          "sexo": "Hombre",
-          "dob": "2005-09-06",
-          "division": "Universitario",
-          "categoria": "120+",
-          "club": "Himalaya Powerlifting",
-          "universidad": "Universidad Andrés Bello"
-        },
-        {
-          "nombre": "Ignacio Alonso de la fuente letelier",
-          "rut": "21823659-6",
-          "sexo": "Hombre",
-          "dob": "2005-04-02",
-          "division": "Universitario",
-          "categoria": "93",
-          "club": "Himalaya Powerlifting",
-          "universidad": "Universidad De Las Américas"
-        },
-        {
-          "nombre": "María Ignacia Arrieta Plaza",
-          "rut": "20679226-4",
-          "sexo": "Mujer",
-          "dob": "2001-07-12",
-          "division": "Universitario",
-          "categoria": "69",
-          "club": "South Side Club",
-          "universidad": "Pontificia Universidad Católica De Chile"
-        },
+      
         {
           "nombre": "Catalina Ignacia Durán Freig",
           "rut": "22158503-8",
@@ -864,26 +753,6 @@
           "categoria": "83",
           "club": "Iron Forces Powerlifting",
           "universidad": "Universidad Autónoma De Chile"
-        },
-        {
-          "nombre": "Mateo Ortiz Molina",
-          "rut": "21.709.315-5",
-          "sexo": "Hombre",
-          "dob": "2004-11-14",
-          "division": "Universitario",
-          "categoria": "93",
-          "club": "South Side Club",
-          "universidad": "Universidad De Valparaíso"
-        },
-        {
-          "nombre": "Andy Alex Flores Muñoz",
-          "rut": "21822604-3",
-          "sexo": "Hombre",
-          "dob": "2005-04-14",
-          "division": "Universitario",
-          "categoria": "93",
-          "club": "Club Bushido Lifting",
-          "universidad": "Universidad Adventista De Chile"
         },
         {
           "nombre": "Jorge Andres Romero Jorquera",
