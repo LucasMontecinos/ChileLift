@@ -313,6 +313,7 @@ let state = {
   form: {evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''},
   carnetFile: null, carnetName: '',
   wadeFile: null, wadeName: '',
+  carnetPhotoFile: null, carnetPhotoName: '',
   submitting: false,
   adminAuth: false,
   inscripciones: [],
@@ -545,6 +546,13 @@ function renderForm() {
         ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA (opcional para nivel nacional)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
       </div>
     </div>
+    <div class="field">
+      <label>Foto tipo Carnet (fondo blanco) <span class="req">*</span></label>
+      <div class="upload-zone ${state.carnetPhotoName?'done':''}" id="carnetPhotoZone">
+        <input type="file" accept="image/*" onchange="handleFile(this,'carnetPhoto')">
+        ${state.carnetPhotoName ? `<div class="icon">✅</div><div class="fname">${state.carnetPhotoName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📸</div><div class="txt">Foto de rostro con fondo blanco (tipo carnet)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG · Máx 5MB</div>`}
+      </div>
+    </div>
     
     <!-- Summary -->
     <div style="background:var(--bg);border-radius:10px;padding:16px;margin-top:16px;border:1px solid var(--border)">
@@ -558,12 +566,13 @@ function renderForm() {
         <div><span style="color:var(--muted)">Categoría:</span> ${f.categoria}</div>
         <div><span style="color:var(--muted)">Modalidad:</span> ${f.modalidad}</div>
         <div><span style="color:var(--muted)">Carnet:</span> ${state.carnetName?'✅':'❌ Falta'}</div>
+        <div><span style="color:var(--muted)">Foto carnet:</span> ${state.carnetPhotoName?'✅':'❌ Falta'}</div>
       </div>
     </div>
     
     <div style="display:flex;justify-content:space-between;margin-top:20px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
-      <button class="btn btn-green" onclick="submitForm()" ${!state.carnetName||state.submitting?'disabled':''}>${state.submitting?'<span class="sp"></span> Enviando...':'✓ Enviar Inscripción'}</button>
+      <button class="btn btn-green" onclick="submitForm()" ${!state.carnetName||!state.carnetPhotoName||state.submitting?'disabled':''}>${state.submitting?'<span class="sp"></span> Enviando...':'✓ Enviar Inscripción'}</button>
     </div></div>`;
   }
 
@@ -943,7 +952,8 @@ function handleFile(input, type) {
   if (!file) return;
   if (file.size > 5 * 1024 * 1024) { state.error = 'Archivo demasiado grande (máx 5MB)'; render(); return; }
   if (type === 'carnet') { state.carnetFile = file; state.carnetName = file.name; }
-  else { state.wadeFile = file; state.wadeName = file.name; }
+  else if (type === 'wade') { state.wadeFile = file; state.wadeName = file.name; }
+  else if (type === 'carnetPhoto') { state.carnetPhotoFile = file; state.carnetPhotoName = file.name; }
   render();
 }
 
@@ -1017,14 +1027,19 @@ async function submitForm() {
       const rutClean = f.rut.replace(/[^0-9kK]/g, '').toUpperCase();
 
       if (state.carnetFile) {
-        const carnetRef = window.FB.ref(storage, `inscripciones/${f.evento}/${rutClean}_carnet_${ts}`);
+        const carnetRef = window.FB.ref(storage, `athlete_files/${rutClean}/carnet_${ts}`);
         await window.FB.uploadBytes(carnetRef, state.carnetFile);
         privateEntry.carnetURL = await window.FB.getDownloadURL(carnetRef);
       }
       if (state.wadeFile) {
-        const wadeRef = window.FB.ref(storage, `inscripciones/${f.evento}/${rutClean}_wada_${ts}`);
+        const wadeRef = window.FB.ref(storage, `athlete_files/${rutClean}/wada_${ts}`);
         await window.FB.uploadBytes(wadeRef, state.wadeFile);
         privateEntry.wadeURL = await window.FB.getDownloadURL(wadeRef);
+      }
+      if (state.carnetPhotoFile) {
+        const carnetPhotoRef = window.FB.ref(storage, `athlete_files/${rutClean}/carnetPhoto_${ts}`);
+        await window.FB.uploadBytes(carnetPhotoRef, state.carnetPhotoFile);
+        privateEntry.carnetPhotoURL = await window.FB.getDownloadURL(carnetPhotoRef);
       }
 
       publicEntry.timestamp = window.FB.serverTimestamp();
@@ -1068,7 +1083,7 @@ async function submitForm() {
 }
 
 function resetForm() {
-  state = {...state, view:'form', step:0, form:{evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''}, carnetFile:null, carnetName:'', wadeFile:null, wadeName:'', submitting:false, error:'', success:'', editDoc:null, editId:null};
+  state = {...state, view:'form', step:0, form:{evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''}, carnetFile:null, carnetName:'', wadeFile:null, wadeName:'', carnetPhotoFile:null, carnetPhotoName:'', submitting:false, error:'', success:'', editDoc:null, editId:null};
   render();
 }
 
