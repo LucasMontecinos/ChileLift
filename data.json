@@ -36661,25 +36661,7 @@
           "rank": 1
         }
       },
-      {
-        "evento": "Zona Centro Iron Forces 2022",
-        "fecha": "2022-03-12",
-        "division": "",
-        "categoria": "120",
-        "modalidad": "Powerlifting Classic",
-        "sexo": "Hombre",
-        "resultado": {
-          "sq": 165,
-          "bp": 122.5,
-          "dl": 185,
-          "total": 472.5,
-          "bw": 113.9,
-          "glp": 56.21,
-          "rank": 74
-        },
-        "source": "openpowerlifting",
-        "opl_meet": "fechipo/2201"
-      },
+      
       {
         "evento": "Sudamericano FESUPO 2024",
         "fecha": "2024-09-17",
