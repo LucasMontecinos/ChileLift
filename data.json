@@ -24522,7 +24522,7 @@
     "competencias": [
       {
         "evento": "Campeonato Nacional FECHIPO 2026",
-        "division": "Sub-junior",
+        "division": "Subjunior",
         "categoria": "76",
         "modalidad": "Powerlifting Classic IPF",
         "sexo": "Mujer",
@@ -24586,9 +24586,26 @@
         "source": "liftingcast"
       },
       {
+        "evento": "Campeonato Sudamericano",
+        "fecha": "2025-09-20",
+        "division": "Subjunior",
+        "categoria": "76",
+        "modalidad": "Powerlifting Classic",
+        "sexo": "Mujer",
+        "resultado": {
+          "sq": 170,
+          "bp": 90,
+          "dl": 187,
+          "total": 440.5,
+          "bw": 75.9,
+          "glp": 86.9
+        }
+      },
+      
+      {
         "evento": "Campeonato Nacional 2023",
         "fecha": "2023-06-10",
-        "division": "",
+        "division": "Subjunior",
         "categoria": "76",
         "modalidad": "Powerlifting Classic",
         "sexo": "Mujer",
@@ -24605,7 +24622,7 @@
       {
         "evento": "Zonal Sur 2023",
         "fecha": "2023-02-04",
-        "division": "",
+        "division": "Subjunior",
         "categoria": "76",
         "modalidad": "Powerlifting Classic",
         "sexo": "Mujer",
@@ -24624,7 +24641,7 @@
       {
         "evento": "Campeonato Nacional FECHIPO 2025",
         "fecha": "2025-05-23",
-        "division": "",
+        "division": "Subjunior",
         "categoria": "76",
         "modalidad": "Powerlifting Classic",
         "sexo": "Mujer",
@@ -24647,7 +24664,7 @@
           "total": 412.5,
           "pesoCorporal": 74.05,
           "categoria": "76",
-          "division": "Sub Junior",
+          "division": "SubJunior",
           "glp": 82.352
         }
       }
@@ -33925,6 +33942,22 @@
         },
         "place": "1",
         "source": "liftingcast"
+      },
+       {
+        "evento": "World Junior and Sub-Juniors Powerlifting Championships",
+        "fecha": "2025-08-25",
+        "division": "Junior",
+        "categoria": "57",
+        "modalidad": "Powerlifting Classic",
+        "sexo": "Mujer",
+        "resultado": {
+          "sq": 170,
+          "bp": 92.5,
+          "dl": 190,
+          "total": 452.5,
+          "bw": 56.8,
+          "glp": 106.32
+        }
       },
       {
         "evento": "Campeonato Nacional FECHIPO 2025",
