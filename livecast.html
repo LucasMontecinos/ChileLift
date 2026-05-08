@@ -1282,7 +1282,7 @@ function renderObsTx(){
     {id:'scoreboard',icon:'📊',title:'Scoreboard (lower-third)',desc:'Barra inferior con categoría, rank, timer, nombre, club e intentos. Aparece al cambiar levantador / intento / peso, queda 20s en pantalla y se va con animación. Hasta el próximo cambio queda oculto.',obsBg:'Transparente (superpuesto sobre cámara).',size:'1920×320 (parte inferior)'},
     {id:'leaderboard',icon:'🏆',title:'Tabla de clasificación (FIJO)',desc:'Ranking completo de la categoría actual. Cascada fila por fila. SIEMPRE visible mientras la escena esté activa — usalo para escenas de pausa entre rondas que vos manejás manualmente.',obsBg:'Opaca (azul oscuro). Escena fullscreen.',size:'1920×1080'},
     {id:'lbauto',icon:'🔁',title:'Tabla de clasificación (AUTO)',desc:'Igual al leaderboard fijo, pero APARECE SOLO al detectar fin de ronda (cuando cambia lift/round/flight). Queda 10s en pantalla y se va. Ideal como overlay siempre activo en una escena de cámara.',obsBg:'Transparente (overlay sobre cámara).',size:'1920×1080 (overlay fullscreen)'},
-    {id:'slam',icon:'⚡',title:'Slam GOOD LIFT / NO LIFT',desc:'Flash de 2s con texto enorme verde (GOOD LIFT) o rojo (NO LIFT) cuando marcás ✓/✗ en Control en Vivo. Se dispara automáticamente. Overlay sobre la cámara de tarima.',obsBg:'Transparente. Sumar como capa encima de la cámara, siempre visible.',size:'1920×1080 (overlay fullscreen)'},
+    {id:'slam',icon:'⚡',title:'Slam GOOD LIFT / NO LIFT',desc:'Flash de 2s con texto enorme verde (GOOD LIFT) o rojo (NO LIFT). Activá una sola vez con el botón "slam" del Stream Deck → queda armado y dispara automáticamente cuando marcás ✓/✗ en Control en Vivo. Volvé a apretar el botón para desarmarlo.',obsBg:'Transparente. Sumar como capa encima de la cámara, siempre visible.',size:'1920×1080 (overlay fullscreen)'},
     {id:'timer',icon:'⏱',title:'Timer independiente',desc:'Reloj 1:00 → 0:00 en grande. Verde/ámbar/rojo según se acerca a 0. Pulsa cuando quedan ≤10s. Sincronizado con el timer del operador.',obsBg:'Transparente. Posicionalo donde quieras (esquina, banner, etc).',size:'1920×1080 (autoescala)'},
     {id:'lights',icon:'💡',title:'Luces de jueces',desc:'3 círculos para izq / central / der. Se prenden blanco (good) o rojo (no lift) cuando los jueces votan en su panel. Ideal arriba de la cámara o en pantalla aparte.',obsBg:'Transparente. Funciona solo si activás "Modo Jueces" en Control en Vivo.',size:'1920×1080 (autoescala)'},
     {id:'ceremony',icon:'🎭',title:'Ceremonia (TODO-EN-UNO automático)',desc:'Widget orquestador. Detecta nuevo levantador → PROFILE fullscreen 5s → SCOREBOARD bottom-left + TIMER top-right (30s) → SLAM top-left flash al marcar resultado → IDLE hasta el próximo. Sin tabla de clasificación: ese ciclo lo manejás aparte con el widget Leaderboard fijo.',obsBg:'Mixto: fullscreen opaco durante PROFILE, transparente sobre cámara durante SCOREBOARD/IDLE. Una sola escena con cámara de fondo + este browser source encima.',size:'1920×1080'},
@@ -1616,8 +1616,7 @@ function _renderTxCerScoreboardBL(cur,opts){
     +'<div style="background:linear-gradient(90deg,#D4A843,#c19735);padding:5px 14px;display:flex;align-items:center;gap:10px">'
       +'<div style="background:rgba(10,22,40,.9);color:#D4A843;padding:3px 9px;border-radius:3px;font-family:Oswald;font-size:10px;letter-spacing:2px;font-weight:700">CHI</div>'
       +'<div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px;overflow:hidden">'
-        +(firstName?'<div style="font-size:11px;font-weight:400;line-height:1;opacity:.75">'+firstName+'</div>':'')
-        +'<div style="font-size:18px;font-weight:700;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lastName+'</div>'
+        +'<div style="font-size:24px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(firstName?firstName+' ':'')+lastName+'</div>'
       +'</div>'
       +logo
     +'</div>'
@@ -1918,7 +1917,27 @@ function renderTxDirector(container){
     const tmHtml=_renderTxCerTimerCorner(_txDirState.timer?.scale||1);
     html+=tmAnim?'<div style="'+tmAnim+'">'+tmHtml+'</div>':tmHtml;
   }
-  if(showSlam)html+=_renderTxCerSlamCorner(_txDirState.slam.type||'g',_txDirState.slam?.scale||1);
+  if(showSlam){
+    // Slam armado: cuando el operador marca ✓/✗ en Control en Vivo,
+    // _txSlamScan detecta la nueva transición y setea _txSlamType/_txSlamUntil.
+    // El corner se muestra solo durante la ventana del flash.
+    // Si el botón fue disparado con type explícito (legacy), respetamos eso también.
+    _txSlamScan();
+    let slamType=null, slamUntil=0;
+    if(_txDirState.slam?.type&&(_txDirState.slam?.until||0)>Date.now()){
+      // Modo manual legacy (action:slam type:g/n)
+      slamType=_txDirState.slam.type;
+      slamUntil=_txDirState.slam.until;
+    } else if(_txSlamType&&Date.now()<_txSlamUntil){
+      // Modo auto (toggle slam armado, dispara cuando hay decisión)
+      slamType=_txSlamType;
+      slamUntil=_txSlamUntil;
+    }
+    if(slamType){
+      html+=_renderTxCerSlamCorner(slamType,_txDirState.slam?.scale||1);
+      setTimeout(()=>{if(typeof renderTxWidget==='function')renderTxWidget()},Math.max(50,slamUntil-Date.now()+50));
+    }
+  }
   c.innerHTML=html;
   _txDirScheduleHide();
   // Programar tick cada 1s para el break timer (re-update via signature skip)
@@ -2141,9 +2160,8 @@ function renderTxScoreboard(cur,lifterChanged){
       </div>
       <div style="background:linear-gradient(90deg,#D4A843,#c19735);padding:6px 22px;display:flex;align-items:center;gap:14px">
         <div style="background:rgba(10,22,40,.9);color:#D4A843;padding:4px 12px;border-radius:4px;font-family:Oswald;font-size:12px;letter-spacing:2px;font-weight:700">CHI 🇨🇱</div>
-        <div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px">
-          ${firstName?'<div style="font-size:13px;font-weight:400;line-height:1;opacity:.75">'+firstName+'</div>':''}
-          <div style="font-size:22px;font-weight:700;line-height:1.05">${lastName}</div>
+        <div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px;overflow:hidden">
+          <div style="font-size:30px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${firstName?firstName+' ':''}${lastName}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;font-family:Oswald;font-size:11px;color:rgba(10,22,40,.75);letter-spacing:1px;text-align:right;max-width:240px">
           ${(window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'')}
@@ -2653,8 +2671,9 @@ function renderDirector(){
   h+='<div>{"action":"toggle","component":"leaderboard"}</div>';
   h+='<div>{"action":"toggle","component":"timer"}</div>';
   h+='<div>{"action":"toggle","component":"breakTimer"}</div>';
-  h+='<div>{"action":"slam","type":"g"}        ← GOOD LIFT</div>';
-  h+='<div>{"action":"slam","type":"n"}        ← NO LIFT</div>';
+  h+='<div>{"action":"toggle","component":"slam"}     ← arma SLAM (auto GOOD/NO LIFT al ✓/✗)</div>';
+  h+='<div>{"action":"slam","type":"g"}        ← GOOD LIFT manual (legacy)</div>';
+  h+='<div>{"action":"slam","type":"n"}        ← NO LIFT manual (legacy)</div>';
   h+='<div>{"action":"showLb","cat":"-83 kg (Hombre)"}  ← cat específica</div>';
   h+='<div>{"action":"hideAll"}</div>';
   h+='<div>{"action":"breakStart"}             ← arranca con valores actuales</div>';
