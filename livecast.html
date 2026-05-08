@@ -906,8 +906,12 @@ setInterval(()=>{
 },1000);
 
 function showChangeExpiredAlert(name,lift,rnd){
-  // Remove old ones
+  // Banner rojo + pitido DESACTIVADOS (se veian en transmision).
+  // El estado de expirado sigue marcado en la tabla (icono reloj) y bloquea
+  // cambios de intento, pero ya no hay alerta visual/sonora global.
   document.querySelectorAll('.ct-expired-banner').forEach(e=>e.remove());
+  return;
+  // (codigo original abajo: deshabilitado)
   const div=document.createElement('div');
   div.className='ct-expired-banner';
   div.style.cssText='position:fixed;top:0;left:0;right:0;background:#C41E3A;color:#fff;padding:10px 20px;z-index:9998;display:flex;justify-content:space-between;align-items:center;font-family:Oswald;font-size:14px;letter-spacing:1px;animation:pulseRed 1s infinite';
