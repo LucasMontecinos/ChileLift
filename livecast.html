@@ -1780,7 +1780,7 @@ function _renderTxCerScoreboardBL(cur,opts){
   const _simPosBL=_simBL.findIndex(x=>x.id===cur.id)+1;
   const _forecastPos=_simPosBL||_rk.pos||0;
   const _forecastTxt=_forecastPos>0?'P'+_forecastPos+(_simBL.length>1?'/'+_simBL.length:''):'—';
-  const _forecastColor=_forecastPos===1?'#22c55e':_forecastPos<=3?'#D4A843':'#fff';
+  const _forecastColor=_forecastPos===1?'#5cb37f':_forecastPos<=3?'#D4A843':'#fff';   // verde sage suave
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
   const animOrTx=noAnimate
     ? (scale!==1?'transform:scale('+scale+');transform-origin:bottom left;':'')
@@ -1800,8 +1800,8 @@ function _renderTxCerScoreboardBL(cur,opts){
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr) 100px;background:rgba(10,22,40,.94)">'
       +cur.att[DATA.lift].map((at,j)=>{
         let bg,clr,td='none';
-        if(at.r==='g'){bg='#22c55e';clr='#0A1628'}
-        else if(at.r==='n'){bg='#ef4444';clr='#fff';td='line-through'}
+        if(at.r==='g'){bg='#5cb37f';clr='#0A1628'}        // verde sage suave
+        else if(at.r==='n'){bg='#cc6666';clr='#fff';td='line-through'}  // rojo brick suave
         else if(j===DATA.round&&at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
         else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
         const isCur=j===DATA.round&&at.r===null&&at.w>0;
@@ -1814,8 +1814,8 @@ function _renderTxCerScoreboardBL(cur,opts){
 function _renderTxCerSlamCorner(type,scale){
   const isGood=type==='g';
   const text=isGood?'GOOD LIFT':'NO LIFT';
-  const color=isGood?'#22c55e':'#ef4444';
-  const glow=isGood?'rgba(34,197,94,.85)':'rgba(239,68,68,.85)';
+  const color=isGood?'#5cb37f':'#cc6666';                              // tonos suaves
+  const glow=isGood?'rgba(92,179,127,.75)':'rgba(204,102,102,.75)';
   const s=scale||1;
   const wrapStart=s!==1?'<div style="position:fixed;top:24px;left:24px;transform:scale('+s+');transform-origin:top left">':'';
   const wrapEnd=s!==1?'</div>':'';
@@ -2251,15 +2251,15 @@ function renderTxProfile(cur){
   const years=txYearsCompeting(full);
   const liftKey=DATA.lift;
   const pb=txPB(full,liftKey);
-  const pbLabel={sq:'PERSONAL BEST SQ',bp:'PERSONAL BEST BP',dl:'PERSONAL BEST DL'}[liftKey]||'PERSONAL BEST';
-  const clubLogoHtml=(window.clubLogoImg?window.clubLogoImg(club,38,'background:rgba(10,22,40,.6);padding:3px;margin-right:14px;vertical-align:middle;'):'');
+  const pbLabel={sq:'MEJOR MARCA SENTADILLA',bp:'MEJOR MARCA PRESS BANCA',dl:'MEJOR MARCA PESO MUERTO'}[liftKey]||'MEJOR MARCA';
+  const clubLogoHtml=(window.clubLogoImg?window.clubLogoImg(club,52,'background:rgba(10,22,40,.6);padding:3px;margin-right:18px;vertical-align:middle;'):'');
   const clubCell=clubLogoHtml?('<span style="display:inline-flex;align-items:center;gap:0;justify-content:flex-end">'+clubLogoHtml+'<span>'+(club||'—')+'</span></span>'):(club||'—');
   const rows=[
-    ['CATEGORY',cat+' '+divS],
+    ['CATEGORÍA',cat+' '+divS],
     ['CLUB',clubCell],
   ];
-  if(age!==null)rows.push(['AGE',age+'']);
-  if(years!==null)rows.push(['YEARS COMPETING',years+'']);
+  if(age!==null)rows.push(['EDAD',age+'']);
+  if(years!==null)rows.push(['AÑOS COMPITIENDO',years+'']);
   if(pb)rows.push([pbLabel,pb.toFixed(1)]);
   const initials=parts.map(p=>p[0]||'').slice(0,2).join('').toUpperCase();
   return `
@@ -2267,7 +2267,7 @@ function renderTxProfile(cur){
       <div class="txCascade" style="display:flex;flex-direction:column;gap:clamp(8px,1.5vh,22px);max-width:1400px;width:100%;margin:auto">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:clamp(6px,1vh,16px)">
           <div style="background:#D4A843;padding:clamp(10px,1.6vw,18px) clamp(18px,2.2vw,28px);border-radius:6px;display:flex;align-items:center;gap:clamp(10px,1.5vw,18px);box-shadow:0 4px 20px rgba(212,168,67,.35)">
-            <div style="background:rgba(0,0,0,.15);padding:4px 10px;border-radius:4px;font-family:Oswald;font-size:clamp(11px,1.1vw,14px);letter-spacing:2px;color:#0A1628">CHI 🇨🇱</div>
+            <div style="background:rgba(0,0,0,.15);padding:6px 12px;border-radius:4px;font-size:clamp(28px,3vw,42px);line-height:1;display:flex;align-items:center" title="Chile">🇨🇱</div>
             <div style="font-family:Oswald;font-size:clamp(26px,3.2vw,44px);font-weight:700;letter-spacing:2px;color:#0A1628">
               <span style="font-weight:400">${firstName}</span> ${lastName}
             </div>
@@ -2279,13 +2279,15 @@ function renderTxProfile(cur){
           </div>
           <div class="txCascade" style="display:flex;flex-direction:column;gap:clamp(10px,1.8vh,24px)">
             ${rows.map(r=>`
-              <div style="display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center;border-bottom:1px solid rgba(212,168,67,.2);padding-bottom:clamp(6px,1vh,12px)">
-                <div style="font-family:Oswald;font-size:clamp(14px,1.4vw,20px);color:rgba(220,230,245,.7);letter-spacing:3px">${r[0]}</div>
-                <div style="font-family:Oswald;font-size:clamp(22px,2.4vw,36px);font-weight:700;color:#D4A843;letter-spacing:1px">${r[1]}</div>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;border-bottom:1px solid rgba(212,168,67,.2);padding-bottom:clamp(8px,1.2vh,14px)">
+                <div style="font-family:Oswald;font-size:clamp(22px,2.4vw,36px);font-weight:600;color:rgba(220,230,245,.92);letter-spacing:3px">${r[0]}</div>
+                <div style="font-family:Oswald;font-size:clamp(24px,2.6vw,40px);font-weight:700;color:#D4A843;letter-spacing:1px;text-align:right">${r[1]}</div>
               </div>`).join('')}
           </div>
         </div>
-        <div style="position:absolute;top:clamp(20px,2.5vw,40px);right:clamp(20px,2.5vw,40px);font-family:Oswald;font-size:clamp(14px,1.4vw,20px);letter-spacing:3px;color:rgba(212,168,67,.5);border:2px solid rgba(212,168,67,.4);padding:6px 14px;border-radius:6px">⚡ YourLift</div>
+        <div style="position:absolute;top:clamp(20px,2.5vw,40px);right:clamp(20px,2.5vw,40px);display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(10,22,40,.55);border:2px solid rgba(212,168,67,.4);border-radius:8px">
+          <img src="YourLift_logo.png" alt="YourLift" style="height:clamp(28px,3vw,44px);filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))" onerror="this.outerHTML='<span style=\\'font-family:Oswald;font-size:clamp(14px,1.4vw,20px);letter-spacing:3px;color:rgba(212,168,67,.7)\\'>⚡ YourLift</span>'">
+        </div>
       </div>
     </div>`;
 }
@@ -2333,7 +2335,7 @@ function renderTxScoreboard(cur,lifterChanged){
   // Reemplaza el timer en la barra superior del scoreboard.
   const forecastPos=simPos||rk.pos||0;
   const forecastTxt=forecastPos>0?'P'+forecastPos+(totalAth>1?' / '+totalAth:''):'—';
-  const forecastColor=forecastPos===1?'#22c55e':forecastPos<=3?'#D4A843':'#fff';
+  const forecastColor=forecastPos===1?'#5cb37f':forecastPos<=3?'#D4A843':'#fff';   // verde sage suave
   return `
     <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':(lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':'')}">
       <div style="display:grid;grid-template-columns:180px 1fr 140px;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:10px 22px;align-items:center">
@@ -2354,8 +2356,8 @@ function renderTxScoreboard(cur,lifterChanged){
       <div style="display:grid;grid-template-columns:repeat(3,1fr) 140px;background:rgba(10,22,40,.94)">
         ${cur.att[DATA.lift].map((at,j)=>{
           let bg,clr,td='none';
-          if(at.r==='g'){bg='#22c55e';clr='#0A1628'}
-          else if(at.r==='n'){bg='#ef4444';clr='#fff';td='line-through'}
+          if(at.r==='g'){bg='#5cb37f';clr='#0A1628'}                  // verde sage suave
+          else if(at.r==='n'){bg='#cc6666';clr='#fff';td='line-through'}  // rojo brick suave
           else if(j===DATA.round&&at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
           else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
           const isCur=j===DATA.round&&at.r===null&&at.w>0;
@@ -2382,34 +2384,34 @@ function renderTxLeaderboard(cur,lifterChanged,opts){
   const curBest={sq:bestOf(ref,'sq'),bp:bestOf(ref,'bp'),dl:bestOf(ref,'dl')};
   return `
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:clamp(30px,5vh,80px)">
-      <div class="txCascade" style="width:min(1100px,95%);background:linear-gradient(135deg,rgba(16,28,52,.97),rgba(22,36,66,.97));border:1px solid rgba(212,168,67,.3);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)">
-        <div style="padding:clamp(14px,2vh,22px) clamp(20px,2.5vw,32px);background:linear-gradient(90deg,rgba(30,48,82,.98),rgba(38,58,98,.98));border-bottom:2px solid #D4A843;display:flex;justify-content:space-between;align-items:center">
+      <div class="txCascade" style="width:min(1100px,95%);background:rgba(10,22,40,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid rgba(212,168,67,.4);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45)">
+        <div style="padding:clamp(14px,2vh,22px) clamp(20px,2.5vw,32px);background:linear-gradient(90deg,rgba(28,50,90,.55),rgba(35,60,105,.55));border-bottom:2px solid #D4A843;display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-family:Oswald;font-size:clamp(11px,1.1vw,14px);color:rgba(160,180,210,.55);letter-spacing:3px">LEADERBOARD</div>
-            <div style="font-family:Oswald;font-size:clamp(20px,2.2vw,30px);font-weight:700;color:#fff;letter-spacing:2px;margin-top:2px">${divS} • ${ref.cat} (${sexLabel})</div>
+            <div style="font-family:Oswald;font-size:clamp(11px,1.1vw,14px);color:rgba(220,230,245,.75);letter-spacing:3px">LEADERBOARD</div>
+            <div style="font-family:Oswald;font-size:clamp(20px,2.2vw,30px);font-weight:700;color:#fff;letter-spacing:2px;margin-top:2px;text-shadow:0 2px 6px rgba(0,0,0,.6)">${divS} • ${ref.cat} (${sexLabel})</div>
           </div>
-          <div style="font-family:Oswald;font-size:clamp(12px,1.2vw,16px);color:rgba(212,168,67,.6);letter-spacing:2px">⚡ YourLift</div>
+          <img src="YourLift_logo.png" alt="YourLift" style="height:clamp(26px,2.6vw,38px);filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))" onerror="this.outerHTML='<span style=\\'font-family:Oswald;font-size:clamp(12px,1.2vw,16px);color:rgba(212,168,67,.7);letter-spacing:2px\\'>⚡ YourLift</span>'">
         </div>
-        <div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:10px clamp(20px,2.5vw,32px);background:rgba(10,22,40,.6);border-bottom:1px solid rgba(60,90,140,.25);font-family:Oswald;font-size:clamp(10px,1vw,13px);color:rgba(160,180,210,.5);letter-spacing:2px">
+        <div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:10px clamp(20px,2.5vw,32px);background:rgba(10,22,40,.35);border-bottom:1px solid rgba(212,168,67,.25);font-family:Oswald;font-size:clamp(10px,1vw,13px);color:rgba(220,230,245,.7);letter-spacing:2px">
           <div>NOMBRE</div><div style="text-align:center">TOTAL</div><div style="text-align:center">F.TOT</div><div style="text-align:center">POS</div>
         </div>
         ${ranked.map(a=>{
           const isCur=a.id===ref.id;
           const logo=window.clubLogoImg?window.clubLogoImg(a.club,28,'background:rgba(10,22,40,.6);padding:2px;flex-shrink:0;'):'';
-          return `<div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:clamp(10px,1.6vh,18px) clamp(20px,2.5vw,32px);background:${isCur?'linear-gradient(90deg,rgba(196,30,58,.35),rgba(212,168,67,.25))':'transparent'};border-bottom:1px solid rgba(50,80,120,.2);align-items:center">
+          return `<div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:clamp(10px,1.6vh,18px) clamp(20px,2.5vw,32px);background:${isCur?'linear-gradient(90deg,rgba(196,30,58,.45),rgba(212,168,67,.3))':'transparent'};border-bottom:1px solid rgba(212,168,67,.12);align-items:center">
             <div style="display:flex;align-items:center;gap:10px;overflow:hidden">
               ${logo||'<div style="width:28px;height:28px;flex-shrink:0"></div>'}
-              <span style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);font-weight:${isCur?'700':'500'};color:${isCur?'#fff':'rgba(220,230,245,.85)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.name}</span>
+              <span style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);font-weight:${isCur?'700':'500'};color:${isCur?'#fff':'rgba(240,245,255,.92)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.name}</span>
             </div>
-            <div style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);text-align:center;color:rgba(200,215,240,.6)">${(a.total||0).toFixed(1)}</div>
-            <div style="font-family:Oswald;font-size:clamp(15px,1.6vw,22px);text-align:center;font-weight:700;color:${isCur?'#D4A843':'rgba(220,230,245,.85)'}">${a.fTotal||'—'}</div>
-            <div style="font-family:Oswald;font-size:clamp(16px,1.7vw,24px);text-align:center;font-weight:700;color:${isCur?'#D4A843':'rgba(200,215,240,.6)'}">${a.fPlace}</div>
+            <div style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);text-align:center;color:rgba(220,230,245,.75);text-shadow:0 1px 3px rgba(0,0,0,.5)">${(a.total||0).toFixed(1)}</div>
+            <div style="font-family:Oswald;font-size:clamp(15px,1.6vw,22px);text-align:center;font-weight:700;color:${isCur?'#D4A843':'rgba(240,245,255,.95)'};text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.fTotal||'—'}</div>
+            <div style="font-family:Oswald;font-size:clamp(16px,1.7vw,24px);text-align:center;font-weight:700;color:${isCur?'#D4A843':'rgba(220,230,245,.8)'};text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.fPlace}</div>
           </div>`;
         }).join('')}
-        <div style="padding:clamp(10px,1.5vh,16px) clamp(20px,2.5vw,32px);background:rgba(196,30,58,.18);display:flex;gap:clamp(18px,2.5vw,40px);justify-content:center;align-items:center">
+        <div style="padding:clamp(10px,1.5vh,16px) clamp(20px,2.5vw,32px);background:rgba(196,30,58,.22);display:flex;gap:clamp(18px,2.5vw,40px);justify-content:center;align-items:center">
           ${['sq','bp','dl'].map(l=>{
             const b=curBest[l];
-            return '<div style="display:flex;gap:8px;align-items:center"><span style="font-family:Oswald;font-size:clamp(11px,1.1vw,14px);color:rgba(160,180,210,.5);letter-spacing:2px">'+LIFT_S[l]+'</span><span style="font-family:Oswald;font-size:clamp(16px,1.8vw,24px);font-weight:700;color:'+(b?LIFT_C[l]:'rgba(100,130,160,.3)')+'">'+(b?b.toFixed(1):'—')+'</span></div>';
+            return '<div style="display:flex;gap:8px;align-items:center"><span style="font-family:Oswald;font-size:clamp(11px,1.1vw,14px);color:rgba(220,230,245,.7);letter-spacing:2px">'+LIFT_S[l]+'</span><span style="font-family:Oswald;font-size:clamp(16px,1.8vw,24px);font-weight:700;color:'+(b?LIFT_C[l]:'rgba(180,200,220,.4)')+';text-shadow:0 1px 3px rgba(0,0,0,.5)">'+(b?b.toFixed(1):'—')+'</span></div>';
           }).join('')}
         </div>
       </div>
