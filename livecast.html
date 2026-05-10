@@ -95,6 +95,9 @@ if(TX_MODE){
     @keyframes txSlideOutLeft{0%{transform:translateX(0);opacity:1}100%{transform:translateX(-110%);opacity:0}}
     @keyframes txSlideInRight{0%{transform:translateX(110%);opacity:0}60%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:1}}
     @keyframes txSlideOutRight{0%{transform:translateX(0);opacity:1}100%{transform:translateX(110%);opacity:0}}
+    /* Scoreboard: entra desde abajo (sube hacia su posición) */
+    @keyframes txSlideInBottom{0%{transform:translateY(120%);opacity:0}55%{transform:translateY(-4px);opacity:1}80%{transform:translateY(0);opacity:1}100%{transform:translateY(0);opacity:1}}
+    @keyframes txSlideOutBottom{0%{transform:translateY(0);opacity:1}100%{transform:translateY(120%);opacity:0}}
     @keyframes txBuildRow{0%{transform:translateX(-30px) scaleY(0);opacity:0;transform-origin:left center}60%{transform:translateX(0) scaleY(1);opacity:1}100%{transform:translateX(0) scaleY(1);opacity:1}}
     @keyframes txScoreboardCycle{0%{transform:translateY(110%);opacity:0}3%{transform:translateY(0);opacity:1}97%{transform:translateY(0);opacity:1}100%{transform:translateY(110%);opacity:0}}
     @keyframes txLbCycle{0%{transform:scale(.92);opacity:0}5%{transform:scale(1);opacity:1}95%{transform:scale(1);opacity:1}100%{transform:scale(1.04);opacity:0;filter:blur(4px)}}
@@ -2036,16 +2039,24 @@ function _txDirActive(comp){
 // Animaciones de transición — detecta on→off / off→on por componente.
 // Cuando hay un cambio, se guarda timestamp y dirección para reproducir
 // la animación CSS correcta. Después de la duración, se limpia.
-const TX_ANIM_MS={fullscreen:1200,corner:650};
+const TX_ANIM_MS={fullscreen:1200,corner:850};   // corner +200ms para que el slide-in-bottom se note bien
 let _txDirAnims={};       // {comp: {dir:'in'|'out', startedAt:ts}}
 let _txDirPrevActive={};  // {comp: bool}
 function _txDetectTransitions(){
   const comps=['profile','scoreboard','leaderboard','timer','breakTimer'];
   const fullscreen=new Set(['profile','leaderboard','breakTimer']);
+  // Visibilidad EFECTIVA del scoreboard: lo escondemos cuando hay un fullscreen
+  // (profile o leaderboard) tapando la pantalla. Cuando esos se apagan, el
+  // scoreboard reaparece SOLO si el usuario lo había dejado activo.
+  const fsVisible=_txDirActive('profile')||_txDirActive('leaderboard');
+  const effectiveActive=(c)=>{
+    if(c==='scoreboard'||c==='timer')return _txDirActive(c)&&!fsVisible;
+    return _txDirActive(c);
+  };
   const out=[];
   comps.forEach(c=>{
     const prev=!!_txDirPrevActive[c];
-    const now=_txDirActive(c);
+    const now=effectiveActive(c);
     if(prev!==now){
       const dur=fullscreen.has(c)?TX_ANIM_MS.fullscreen:TX_ANIM_MS.corner;
       _txDirAnims[c]={dir:now?'in':'out',startedAt:Date.now(),fullscreen:fullscreen.has(c),dur:dur};
@@ -2096,9 +2107,13 @@ function renderTxDirector(container){
   if(!_txDirState){c.innerHTML='';return}
   const cur=liftQueue()[0];
   const showProf=_txDirActive('profile');
-  const showSb=_txDirActive('scoreboard');
   const showLb=_txDirActive('leaderboard');
-  const showTm=_txDirActive('timer');
+  // Scoreboard y Timer (corners) se OCULTAN cuando hay un fullscreen tapando.
+  // Su estado activo se mantiene → reaparecen automáticamente cuando el
+  // fullscreen se apaga.
+  const _fsVisible=showProf||showLb;
+  const showSb=_txDirActive('scoreboard')&&!_fsVisible;
+  const showTm=_txDirActive('timer')&&!_fsVisible;
   const showSlam=_txDirActive('slam');
   // Break timer: activo si tiene `active=true` y aún hay tiempo (o pausado)
   const bt=_txDirState.breakTimer||{};
@@ -2183,7 +2198,8 @@ function renderTxDirector(container){
   }
   // Scoreboard (corner) — slide-in/out desde la derecha (mismo estilo que el timer)
   if((showSb||(animSb&&animSb.dir==='out'))&&cur){
-    const sbAnim=animSb?(animSb.dir==='in'?'animation:txSlideInRight .65s cubic-bezier(.2,.85,.3,1) forwards;':'animation:txSlideOutRight .55s cubic-bezier(.5,0,.7,.5) forwards;'):'';
+    // Scoreboard entra subiendo desde abajo (lower-third clásico) y sale bajando
+    const sbAnim=animSb?(animSb.dir==='in'?'animation:txSlideInBottom .8s cubic-bezier(.2,.85,.3,1) forwards;':'animation:txSlideOutBottom .55s cubic-bezier(.5,0,.7,.5) forwards;'):'';
     const sbHtml=_renderTxCerScoreboardBL(cur,{noAnimate:true,scale:_txDirState.scoreboard?.scale||1});
     html+=sbAnim?'<div style="'+sbAnim+'">'+sbHtml+'</div>':sbHtml;
   }
