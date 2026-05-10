@@ -3796,7 +3796,23 @@ function findInDB(name,rut){
   const nn=nrm(name);const parts=nn.split(/\s+/);
   return DB_FULL.find(a=>{const dn=nrm(a.nombre);return dn===nn})||DB_FULL.find(a=>{const dn=nrm(a.nombre);return parts.length>=2&&parts.every(p=>dn.includes(p))})||null;
 }
-fetch('data.json').then(r=>r.json()).then(d=>{DB_FULL=d}).catch(()=>{});
+fetch('data.json').then(r=>r.json()).then(d=>{
+  DB_FULL=d;
+  // Mergear atleta_fotos desde Firestore (si Firebase está listo)
+  if(fbReady && window._fb){
+    try{
+      window._fb.onSnapshot(window._fb.collection(fbDB,'atleta_fotos'),snap=>{
+        snap.docs.forEach(doc=>{
+          const data=doc.data();
+          const codigo=data.codigo||doc.id;
+          const ath=DB_FULL.find(a=>a.codigo===codigo);
+          if(ath && data.foto_url) ath.foto_url = data.foto_url;
+        });
+        if(typeof renderTxWidget==='function')renderTxWidget();
+      });
+    }catch(e){console.warn('[livecast] atleta_fotos:',e.message);}
+  }
+}).catch(()=>{});
 fetch('records.json').then(r=>r.json()).then(d=>{RECORDS=d}).catch(()=>console.warn('[FECHIPO] records.json no cargado'));
 fetch('nominas.json').then(r=>r.json()).then(n=>{DATA.events=n.events||[];applyEventURLParam();if(!loaded)R()}).catch(()=>{});
 if(loaded){R()}

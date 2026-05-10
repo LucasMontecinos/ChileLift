@@ -79,6 +79,17 @@ const PEERS={"M|93|Open|classic":{"n":44,"avg":589.5,"top":740,"p75":680,"p50":5
     fb.onSnapshot(fb.collection(db,'eventos'),snap=>{
       NOM_EVENTS=snap.docs.map(d=>({...d.data(),id:d.id})).filter(e=>e.status!=='archived');
     });
+    // Fotos de perfil (procesadas con fondo blanco). Mergea foto_url en DB.
+    fb.onSnapshot(fb.collection(db,'atleta_fotos'),snap=>{
+      snap.docs.forEach(d=>{
+        const data=d.data();
+        const codigo=data.codigo||d.id;
+        const ath=(DB||[]).find(a=>a.codigo===codigo);
+        if(ath && data.foto_url) ath.foto_url = data.foto_url;
+      });
+      // Re-render si hay un perfil abierto
+      if(window._curCodigo)showProfile(window._curCodigo);
+    });
   }catch(e){console.warn('Firebase unavailable',e)}
 
   try{

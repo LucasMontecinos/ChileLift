@@ -287,6 +287,18 @@ async function loadAll(){
     privSnap.forEach(d=>{ST.inscripcionesPrivate[d.id]=d.data();});
   }catch(e){console.warn('[loadAll] inscripciones_private:',e.message);ST.inscripcionesPrivate={};}
 
+  // Load atleta_fotos (foto_url por código). Lectura pública.
+  // Mergeamos en ST.data para que aparezca en perfil + búsquedas.
+  try{
+    const fotosSnap=await getDocs(collection(db,'atleta_fotos'));
+    fotosSnap.forEach(d=>{
+      const data=d.data();
+      const codigo=data.codigo||d.id;
+      const ath=(ST.data||[]).find(a=>a.codigo===codigo);
+      if(ath && data.foto_url) ath.foto_url = data.foto_url;
+    });
+  }catch(e){console.warn('[loadAll] atleta_fotos:',e.message);}
+
   // Load edit_requests (solicitudes de edición pendientes de atletas).
   try{
     const reqSnap=await getDocs(collection(db,'edit_requests'));
@@ -2979,8 +2991,10 @@ window.cargarFotoAtleta = async function(input){
 window.guardarFotoAtleta = async function(){
   const F = window._fotosState;
   if(!F.preview || !F.selected) return;
+  if(F.processing){console.log('[Fotos] ya procesando, ignorando click duplicado'); return;}  // ← anti-doble-click
   F.processing = true;
   F.status = 'Subiendo a Storage...';
+  F.error = '';
   render();
   try{
     const dataUrl = F.preview;
@@ -2992,10 +3006,16 @@ window.guardarFotoAtleta = async function(){
     const ref = storageRef(storage, path);
     await uploadBytes(ref, blob, {contentType:'image/jpeg'});
     const url = await getDownloadURL(ref);
-    // Actualizar el documento del atleta en Firestore.
-    // Buscamos en cualquier coleccion donde este: probamos 'atletas' por codigo.
-    const docRef = doc(db, 'atletas', F.selected.codigo);
-    await setDoc(docRef, {foto_url: url, foto_updated: ts}, {merge:true});
+    // Guardamos la foto en la colección atleta_fotos (separada de data.json)
+    const docRef = doc(db, 'atleta_fotos', F.selected.codigo);
+    await setDoc(docRef, {
+      codigo: F.selected.codigo,
+      rut: F.selected.rut||'',
+      nombre: F.selected.nombre||'',
+      foto_url: url,
+      storage_path: path,
+      updated: ts
+    }, {merge:true});
     // Update local state
     F.selected.foto_url = url;
     const localAth = (ST.data||[]).find(a=>a.codigo===F.selected.codigo);
@@ -3009,7 +3029,7 @@ window.guardarFotoAtleta = async function(){
     render();
   } catch(e){
     console.error('[Fotos] save error:', e);
-    F.error = 'Error guardando: ' + e.message;
+    F.error = 'Error guardando: ' + e.message + '. Si dice "permissions" → desplegar firestore.rules.';
     F.processing = false;
     F.status = '';
     render();
@@ -3019,17 +3039,22 @@ window.guardarFotoAtleta = async function(){
 window.borrarFotoAtleta = async function(){
   const F = window._fotosState;
   if(!F.selected || !F.selected.foto_url) return;
+  if(F.processing) return;
   if(!confirm('¿Borrar la foto de '+F.selected.nombre+'?')) return;
+  F.processing = true;
+  render();
   try{
-    const docRef = doc(db, 'atletas', F.selected.codigo);
-    await setDoc(docRef, {foto_url: deleteField()}, {merge:true});
+    const docRef = doc(db, 'atleta_fotos', F.selected.codigo);
+    await deleteDoc(docRef);
     delete F.selected.foto_url;
     const localAth = (ST.data||[]).find(a=>a.codigo===F.selected.codigo);
     if(localAth) delete localAth.foto_url;
     F.status = '✓ Foto borrada';
+    F.processing = false;
     render();
   } catch(e){
     F.error = 'Error: '+e.message;
+    F.processing = false;
     render();
   }
 };
