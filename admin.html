@@ -2613,7 +2613,61 @@ window.impDoImport = async function(btn){
 // ═══════════════════════════════════════════════════════════════
 window._fotosState = window._fotosState || {
   search:'', selected:null, file:null, preview:null,
-  processing:false, status:'', error:''
+  processing:false, status:'', error:'',
+  // Editor de imagen
+  bgRemovedImg:null,        // Image object con fondo ya quitado (transparente)
+  transform:{zoom:1.0, offsetX:0, offsetY:0, rotation:0}
+};
+
+// Re-renderiza el canvas de preview aplicando el transform actual
+function _redrawFotoPreview(){
+  const F = window._fotosState;
+  if(!F.bgRemovedImg) return;
+  const W=600, H=800;
+  const c = document.createElement('canvas');
+  c.width=W; c.height=H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle='#FFFFFF';
+  ctx.fillRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(W/2 + F.transform.offsetX, H/2 + F.transform.offsetY);
+  ctx.rotate(F.transform.rotation * Math.PI / 180);
+  const img = F.bgRemovedImg;
+  const baseScale = Math.min(W/img.width, H/img.height);
+  const s = baseScale * F.transform.zoom;
+  const dw = img.width * s, dh = img.height * s;
+  ctx.drawImage(img, -dw/2, -dh/2, dw, dh);
+  ctx.restore();
+  F.preview = c.toDataURL('image/jpeg', 0.92);
+  // Solo actualizar el <img> si existe, evita re-render completo
+  const previewEl = document.getElementById('fotoPreviewImg');
+  if(previewEl) previewEl.src = F.preview;
+}
+
+window.editorFotoZoom = function(delta){
+  const F = window._fotosState;
+  F.transform.zoom = Math.max(0.3, Math.min(3, F.transform.zoom + delta));
+  _redrawFotoPreview();
+};
+window.editorFotoMove = function(dx,dy){
+  const F = window._fotosState;
+  F.transform.offsetX += dx;
+  F.transform.offsetY += dy;
+  _redrawFotoPreview();
+};
+window.editorFotoRotate = function(deg){
+  const F = window._fotosState;
+  F.transform.rotation = (F.transform.rotation + deg) % 360;
+  _redrawFotoPreview();
+};
+window.editorFotoReset = function(){
+  const F = window._fotosState;
+  F.transform = {zoom:1.0, offsetX:0, offsetY:0, rotation:0};
+  _redrawFotoPreview();
+};
+window.editorFotoSetZoom = function(v){
+  window._fotosState.transform.zoom = parseFloat(v);
+  _redrawFotoPreview();
 };
 
 function renderFotos(){
@@ -2736,9 +2790,35 @@ function renderFotos(){
     h += '<input type="file" id="fotoInput" accept="image/*" onchange="cargarFotoAtleta(this)" style="display:none">';
     h += '<button onclick="document.getElementById(\'fotoInput\').click()" style="padding:12px 20px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">📁 Elegir otra foto</button>';
     if(F.preview){
-      h += '<div style="margin-top:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">PREVIEW (con fondo blanco)</div>';
-      h += '<img src="'+F.preview+'" style="width:100%;max-width:300px;aspect-ratio:3/4;object-fit:cover;background:#fff;border-radius:8px;border:2px solid var(--green)"></div>';
-      h += '<button onclick="guardarFotoAtleta()" '+(F.processing?'disabled':'')+' style="margin-top:10px;padding:10px 20px;background:var(--green);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;width:100%">'+(F.processing?'⏳ Guardando...':'💾 Guardar foto')+'</button>';
+      h += '<div style="margin-top:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">PREVIEW (con fondo blanco — ajustá si hace falta)</div>';
+      h += '<img id="fotoPreviewImg" src="'+F.preview+'" style="width:100%;max-width:300px;aspect-ratio:3/4;object-fit:cover;background:#fff;border-radius:8px;border:2px solid var(--green)"></div>';
+
+      // Editor de imagen
+      h += '<div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">';
+      h += '<div style="font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;font-weight:700">🛠️ AJUSTAR IMAGEN</div>';
+
+      // Zoom
+      h += '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--muted)">Zoom</span><span style="color:var(--gold)">'+F.transform.zoom.toFixed(2)+'x</span></div>';
+      h += '<input type="range" min="0.3" max="3" step="0.05" value="'+F.transform.zoom+'" oninput="editorFotoSetZoom(this.value)" style="width:100%">';
+      h += '<div style="display:flex;gap:6px;margin-top:4px"><button onclick="editorFotoZoom(-0.1)" style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-size:11px">- Zoom</button><button onclick="editorFotoZoom(0.1)" style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-size:11px">+ Zoom</button></div></div>';
+
+      // Posición (D-pad)
+      h += '<div style="margin-bottom:10px"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Mover</div>';
+      h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:160px;margin:0 auto">';
+      h += '<div></div><button onclick="editorFotoMove(0,-20)" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">↑</button><div></div>';
+      h += '<button onclick="editorFotoMove(-20,0)" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">←</button>';
+      h += '<button onclick="editorFotoReset()" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--gold);border-radius:4px;cursor:pointer;font-size:10px">⌂</button>';
+      h += '<button onclick="editorFotoMove(20,0)" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">→</button>';
+      h += '<div></div><button onclick="editorFotoMove(0,20)" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">↓</button><div></div>';
+      h += '</div></div>';
+
+      // Rotación
+      h += '<div><div style="font-size:11px;color:var(--muted);margin-bottom:4px">Rotación: '+F.transform.rotation+'°</div>';
+      h += '<div style="display:flex;gap:6px"><button onclick="editorFotoRotate(-90)" style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-size:11px">↺ -90°</button><button onclick="editorFotoRotate(90)" style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-size:11px">↻ +90°</button></div></div>';
+
+      h += '</div>';
+
+      h += '<button onclick="guardarFotoAtleta()" '+(F.processing?'disabled':'')+' style="margin-top:10px;padding:12px 20px;background:var(--green);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;width:100%">'+(F.processing?'⏳ Guardando...':'💾 Guardar foto')+'</button>';
     }
     if(F.status){
       h += '<div style="margin-top:10px;padding:10px;background:rgba(34,197,94,.1);border-left:3px solid var(--green);font-size:12px;color:var(--green)">'+escapeHtml(F.status)+'</div>';
@@ -2803,6 +2883,8 @@ window.seleccionarAtletaFoto = function(codigo){
   window._fotosState.preview = null;
   window._fotosState.status = '';
   window._fotosState.error = '';
+  window._fotosState.bgRemovedImg = null;
+  window._fotosState.transform = {zoom:1.0, offsetX:0, offsetY:0, rotation:0};
   // Detectar foto pendiente de la inscripcion
   window._fotosState.pendingPhotoUrl = _findInscriptionPhotoByRut(a.rut);
   render();
@@ -2859,23 +2941,14 @@ window.cargarFotoAtleta = async function(input){
     const blob = await window.imglyRemoveBackground(file, {
       output:{format:'image/png', quality:0.95}
     });
-    // Componer sobre fondo blanco
+    // Cargar imagen sin fondo y guardarla para el editor
     const url = URL.createObjectURL(blob);
     const img = await new Promise((res,rej)=>{const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url;});
-    const W = 600, H = 800;  // formato 3:4 estándar
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0,0,W,H);
-    // Centrar la imagen sin cortar (cover-fit dentro del canvas)
-    const scale = Math.min(W/img.width, H/img.height);
-    const dw = img.width*scale, dh = img.height*scale;
-    const dx = (W-dw)/2, dy = (H-dh)/2;
-    ctx.drawImage(img, dx, dy, dw, dh);
+    F.bgRemovedImg = img;
+    F.transform = {zoom:1.0, offsetX:0, offsetY:0, rotation:0};
+    _redrawFotoPreview();  // genera el preview inicial centrado
     URL.revokeObjectURL(url);
-    F.preview = c.toDataURL('image/jpeg', 0.92);
-    F.status = '✓ Lista. Revisá el preview y clickeá "Guardar foto".';
+    F.status = '✓ Lista. Ajustá la posición/zoom si hace falta y guardá.';
     F.processing = false;
     render();
   } catch(e){
@@ -2914,6 +2987,8 @@ window.guardarFotoAtleta = async function(){
     F.status = '✓ Foto guardada y publicada';
     F.preview = null;
     F.file = null;
+    F.bgRemovedImg = null;
+    F.transform = {zoom:1.0, offsetX:0, offsetY:0, rotation:0};
     F.processing = false;
     render();
   } catch(e){
