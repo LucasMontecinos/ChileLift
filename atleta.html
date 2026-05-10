@@ -38,8 +38,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <body>
 <script src="clubs.js"></script>
 
-<div class="nav">
-  <a href="index.html" style="font-family:Oswald;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--text)">YOUR<span style="color:var(--accent)">LIFT</span></a>
+<a href="index.html" class="btn-volver" title="Volver a YourLift">← Volver a YourLift</a>
+
+<style>
+/* Botón "Volver" universal */
+.btn-volver{position:fixed;top:14px;left:14px;z-index:9999;padding:8px 14px;background:rgba(10,22,40,.85);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-volver:hover{border-color:#D4A843;color:#D4A843;transform:translateX(-2px)}
+</style>
+
+<div class="nav" style="padding-left:170px">
+  <span style="font-family:Oswald;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--text)">YOUR<span style="color:var(--accent)">LIFT</span></span>
   <span style="font-size:12px;color:var(--muted)">Perfil Atleta</span>
 </div>
 

@@ -60,17 +60,21 @@ select.input{cursor:pointer}
 </head>
 <body>
 
+<a href="index.html" class="btn-volver" title="Volver a YourLift">← Volver a YourLift</a>
+
 <div class="hdr">
   <div style="display:flex;align-items:center;gap:12px">
     <div class="os" style="font-size:22px;font-weight:700;letter-spacing:2px">
       <span style="color:var(--accent)">FECHIPO</span> <span style="font-weight:400;color:var(--muted)">Inscripción</span>
     </div>
   </div>
-  <div style="display:flex;gap:8px">
-    <a href="index.html" class="btn btn-outline" style="padding:6px 14px;font-size:11px;text-decoration:none">Base de Datos</a>
-    <button id="adminToggle" class="btn btn-outline" style="padding:6px 14px;font-size:11px" onclick="toggleAdmin()">🔒 Admin</button>
-  </div>
 </div>
+
+<style>
+/* Botón "Volver" universal — mismo estilo en todas las páginas */
+.btn-volver{position:fixed;top:14px;left:14px;z-index:9999;padding:8px 14px;background:rgba(10,22,40,.85);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-volver:hover{border-color:#D4A843;color:#D4A843;transform:translateX(-2px)}
+</style>
 
 <div class="ctn" id="app"></div>
 
@@ -546,13 +550,14 @@ function renderForm() {
         ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA (opcional para nivel nacional)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
       </div>
     </div>
+    ${(EVENTS.find(e=>e.id===f.evento)?.requiereFoto)?`
     <div class="field">
       <label>Foto tipo Carnet (fondo blanco) <span class="req">*</span></label>
       <div class="upload-zone ${state.carnetPhotoName?'done':''}" id="carnetPhotoZone">
         <input type="file" accept="image/*" onchange="handleFile(this,'carnetPhoto')">
         ${state.carnetPhotoName ? `<div class="icon">✅</div><div class="fname">${state.carnetPhotoName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📸</div><div class="txt">Foto de rostro con fondo blanco (tipo carnet)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG · Máx 5MB</div>`}
       </div>
-    </div>
+    </div>`:''}
     
     <!-- Summary -->
     <div style="background:var(--bg);border-radius:10px;padding:16px;margin-top:16px;border:1px solid var(--border)">
@@ -566,13 +571,13 @@ function renderForm() {
         <div><span style="color:var(--muted)">Categoría:</span> ${f.categoria}</div>
         <div><span style="color:var(--muted)">Modalidad:</span> ${f.modalidad}</div>
         <div><span style="color:var(--muted)">Carnet:</span> ${state.carnetName?'✅':'❌ Falta'}</div>
-        <div><span style="color:var(--muted)">Foto carnet:</span> ${state.carnetPhotoName?'✅':'❌ Falta'}</div>
+        ${(EVENTS.find(e=>e.id===f.evento)?.requiereFoto)?`<div><span style="color:var(--muted)">Foto carnet:</span> ${state.carnetPhotoName?'✅':'❌ Falta'}</div>`:''}
       </div>
     </div>
-    
+
     <div style="display:flex;justify-content:space-between;margin-top:20px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
-      <button class="btn btn-green" onclick="submitForm()" ${!state.carnetName||!state.carnetPhotoName||state.submitting?'disabled':''}>${state.submitting?'<span class="sp"></span> Enviando...':'✓ Enviar Inscripción'}</button>
+      <button class="btn btn-green" onclick="submitForm()" ${!state.carnetName||((EVENTS.find(e=>e.id===f.evento)?.requiereFoto)&&!state.carnetPhotoName)||state.submitting?'disabled':''}>${state.submitting?'<span class="sp"></span> Enviando...':'✓ Enviar Inscripción'}</button>
     </div></div>`;
   }
 

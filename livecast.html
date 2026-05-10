@@ -52,6 +52,16 @@ input,select,button{font-family:inherit;outline:none}
 </style>
 </head>
 <body>
+<a href="index.html" class="btn-volver" id="btnVolverYL" title="Ir a YourLift">← Ir a YourLift</a>
+
+<style>
+/* Botón "Volver" universal — mismo estilo en todas las páginas */
+.btn-volver{position:fixed;top:14px;left:14px;z-index:9999;padding:8px 14px;background:rgba(10,22,40,.85);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-volver:hover{border-color:#D4A843;color:#D4A843;transform:translateX(-2px)}
+/* Ocultar el btn-volver cuando el TX widget está activo (no debe verse en transmisión) */
+body.tx-mode-active .btn-volver{display:none}
+</style>
+
 <div id="R"></div>
 <script src="clubs.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5/dist/obs-ws.min.js" integrity="sha384-Vce9u7FN5Pbapc8dhpMdg2EjTels5H1cGOVLAe7THp3fEtfb89nD6YOIaf8781ay" crossorigin="anonymous"></script>
@@ -66,6 +76,8 @@ let DATA={phase:'setup',events:[],event:null,athletes:[],lift:'sq',round:0,fligh
 const TX_URL=new URLSearchParams(location.search);
 const TX_MODE=TX_URL.get('tx')||null; // 'profile' | 'scoreboard' | 'leaderboard' | 'lbauto' | 'slam' | 'timer' | 'lights' | 'ceremony' | null
 if(TX_MODE){
+  // En modo widget de transmisión: ocultar botón "Ir a YourLift"
+  document.body.classList.add('tx-mode-active');
   const css=document.createElement('style');
   css.textContent=`
     html,body{background:transparent!important;overflow:hidden!important;margin:0}
@@ -732,44 +744,83 @@ function openWeighIn(id){
   const ex=document.getElementById('weighInModal');if(ex)ex.remove();
   const m=document.createElement('div');m.id='weighInModal';
   m.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:9999';
+  const sq1 = a.att?.sq?.[0]?.w || '';
+  const bp1 = a.att?.bp?.[0]?.w || '';
+  const dl1 = a.att?.dl?.[0]?.w || '';
   m.innerHTML=`
-  <div style="background:#0D1F38;border:2px solid var(--border);border-radius:16px;padding:28px 32px;width:min(480px,92vw)">
+  <div style="background:#0D1F38;border:2px solid var(--border);border-radius:16px;padding:24px 28px;width:min(560px,94vw);max-height:92vh;overflow-y:auto">
     <div style="font-family:Oswald;font-size:18px;font-weight:700;letter-spacing:2px;margin-bottom:4px">⚖️ PESAJE</div>
-    <div style="font-size:13px;color:var(--gold);font-family:Oswald;margin-bottom:20px">${a.name} · ${a.cat} · ${a.div}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <div style="font-size:13px;color:var(--gold);font-family:Oswald;margin-bottom:18px">${a.name} · ${a.cat} · ${a.div}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
         PESO CORPORAL (kg)
-        <input id="wi_bw" type="number" step="0.01" value="${a.bw||''}" placeholder="0.00"
+        <input id="wi_bw" type="number" step="0.01" value="${a.bw||''}" placeholder="0.00" data-wi-next="wi_rackSQ"
           style="padding:10px;border-radius:8px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:18px;font-weight:700;text-align:center">
         ${limit?`<span id="wi_bw_status" style="font-size:10px;color:var(--muted)">Límite categoría: ${limit} kg</span>`:''}
       </label>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
-          RACK HEIGHT — SQUAT
-          <input id="wi_rackSQ" type="text" value="${a.rackSQ||''}" placeholder="ej: 14"
-            style="padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:14px;text-align:center">
-        </label>
-        <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
-          RACK HEIGHT — BENCH
-          <input id="wi_rackBP" type="text" value="${a.rackBP||''}" placeholder="ej: 7"
-            style="padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:14px;text-align:center">
-        </label>
-      </div>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
+        EQUIPO / MODALIDAD
+        <select id="wi_mod" style="padding:9px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:13px">
+          <option value="classic" ${a.mod==='classic'?'selected':''}>Classic (Raw)</option>
+          <option value="equipped" ${a.mod==='equipped'?'selected':''}>Equipado</option>
+          <option value="onlybench" ${a.mod==='onlybench'?'selected':''}>Only Bench</option>
+          <option value="classic_bench" ${a.mod==='classic_bench'?'selected':''}>Classic + Only Bench</option>
+          <option value="equipped_bench" ${a.mod==='equipped_bench'?'selected':''}>Equipado + Only Bench</option>
+        </select>
+      </label>
     </div>
-    <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);margin-bottom:16px">
-      EQUIPO / MODALIDAD
-      <select id="wi_mod" style="padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:13px">
-        <option value="classic" ${a.mod==='classic'?'selected':''}>Classic (Raw)</option>
-        <option value="equipped" ${a.mod==='equipped'?'selected':''}>Equipado</option>
-      </select>
-    </label>
+    <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;margin-bottom:6px;font-family:Oswald;font-weight:700">RACK HEIGHTS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
+        SQUAT
+        <input id="wi_rackSQ" type="text" value="${a.rackSQ||''}" placeholder="ej: 14" data-wi-next="wi_rackBP"
+          style="padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:14px;text-align:center">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
+        BENCH
+        <input id="wi_rackBP" type="text" value="${a.rackBP||''}" placeholder="ej: 7" data-wi-next="wi_sq1"
+          style="padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:14px;text-align:center">
+      </label>
+    </div>
+    <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;margin-bottom:6px;font-family:Oswald;font-weight:700">PRIMEROS INTENTOS (apertura)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:${LIFT_C['sq']}">
+        SQ 1 (kg)
+        <input id="wi_sq1" type="number" step="2.5" value="${sq1||''}" placeholder="—" data-wi-next="wi_bp1"
+          style="padding:9px;border-radius:6px;border:1px solid ${LIFT_C['sq']};background:var(--bg);color:var(--text);font-family:Oswald;font-size:15px;font-weight:700;text-align:center">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:${LIFT_C['bp']}">
+        BP 1 (kg)
+        <input id="wi_bp1" type="number" step="2.5" value="${bp1||''}" placeholder="—" data-wi-next="wi_dl1"
+          style="padding:9px;border-radius:6px;border:1px solid ${LIFT_C['bp']};background:var(--bg);color:var(--text);font-family:Oswald;font-size:15px;font-weight:700;text-align:center">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:${LIFT_C['dl']}">
+        DL 1 (kg)
+        <input id="wi_dl1" type="number" step="2.5" value="${dl1||''}" placeholder="—" data-wi-next="wi_confirm_btn"
+          style="padding:9px;border-radius:6px;border:1px solid ${LIFT_C['dl']};background:var(--bg);color:var(--text);font-family:Oswald;font-size:15px;font-weight:700;text-align:center">
+      </label>
+    </div>
     <div id="wi_alert" style="display:none;background:rgba(196,30,58,.15);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--accent);font-family:Oswald;letter-spacing:1px"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button onclick="document.getElementById('weighInModal').remove()" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;cursor:pointer">CANCELAR</button>
-      <button onclick="confirmWeighIn(${id},${catKg},${limit||0})" style="padding:8px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:Oswald;font-size:13px;font-weight:700;cursor:pointer">✓ CONFIRMAR PESAJE</button>
+      <button id="wi_confirm_btn" onclick="confirmWeighIn(${id},${catKg},${limit||0})" style="padding:10px 24px;border-radius:8px;border:none;background:var(--green);color:#000;font-family:Oswald;font-size:13px;font-weight:700;cursor:pointer">✓ CONFIRMAR PESAJE</button>
     </div>
+    <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--muted)">💡 Usá <kbd style="background:var(--bg);padding:1px 6px;border-radius:3px;border:1px solid var(--border);font-family:monospace">Enter</kbd> para avanzar al siguiente campo</div>
   </div>`;
   document.body.appendChild(m);
+  // Auto-focus en BW
+  setTimeout(()=>{const el=document.getElementById('wi_bw');if(el){el.focus();el.select();}},50);
+  // Enter avanza al siguiente campo (data-wi-next)
+  m.querySelectorAll('[data-wi-next]').forEach(el=>{
+    el.addEventListener('keydown',function(ev){
+      if(ev.key!=='Enter')return;
+      ev.preventDefault();
+      const next=document.getElementById(this.dataset.wiNext);
+      if(!next)return;
+      if(next.tagName==='BUTTON'){next.focus();next.click();}
+      else{next.focus();if(next.select)next.select();}
+    });
+  });
   // Live BW check
   document.getElementById('wi_bw').addEventListener('input',function(){
     const v=parseFloat(this.value)||0;
@@ -787,6 +838,9 @@ function confirmWeighIn(id,catKg,limit){
   const rSQ=(document.getElementById('wi_rackSQ').value||'').trim();
   const rBP=(document.getElementById('wi_rackBP').value||'').trim();
   const mod=document.getElementById('wi_mod').value;
+  const sq1=parseFloat(document.getElementById('wi_sq1')?.value)||0;
+  const bp1=parseFloat(document.getElementById('wi_bp1')?.value)||0;
+  const dl1=parseFloat(document.getElementById('wi_dl1')?.value)||0;
   const alertEl=document.getElementById('wi_alert');
   // Validate BW > 0
   if(!bw){alertEl.style.display='block';alertEl.textContent='⚠️ Ingresa el peso corporal';return;}
@@ -798,6 +852,12 @@ function confirmWeighIn(id,catKg,limit){
   const a=DATA.athletes.find(x=>x.id===id);if(!a)return;
   a.bw=bw;a.rackSQ=rSQ;a.rackBP=rBP;a.mod=mod;
   a.weighedIn=true;
+  // Guardar primeros intentos (apertura) si vinieron en el modal
+  if(a.att){
+    if(sq1>0 && a.att.sq && a.att.sq[0] && a.att.sq[0].r===null) a.att.sq[0].w = sq1;
+    if(bp1>0 && a.att.bp && a.att.bp[0] && a.att.bp[0].r===null) a.att.bp[0].w = bp1;
+    if(dl1>0 && a.att.dl && a.att.dl[0] && a.att.dl[0].r===null) a.att.dl[0].w = dl1;
+  }
   saveNow();
   document.getElementById('weighInModal').remove();
   R();
@@ -2967,7 +3027,7 @@ function renderDirector(){
 function renderManage(){
   const ath=DATA.athletes;let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:22px;letter-spacing:1px">ATLETAS & PESAJE</h2><p style="color:var(--muted);font-size:12px">'+ath.filter(a=>a.bw>0).length+'/'+ath.length+' pesados</p></div><div style="display:flex;gap:6px">'+(DATA.lotsGenerated?'<button class="btn btn-o" onclick="generateLots()" title="Re-sortear todos los lotes al azar (reemplaza los actuales)">🎲 Re-sortear lotes</button>':'<button class="btn btn-r" onclick="generateLots()">🎲 Generar Lotes</button>')+'<button class="btn btn-o" onclick="resyncFromAdmin()" title="Re-sincronizar nómina con admin (trae cambios, borra eliminados sin datos)">🔄 Re-sincronizar con admin</button><button class="btn btn-o" onclick="sortByFlight()">Ordenar por Vuelo ↑</button><button class="btn btn-o" onclick="sortByCat()">Ordenar por Categoría ↑</button><button class="btn btn-g" onclick="go(\'compete\')">Iniciar Competencia →</button></div></div>';
   h+='<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="border-bottom:2px solid var(--border)">';
-  h+='<th class="os" style="padding:8px 4px;text-align:center;color:var(--muted);font-size:9px;width:28px">#</th><th style="padding:8px 4px;text-align:left;color:var(--muted);font-size:9px">ATLETA</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:38px">VLO</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:56px">BW</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:48px">RkSQ</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:48px">RkBP</th>';
+  h+='<th class="os" style="padding:8px 4px;text-align:center;color:var(--muted);font-size:9px;width:28px">#</th><th style="padding:8px 4px;text-align:left;color:var(--muted);font-size:9px">ATLETA</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:38px">VLO</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:80px">BW + 1ros</th>';
   ['sq','bp','dl'].forEach(l=>{[1,2,3].forEach(r=>{h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C[l]+';font-size:9px;width:62px">'+LIFT_S[l]+r+'</th>'})});
   h+='</tr></thead><tbody>';
   ath.forEach(a=>{
@@ -2982,8 +3042,6 @@ function renderManage(){
       h+='<button onclick="openWeighIn('+a.id+')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;font-size:9px;cursor:pointer">⚖️ Pesar</button>';
     }
     h+='</td>';
-    h+='<td style="padding:3px 2px"><input type="text" class="inp-sm" value="'+(a.rackSQ||'')+'" placeholder="\u2014" onchange="updA('+a.id+',\'rackSQ\',this.value);save()"></td>';
-    h+='<td style="padding:3px 2px"><input type="text" class="inp-sm" value="'+(a.rackBP||'')+'" placeholder="\u2014" onchange="updA('+a.id+',\'rackBP\',this.value);save()"></td>';
     ['sq','bp','dl'].forEach(l=>{a.att[l].forEach((at,r)=>{
       const ctKey=a.id+'_'+l+'_'+r;const ct=DATA.changeTimers[ctKey];
       let cls='inp-sm',ph='\u2014';
@@ -3069,15 +3127,50 @@ function renderCompete(){
     });
     h+='</div>';
   }
-  // Queue
-  h+='<div class="card"><h3 class="os" style="font-size:12px;letter-spacing:1px;margin-bottom:8px;color:var(--muted)">ORDEN \u00b7 VUELO '+DATA.flight+'</h3>';
-  if(!queue.length)h+='<p style="color:var(--muted);font-size:11px;text-align:center;padding:8px">Sin atletas pendientes</p>';
-  queue.forEach((a,i)=>{const w=a.att[DATA.lift][DATA.round].w;const rk2=DATA.lift==='sq'?a.rackSQ:DATA.lift==='bp'?a.rackBP:'';h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:5px;margin-bottom:2px;background:'+(i===0?LIFT_C[DATA.lift]+'12':'transparent')+'"><div style="display:flex;align-items:center;gap:6px"><span style="color:var(--gold);font-weight:700;font-family:Oswald;width:18px;text-align:center;font-size:12px">'+(i+1)+'</span><span style="font-size:12px;font-weight:'+(i===0?700:400)+'">'+a.name+'</span></div><div style="display:flex;align-items:center;gap:5px">'+(rk2?'<span style="font-size:8px;color:var(--muted);background:var(--bg);padding:1px 5px;border-radius:3px">R:'+rk2+'</span>':'')+'<span class="os" style="color:'+LIFT_C[DATA.lift]+';font-weight:700;font-size:14px">'+w+'kg</span></div></div>'});
-  h+='</div>';
-  // Attempt board
-  h+='<div class="card"><h3 class="os" style="font-size:12px;letter-spacing:1px;margin-bottom:8px;color:var(--muted)">INTENTOS \u00b7 '+LIFT_N[DATA.lift]+'</h3><table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr><th style="text-align:left;padding:3px 5px;color:var(--muted);font-size:9px">Atleta</th><th style="text-align:center;padding:3px;color:var(--muted);font-size:9px;width:52px">1</th><th style="text-align:center;padding:3px;color:var(--muted);font-size:9px;width:52px">2</th><th style="text-align:center;padding:3px;color:var(--muted);font-size:9px;width:52px">3</th><th style="text-align:center;padding:3px;color:var(--muted);font-size:9px;width:42px">Best</th></tr></thead><tbody>';
-  active.forEach(a=>{const b=bestOf(a,DATA.lift);h+='<tr style="border-bottom:1px solid rgba(30,58,95,.12)"><td style="padding:4px 5px;font-size:10px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+a.name+'</td>';a.att[DATA.lift].forEach((at,j)=>{const c=at.r==='g'?'att-g':at.r==='n'?'att-n':at.w>0?'att-p':'att-e';h+='<td style="padding:2px"><div class="'+c+' att" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')">'+(at.w||'\u2014')+'</div></td>'});h+='<td style="text-align:center;font-weight:700;font-family:Oswald;color:var(--gold);font-size:13px">'+(b||'\u2014')+'</td></tr>'});
-  h+='</tbody></table></div></div>';
+  // ORDEN + INTENTOS COMBINADOS \u2014 atletas ordenados seg\u00fan queue (peso del intento actual \u2191)
+  // Pendientes primero (ordenados por liftQueue), despu\u00e9s los que ya levantaron este lift en este round
+  const queueIds = new Set(queue.map(a=>a.id));
+  const activeFlight = active.filter(a=>a.flight===DATA.flight&&!a.bombed);
+  const ordered = [...queue, ...activeFlight.filter(a=>!queueIds.has(a.id))];
+  h+='<div class="card"><h3 class="os" style="font-size:13px;letter-spacing:1px;margin-bottom:10px;color:var(--gold)">ORDEN DE INTENTOS \u00b7 '+LIFT_N[DATA.lift]+' \u00b7 VUELO '+DATA.flight+'</h3>';
+  if(!ordered.length)h+='<p style="color:var(--muted);font-size:12px;text-align:center;padding:14px">Sin atletas en este vuelo</p>';
+  else{
+    h+='<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--border)">';
+    h+='<th style="text-align:center;padding:6px 4px;color:var(--muted);font-size:10px;width:30px">#</th>';
+    h+='<th style="text-align:left;padding:6px 8px;color:var(--muted);font-size:10px">ATLETA</th>';
+    h+='<th style="text-align:center;padding:6px 4px;color:var(--muted);font-size:10px;width:50px">RACK</th>';
+    [1,2,3].forEach(r=>{h+='<th style="text-align:center;padding:6px 4px;color:'+LIFT_C[DATA.lift]+';font-size:11px;font-weight:700;width:78px">INT '+r+'</th>'});
+    h+='<th style="text-align:center;padding:6px 4px;color:var(--gold);font-size:10px;width:60px">BEST</th></tr></thead><tbody>';
+    ordered.forEach((a,i)=>{
+      const inQueue = queueIds.has(a.id);
+      const queuePos = inQueue ? queue.findIndex(q=>q.id===a.id) : -1;
+      const isCurrent = queuePos === 0;
+      const rk2 = DATA.lift==='sq'?a.rackSQ:DATA.lift==='bp'?a.rackBP:'';
+      const b = bestOf(a,DATA.lift);
+      // Color de fondo de fila: actual = highlight fuerte, pr\u00f3ximos = leve, ya levant\u00f3 = neutro
+      let rowBg = '';
+      if(isCurrent) rowBg = 'background:'+LIFT_C[DATA.lift]+'18';
+      else if(inQueue && queuePos<3) rowBg = 'background:'+LIFT_C[DATA.lift]+'08';
+      h+='<tr style="border-bottom:1px solid rgba(30,58,95,.18);'+rowBg+'">';
+      // Posici\u00f3n en queue
+      h+='<td style="text-align:center;padding:8px 4px"><span class="os" style="color:'+(isCurrent?LIFT_C[DATA.lift]:inQueue?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:'+(isCurrent?16:13)+'px">'+(inQueue?(queuePos+1):'\u00b7')+'</span></td>';
+      // Nombre del atleta
+      h+='<td style="padding:8px;font-size:'+(isCurrent?14:13)+'px;font-weight:'+(isCurrent?700:500)+';color:'+(isCurrent?'#fff':'var(--text)')+'">'+a.name+'</td>';
+      // Rack
+      h+='<td style="text-align:center;padding:6px 4px;font-size:11px;color:var(--muted);font-family:Oswald">'+(rk2||'\u2014')+'</td>';
+      // 3 intentos
+      a.att[DATA.lift].forEach((at,j)=>{
+        const c = at.r==='g'?'att-g':at.r==='n'?'att-n':at.w>0?'att-p':'att-e';
+        const isCurrentAtt = inQueue && j===DATA.round;
+        h+='<td style="padding:4px"><div class="'+c+' att" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:'+(isCurrentAtt?16:14)+'px;font-weight:700;padding:10px 6px;'+(isCurrentAtt?'box-shadow:inset 0 0 0 2px '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'\u2014')+'</div></td>';
+      });
+      // Best
+      h+='<td style="text-align:center;padding:6px 4px;font-weight:700;font-family:Oswald;color:var(--gold);font-size:14px">'+(b||'\u2014')+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div></div>';
   // Rankings
   h+='<div><div class="card" style="position:sticky;top:20px"><h3 class="os" style="font-size:12px;letter-spacing:1px;margin-bottom:8px;color:var(--gold)">RANKING GL</h3>';
   if(!rk.length)h+='<p style="color:var(--muted);font-size:11px;text-align:center;padding:14px">Sin totales</p>';

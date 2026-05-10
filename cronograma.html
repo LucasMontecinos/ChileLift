@@ -26,11 +26,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </head>
 <body>
 <script src="clubs.js"></script>
+
+<a href="index.html" class="btn-volver" title="Volver a YourLift">← Volver a YourLift</a>
+
+<style>
+/* Botón "Volver" universal */
+.btn-volver{position:fixed;top:14px;left:14px;z-index:9999;padding:8px 14px;background:rgba(10,22,40,.85);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-volver:hover{border-color:#D4A843;color:#D4A843;transform:translateX(-2px)}
+</style>
+
 <div id="app" style="max-width:1100px;margin:0 auto;padding:20px">
   <div style="text-align:center;margin-bottom:30px">
     <div class="os" style="font-size:clamp(24px,5vw,36px);font-weight:700;letter-spacing:3px"><span style="color:var(--accent)">FECHIPO</span> CRONOGRAMA</div>
     <p style="color:var(--muted);font-size:13px;margin-top:4px">Distribución de Vuelos y Horarios</p>
-    <div style="margin-top:8px"><a href="index.html" style="color:var(--muted);font-size:12px;text-decoration:none">← Volver a YourLift</a></div>
   </div>
   <div id="content"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
 </div>
