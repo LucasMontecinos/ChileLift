@@ -52,16 +52,6 @@ input,select,button{font-family:inherit;outline:none}
 </style>
 </head>
 <body>
-<a href="index.html" class="btn-volver" id="btnVolverYL" title="Ir a YourLift">← Ir a YourLift</a>
-
-<style>
-/* Botón "Volver" universal — mismo estilo en todas las páginas */
-.btn-volver{position:fixed;top:14px;left:14px;z-index:9999;padding:8px 14px;background:rgba(10,22,40,.85);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:all .15s;display:inline-flex;align-items:center;gap:4px}
-.btn-volver:hover{border-color:#D4A843;color:#D4A843;transform:translateX(-2px)}
-/* Ocultar el btn-volver cuando el TX widget está activo (no debe verse en transmisión) */
-body.tx-mode-active .btn-volver{display:none}
-</style>
-
 <div id="R"></div>
 <script src="clubs.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5/dist/obs-ws.min.js" integrity="sha384-Vce9u7FN5Pbapc8dhpMdg2EjTels5H1cGOVLAe7THp3fEtfb89nD6YOIaf8781ay" crossorigin="anonymous"></script>
@@ -76,8 +66,6 @@ let DATA={phase:'setup',events:[],event:null,athletes:[],lift:'sq',round:0,fligh
 const TX_URL=new URLSearchParams(location.search);
 const TX_MODE=TX_URL.get('tx')||null; // 'profile' | 'scoreboard' | 'leaderboard' | 'lbauto' | 'slam' | 'timer' | 'lights' | 'ceremony' | null
 if(TX_MODE){
-  // En modo widget de transmisión: ocultar botón "Ir a YourLift"
-  document.body.classList.add('tx-mode-active');
   const css=document.createElement('style');
   css.textContent=`
     html,body{background:transparent!important;overflow:hidden!important;margin:0}
@@ -386,6 +374,8 @@ function totalOf(a,view){
   if(view==='bench'&&(a.mod==='classic_bench'||a.mod==='equipped_bench')){
     return bestOf(a,'bp')||0;
   }
+  // Para Powerlifting completo: si está DQ (3 fails en algún lift) → total inválido
+  if(isDQ(a))return 0;
   // Default: full meet (Classic/Equipped/combinadas en view=meet)
   const s=bestOf(a,'sq'),b=bestOf(a,'bp'),d=bestOf(a,'dl');
   return(s&&b&&d)?s+b+d:0;
@@ -601,7 +591,10 @@ function setResult(id,l,r,res){
       delete DATA.changeTimers[key];
     }
   }
-  if(a.att[l].every(x=>x.r==='n'))a.bombed=true;
+  // NOTA: si falla los 3 intentos de un lift, queda DQ para el total
+  // pero NO bombed (sigue compitiendo en los lifts siguientes).
+  // bombed solo si falla los 9 intentos del meet completo.
+  if(a.att.sq.every(x=>x.r==='n')&&a.att.bp.every(x=>x.r==='n')&&a.att.dl.every(x=>x.r==='n'))a.bombed=true;
   DATA.timer=60;DATA.timerOn=false;clearInterval(mainTI);mainTI=null;
   // Record alert: check if this good lift breaks a national record
   if(res==='g')checkRecord(a,l,r);
@@ -981,12 +974,20 @@ function overrideResult(id,l,r,res){
   const a=DATA.athletes.find(x=>x.id===id);if(!a)return;
   // Toggle: clicking same result clears it
   a.att[l][r].r=(a.att[l][r].r===res)?null:res;
-  // Recalculate bomb-out: bombed only if ALL 3 attempts are 'n'
+  // bombed = TODOS los 9 intentos fallidos (atleta totalmente fuera).
+  // Si solo falla los 3 de un lift → queda DQ pero sigue compitiendo en los otros.
   a.bombed=a.att.sq.every(x=>x.r==='n')&&a.att.bp.every(x=>x.r==='n')&&a.att.dl.every(x=>x.r==='n');
-  // Lighter bomb-out: if all attempts of a single lift are 'n' → bombed
-  a.bombed=a.att.sq.every(x=>x.r==='n')||a.att.bp.every(x=>x.r==='n')||a.att.dl.every(x=>x.r==='n');
   saveNow();R();
 }
+
+// Helper: ¿el atleta quedó descalificado del TOTAL?
+// Sí → cuando falló los 3 intentos de algún lift (squat / bench / deadlift).
+// Sigue pudiendo competir en los lifts siguientes pero no tiene total válido.
+function isDQ(a){
+  if(!a||!a.att)return false;
+  return a.att.sq.every(x=>x.r==='n')||a.att.bp.every(x=>x.r==='n')||a.att.dl.every(x=>x.r==='n');
+}
+window.isDQ=isDQ;
 function updA(id,k,v){const a=DATA.athletes.find(x=>x.id===id);if(!a)return;if(k==='bw')a.bw=parseFloat(v)||0;else a[k]=v;save()}
 function recoverBackup(){
   try{
@@ -1089,11 +1090,31 @@ function editAtt(id,l,r){const a=DATA.athletes.find(x=>x.id===id);if(!a)return;c
 // ═══════════════════════════════════════════════════════════
 // ACTA PDF — jsPDF + autoTable (lazy loaded)
 // ═══════════════════════════════════════════════════════════
-// Helper: quita tildes/acentos para que jsPDF (que usa WinAnsi)
-// no genere caracteres raros en el PDF. Los datos en memoria/Firestore
-// no se modifican — solo se normalizan temporalmente durante la generación.
+// Helper: limpia el texto para jsPDF (que solo soporta ASCII / WinAnsi).
+// 1) Quita tildes/acentos por NFD
+// 2) Reemplaza símbolos especiales (♀ ♂ — •) por equivalentes ASCII
+// 3) Filtra cualquier char fuera de ASCII básico que pueda quedar
 function _stripAccentsForPdf(s){
-  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!s)return '';
+  let out = String(s).normalize('NFD').replace(/[̀-ͯ]/g,'');  // quita combining marks
+  // Reemplazos de símbolos comunes que rompen jsPDF
+  const map = {
+    '♀':'F', '♂':'M',
+    '—':'-', '–':'-', '−':'-',
+    '•':'*', '·':'-',
+    '“':'"', '”':'"', '‘':"'", '’':"'",
+    '…':'...',
+    '°':'',
+    '✓':'OK', '✗':'X',
+    '🥇':'1', '🥈':'2', '🥉':'3',
+    '🏋️':'', '⚙️':'', '💪':'', '🏆':'',
+    ' ':' '  // non-breaking space → space normal
+  };
+  out = out.replace(/[♀♂——−•·“”‘’…°✓✗🥇🥈🥉🏋️⚙️💪🏆 ]/gu, c => map[c]||'');
+  // Última pasada: cualquier char fuera de ASCII básico (>127) → reemplazar por '?'
+  // Esto cubre emojis y símbolos no contemplados arriba
+  out = out.replace(/[^\x20-\x7E\n\r\t]/g, '');
+  return out;
 }
 async function generateActaPDF(){
   const btn=document.getElementById('btnActaPDF');
@@ -1203,7 +1224,7 @@ async function generateActaPDF(){
       doc.setFont('helvetica','normal');
       doc.setFontSize(9);
       const evName=(DATA.event?.name||'Campeonato FECHIPO').toUpperCase();
-      doc.text(evName,PW/2,8.5,{align:'center'});
+      doc.text(_stripAccentsForPdf(evName),PW/2,8.5,{align:'center'});
       // Date right
       doc.setFontSize(8);
       doc.text(new Date().toLocaleDateString('es-CL'),PW-8,8.5,{align:'right'});
@@ -1213,7 +1234,7 @@ async function generateActaPDF(){
       doc.setTextColor(...C.gold);
       doc.setFont('helvetica','bold');
       doc.setFontSize(8);
-      doc.text('ACTA OFICIAL DE RESULTADOS — POWERLIFTING CHILE',PW/2,17,{align:'center'});
+      doc.text(_stripAccentsForPdf('ACTA OFICIAL DE RESULTADOS - POWERLIFTING CHILE'),PW/2,17,{align:'center'});
     }
 
     // ── Render one category section ──────────────────────
@@ -1229,7 +1250,8 @@ async function generateActaPDF(){
       athletes.forEach(a=>{a._rank=a.total>0?rank++:null;});
 
       const isFem=sex==='Mujer'||sex==='Femenino'||sex==='F';
-      const sexSymbol=isFem?'\u2640':'\u2642';
+      // Letras simples en lugar de los s\u00edmbolos \u2640/\u2642 que jsPDF no soporta bien
+      const sexSymbol=isFem?'(F)':'(M)';
       const sexLabel=isFem?'FEMENINO':'MASCULINO';
 
       // Auto-split to new page if no room (need at least 30mm for header + 1 row)
@@ -1247,7 +1269,7 @@ async function generateActaPDF(){
       doc.setTextColor(...C.gold);
       doc.setFont('helvetica','bold');
       doc.setFontSize(9);
-      doc.text(sexSymbol+' '+sexLabel+' — '+cat,12,curY+5.5);
+      doc.text(_stripAccentsForPdf(sexSymbol+' '+sexLabel+' - '+cat),12,curY+5.5);
       doc.setTextColor(...C.muted);
       doc.setFont('helvetica','normal');
       doc.setFontSize(7.5);
@@ -1312,7 +1334,7 @@ async function generateActaPDF(){
           }
           // Strikethrough for no-lift
           const ty=curY+rowH/2+2;
-          doc.text(txt,cx+col.w/2,ty,{align:'center'});
+          doc.text(_stripAccentsForPdf(txt),cx+col.w/2,ty,{align:'center'});
           if(cell.strike&&cell.text!=='—'){
             doc.setDrawColor(...cell.color);
             doc.setLineWidth(0.3);
@@ -1353,7 +1375,7 @@ async function generateActaPDF(){
     doc.rect(0,12,PW,7,'F');
     doc.setTextColor(...C.gold);
     doc.setFontSize(8);
-    doc.text('MEJORES ATLETAS POR DIVISIÓN — GL POINTS',PW/2,17,{align:'center'});
+    doc.text(_stripAccentsForPdf('MEJORES ATLETAS POR DIVISION - GL POINTS'),PW/2,17,{align:'center'});
 
     let blY=26;
     const blEntries=Object.entries(divGL).map(([div,info])=>{
@@ -1401,7 +1423,7 @@ async function generateActaPDF(){
           doc.setTextColor(...cell.color);
           doc.setFont('helvetica',cell.bold?'bold':'normal');
           doc.setFontSize(cell.bold?8:7);
-          doc.text(cell.text,bcx+col.w/2,blY+rowH/2+2,{align:'center'});
+          doc.text(_stripAccentsForPdf(cell.text),bcx+col.w/2,blY+rowH/2+2,{align:'center'});
           bcx+=col.w;
         });
         doc.setDrawColor(...C.border);
@@ -1427,9 +1449,9 @@ async function generateActaPDF(){
       doc.setTextColor(...C.muted);
       doc.setFont('helvetica','normal');
       doc.setFontSize(6.5);
-      doc.text('FECHIPO — Federaci\u00f3n Chilena de Powerlifting',8,PH-3);
-      doc.text('Documento generado autom\u00e1ticamente por YourLift',PW/2,PH-3,{align:'center'});
-      doc.text('P\u00e1g. '+i+'/'+totalPages,PW-8,PH-3,{align:'right'});
+      doc.text(_stripAccentsForPdf('FECHIPO - Federacion Chilena de Powerlifting'),8,PH-3);
+      doc.text(_stripAccentsForPdf('Documento generado automaticamente por YourLift'),PW/2,PH-3,{align:'center'});
+      doc.text('Pag. '+i+'/'+totalPages,PW-8,PH-3,{align:'right'});
     }
 
     // ── Save ─────────────────────────────────────────────
@@ -1867,7 +1889,7 @@ function _renderTxCerScoreboardBL(cur,opts){
         const isCur=j===DATA.round&&at.r===null&&at.w>0;
         return '<div style="padding:7px 10px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:18px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
       }).join('')
-      +'<div style="padding:7px 10px;text-align:center;background:#D4A843;color:#0A1628;font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:1px">'+(subTotal(cur,DATA.lift)||0).toFixed(1)+'</div>'
+      +'<div style="padding:7px 10px;text-align:center;background:'+(isDQ(cur)?'#cc6666':'#D4A843')+';color:'+(isDQ(cur)?'#fff':'#0A1628')+';font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:1px">'+(isDQ(cur)?'DQ':(subTotal(cur,DATA.lift)||0).toFixed(1))+'</div>'
     +'</div>'
   +'</div>';
 }
@@ -1923,7 +1945,20 @@ function _widgetHandleDirectObsEvent(d){
   if(action==='toggle'&&d.component){
     const c=_txDirState[d.component]||{};
     const isOn=c.active&&(!c.until||c.until>Date.now());
-    _txDirState[d.component]=Object.assign({},c,{active:!isOn,until:0});
+    const willActivate=!isOn;
+    // Mutual exclusion: profile y leaderboard no pueden estar prendidos juntos
+    const FULLSCREEN_EXCLUSIVE=['profile','leaderboard'];
+    if(willActivate && FULLSCREEN_EXCLUSIVE.includes(d.component)){
+      FULLSCREEN_EXCLUSIVE.forEach(other=>{
+        if(other!==d.component){
+          const o=_txDirState[other];
+          if(o && o.active){
+            _txDirState[other]=Object.assign({},o,{active:false,until:0});
+          }
+        }
+      });
+    }
+    _txDirState[d.component]=Object.assign({},c,{active:willActivate,until:0});
     mark();return;
   }
   if(action==='slam'&&d.type){
@@ -1938,6 +1973,10 @@ function _widgetHandleDirectObsEvent(d){
     mark();return;
   }
   if(action==='showLb'&&d.cat){
+    // Apagar profile (mutual exclusion fullscreen)
+    if(_txDirState.profile && _txDirState.profile.active){
+      _txDirState.profile=Object.assign({},_txDirState.profile,{active:false,until:0});
+    }
     _txDirState.leaderboard={active:true,until:0,cat:d.cat};
     mark();return;
   }
@@ -2426,7 +2465,7 @@ function renderTxScoreboard(cur,lifterChanged){
           const isCur=j===DATA.round&&at.r===null&&at.w>0;
           return '<div style="padding:9px 18px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:22px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
         }).join('')}
-        <div style="padding:9px 14px;text-align:center;background:#D4A843;color:#0A1628;font-family:Oswald;font-size:24px;font-weight:700;letter-spacing:1px">${(st||newSub||0).toFixed(1)}</div>
+        <div style="padding:9px 14px;text-align:center;background:${isDQ(cur)?'#cc6666':'#D4A843'};color:${isDQ(cur)?'#fff':'#0A1628'};font-family:Oswald;font-size:24px;font-weight:700;letter-spacing:1px">${isDQ(cur)?'DQ':(st||newSub||0).toFixed(1)}</div>
       </div>
     </div>`;
 }
@@ -2517,7 +2556,10 @@ function renderSetup(){
 
 function renderShell(){
   const flights=[...new Set(DATA.athletes.map(a=>a.flight))].sort();const p=DATA.phase;
-  let h='<div class="shell"><div class="side"><div class="logo"><img src="YourLift_logo.png" style="height:28px" onerror="this.remove()"> LC</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(DATA.event?.short||DATA.event?.name||'')+'</div>';
+  // El botón "Volver a YourLift" sobre el logo (estilo unificado)
+  let h='<div class="shell"><div class="side">';
+  h+='<a href="index.html" style="display:flex;align-items:center;gap:6px;padding:8px 12px;margin-bottom:12px;background:rgba(10,22,40,.6);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;transition:all .15s" onmouseenter="this.style.borderColor=\'#D4A843\';this.style.color=\'#D4A843\'" onmouseleave="this.style.borderColor=\'rgba(212,168,67,.4)\';this.style.color=\'rgba(220,230,245,.85)\'">← Volver a YourLift</a>';
+  h+='<div class="logo"><img src="YourLift_logo.png" style="height:28px" onerror="this.remove()"> LC</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(DATA.event?.short||DATA.event?.name||'')+'</div>';
   if(isAdmin){
   h+='<div class="side-label">Gesti\u00f3n</div><button class="side-btn '+(p==='manage'?'active':'')+'" onclick="go(\'manage\')"><span class="icon">\uD83D\uDCCB</span>Atletas & Pesaje</button>';
   h+='<div class="side-label">Competencia</div><button class="side-btn '+(p==='compete'?'active':'')+'" onclick="go(\'compete\')"><span class="icon">\uD83C\uDFCB\uFE0F</span>Control en Vivo</button>';
@@ -2534,19 +2576,19 @@ function renderShell(){
   h+='</div>';
   if(isAdmin){
   h+='<div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border)">';
-  h+='<button class="side-btn" onclick="go(\'setup\')"><span class="icon">\u2190</span>Volver</button>';
+  h+='<button class="side-btn" onclick="go(\'setup\')"><span class="icon">\uD83C\uDFC6</span>Selecci\u00F3n de Campeonato</button>';
   h+='<div style="font-size:10px;color:var(--green);margin-bottom:6px;padding:0 8px">\uD83D\uDD13 Admin</div>';
   h+='<div style="font-size:9px;color:'+(fbReady?'var(--green)':'var(--muted)')+';padding:0 8px;margin-bottom:6px">'+(fbReady?'\uD83D\uDCE1 Sync activo':'\u23F3 Conectando...')+'</div>';
   h+='<button class="side-btn" onclick="exportBackupJSON()"><span class="icon">\uD83D\uDCBE</span>Exportar Backup</button>';
   h+='<button class="side-btn" onclick="resetLiveData()" style="color:#ff8a8a"><span class="icon">🧹</span>Reiniciar datos en vivo</button>';
   h+='<button class="side-btn" onclick="doLogout()"><span class="icon">\uD83D\uDD12</span>Cerrar sesi\u00f3n</button>';
-  h+='<a href="index.html" class="side-btn" style="text-decoration:none;color:var(--muted)"><span class="icon">\u2190</span>YourLift</a></div>';
+  h+='</div>';
   }else{
   h+='<div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--border)">';
   h+='<div style="font-size:9px;color:'+(fbReady?'var(--green)':'var(--muted)')+';padding:0 8px;margin-bottom:6px">'+(fbReady?'\uD83D\uDCE1 Datos en vivo':'\u23F3 Conectando...')+'</div>';
-  h+='<button class="side-btn" onclick="go(\'setup\')"><span class="icon">\u2190</span>Volver</button>';
+  h+='<button class="side-btn" onclick="go(\'setup\')"><span class="icon">\ud83c\udfc6</span>Selecci\u00f3n de Campeonato</button>';
   // Admin button removed — login via admin.html only
-  h+='<a href="index.html" class="side-btn" style="text-decoration:none;color:var(--muted)"><span class="icon">\u2190</span>YourLift</a></div>';
+  h+='</div>';
   }
   h+='</div><div class="main">';
   if(p==='manage'&&isAdmin)h+=renderManage();else if(p==='compete'&&isAdmin)h+=renderCompete();else if(p==='obsTx'&&isAdmin)h+=renderObsTx();else if(p==='director'&&isAdmin)h+=renderDirector();else if(p==='results')h+=renderResults();else if(p==='atletaInfo')h+=renderAtletaInfo();else if(!isAdmin&&(p==='manage'||p==='compete'||p==='transmision'||p==='obsTx'||p==='director')){DATA.phase='results';h+=renderResults();}
@@ -2731,6 +2773,19 @@ async function _dirPush(){
 window.dirShow=async function(comp,seconds,opts){
   if(!_dirState)_dirState={};
   const until=seconds>0?Date.now()+seconds*1000:0;
+  // Mutual exclusion entre componentes fullscreen (profile y leaderboard).
+  // Si activo uno y el otro está prendido, lo apago automáticamente.
+  const FULLSCREEN_EXCLUSIVE = ['profile','leaderboard'];
+  if(FULLSCREEN_EXCLUSIVE.includes(comp)){
+    FULLSCREEN_EXCLUSIVE.forEach(other=>{
+      if(other!==comp){
+        const o=_dirState[other];
+        if(o && o.active){
+          _dirState[other]=Object.assign({},o,{active:false,until:0});
+        }
+      }
+    });
+  }
   _dirState[comp]=Object.assign({},_dirState[comp]||{},{active:true,until},opts||{});
   await _dirPush();R();
 };
@@ -3138,14 +3193,12 @@ function renderCompete(){
     h+='<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--border)">';
     h+='<th style="text-align:center;padding:6px 4px;color:var(--muted);font-size:10px;width:30px">#</th>';
     h+='<th style="text-align:left;padding:6px 8px;color:var(--muted);font-size:10px">ATLETA</th>';
-    h+='<th style="text-align:center;padding:6px 4px;color:var(--muted);font-size:10px;width:50px">RACK</th>';
     [1,2,3].forEach(r=>{h+='<th style="text-align:center;padding:6px 4px;color:'+LIFT_C[DATA.lift]+';font-size:11px;font-weight:700;width:78px">INT '+r+'</th>'});
     h+='<th style="text-align:center;padding:6px 4px;color:var(--gold);font-size:10px;width:60px">BEST</th></tr></thead><tbody>';
     ordered.forEach((a,i)=>{
       const inQueue = queueIds.has(a.id);
       const queuePos = inQueue ? queue.findIndex(q=>q.id===a.id) : -1;
       const isCurrent = queuePos === 0;
-      const rk2 = DATA.lift==='sq'?a.rackSQ:DATA.lift==='bp'?a.rackBP:'';
       const b = bestOf(a,DATA.lift);
       // Color de fondo de fila: actual = highlight fuerte, pr\u00f3ximos = leve, ya levant\u00f3 = neutro
       let rowBg = '';
@@ -3156,8 +3209,6 @@ function renderCompete(){
       h+='<td style="text-align:center;padding:8px 4px"><span class="os" style="color:'+(isCurrent?LIFT_C[DATA.lift]:inQueue?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:'+(isCurrent?16:13)+'px">'+(inQueue?(queuePos+1):'\u00b7')+'</span></td>';
       // Nombre del atleta
       h+='<td style="padding:8px;font-size:'+(isCurrent?14:13)+'px;font-weight:'+(isCurrent?700:500)+';color:'+(isCurrent?'#fff':'var(--text)')+'">'+a.name+'</td>';
-      // Rack
-      h+='<td style="text-align:center;padding:6px 4px;font-size:11px;color:var(--muted);font-family:Oswald">'+(rk2||'\u2014')+'</td>';
       // 3 intentos
       a.att[DATA.lift].forEach((at,j)=>{
         const c = at.r==='g'?'att-g':at.r==='n'?'att-n':at.w>0?'att-p':'att-e';
@@ -3201,9 +3252,23 @@ function _renderResultsTable(opts){
   const SEP='';
   const catGroups={};
   all.forEach(a=>{const k=(a.sex||'?')+SEP+(a.cat||'?')+SEP+(a.div||'Sin Div');if(!catGroups[k])catGroups[k]=[];catGroups[k].push(a);});
-  Object.values(catGroups).forEach(arr=>arr.sort((a,b)=>b.total-a.total));
+  // Orden dentro de cada cat+div+sex: primero los con total válido (mayor a menor),
+  // luego los DQ (3 fails en algún lift), luego los sin total / no clasificados.
+  Object.values(catGroups).forEach(arr=>arr.sort((a,b)=>{
+    const aDQ = view==='meet' && isDQ(a);
+    const bDQ = view==='meet' && isDQ(b);
+    if(aDQ!==bDQ) return aDQ?1:-1;  // no-DQ primero
+    return b.total-a.total;
+  }));
   const catPos={};
-  Object.values(catGroups).forEach(arr=>{let p=1;arr.forEach(a=>{if(a.total>0){catPos[a.id]=p;p++}})});
+  // Posición solo se asigna a atletas con total válido (excluye DQ)
+  Object.values(catGroups).forEach(arr=>{
+    let p=1;
+    arr.forEach(a=>{
+      const dq = view==='meet' && isDQ(a);
+      if(a.total>0 && !dq){catPos[a.id]=p;p++;}
+    });
+  });
   const sorted=[];
   const catKeys=Object.keys(catGroups).sort((a,b)=>{
     const [sa,ca,da]=a.split(SEP);
@@ -3247,9 +3312,10 @@ function _renderResultsTable(opts){
       h+='<tr><td colspan="'+colspanTotal+'" style="padding:7px 8px;background:rgba(196,30,58,.1);border-bottom:2px solid var(--accent);font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--accent)">'+symb+' '+a.cat+' — '+(a.div||'Sin Div')+'</td></tr>';
       prevCat=catKey;
     }
-    const pos=catPos[a.id]||'—';
-    h+='<tr style="border-bottom:1px solid rgba(30,58,95,.25);'+(a.bombed?'opacity:.4':'')+'">';
-    h+='<td class="os" style="padding:6px 4px;text-align:center;color:'+(typeof pos==="number"&&pos<=3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:14px">'+pos+'</td>';
+    const dq = view==='meet' && isDQ(a);
+    const pos = dq ? 'DQ' : (catPos[a.id]||'—');
+    h+='<tr style="border-bottom:1px solid rgba(30,58,95,.25);'+(a.bombed?'opacity:.4':dq?'opacity:.7':'')+'">';
+    h+='<td class="os" style="padding:6px 4px;text-align:center;color:'+(dq?'var(--red)':typeof pos==="number"&&pos<=3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:14px">'+pos+'</td>';
     h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)">'+(window.clubLogoImg?window.clubLogoImg(a.club,14,'background:rgba(10,22,40,.4);padding:1px;'):'')+'<span>'+a.club+'</span></div></td>';
     h+='<td style="padding:6px 3px;text-align:center;font-size:11px">'+(a.bw||'—')+'</td>';
     h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.div||'—')+'</td>';
@@ -3265,7 +3331,12 @@ function _renderResultsTable(opts){
         h+='<td style="padding:4px 2px;text-align:center;font-weight:700;font-family:Oswald;color:#d4a843;font-size:12px;background:rgba(212,168,67,.08)">'+(sub||'—')+'</td>';
       });
     }
-    h+='<td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px">'+(a.total||'—')+'</td><td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px;color:var(--gold)">'+(a.gl||'—')+'</td></tr>';
+    if(dq){
+      h+='<td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:13px;color:var(--red);background:rgba(239,68,68,.12)">DQ</td>';
+      h+='<td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:13px;color:var(--red);background:rgba(239,68,68,.06)">DQ</td></tr>';
+    } else {
+      h+='<td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px">'+(a.total||'—')+'</td><td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px;color:var(--gold)">'+(a.gl||'—')+'</td></tr>';
+    }
   });
   h+='</tbody></table></div></div>';
   return h;
