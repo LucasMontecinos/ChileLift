@@ -297,10 +297,88 @@ const PLATES=[25,20,15,10,5,2.5,1.25,0.5,0.25];
 const PLATE_C={25:'#ef4444',20:'#3b82f6',15:'#f59e0b',10:'#22c55e',5:'#888','2.5':'#ef4444','1.25':'#f59e0b','0.5':'#7c3aed','0.25':'#ec4899'};
 const BAR=20,COLLARS=5;
 
-function calcGL(t,bw,sex){if(!t||!bw||t<=0)return 0;const s=(sex==='Hombre'||sex==='M')?'M':'F';const c=s==='M'?{a:1199.72839,b:1025.18162,c:0.00921}:{a:610.32796,b:560.22205,c:0.01289};const d=c.a-c.b*Math.exp(-c.c*bw);return d>0?Math.round(t*100/d*100)/100:0}
+// IPF GL Points oficial — coeficientes según sexo + modalidad + vista
+// Fuente: https://www.ipfpointscalculator.com/  ·  IPF GL Coefficients (2020+)
+//
+// Modalidades base:
+//   'classic'         → Powerlifting Classic Raw (SQ+BP+DL)
+//   'equipped'        → Powerlifting Equipped (SQ+BP+DL)
+//   'onlybench'       → Bench-only Classic (solo BP)
+// Modalidades combinadas (atleta participa en dos rankings):
+//   'classic_bench'   → Classic (full meet) + Only Bench (Classic)
+//   'equipped_bench'  → Equipped (full meet) + Only Bench (Equipped)
+//
+// Parámetro `view` indica para qué tabla calcular:
+//   'meet'  → ranking de Powerlifting completo (default)
+//   'bench' → ranking de Bench-only
+function calcGL(t,bw,sex,mod,view){
+  if(!t||!bw||t<=0)return 0;
+  const isMale=(sex==='Hombre'||sex==='M'||sex==='Masculino');
+  view=view||'meet';
+
+  // Detectar la modalidad efectiva según la tabla a la que pertenece este cálculo
+  const isOnlyBenchPure=(mod==='onlybench');
+  const isClassicBench=(mod==='classic_bench');
+  const isEquippedBench=(mod==='equipped_bench');
+  const isEquippedMeet=(mod==='equipped'||mod==='Equipado'||mod==='SP');
+
+  let c;
+
+  if(view==='bench' || isOnlyBenchPure){
+    // Coeficientes Bench-only
+    if(isEquippedBench){
+      // Bench Equipped
+      c=isMale?{a:381.22073,b:733.79378,c:0.02398}
+              :{a:221.82209,b:357.00377,c:0.02937};
+    } else {
+      // Bench Classic (default para onlybench y classic_bench cuando view=bench)
+      c=isMale?{a:320.98041,b:281.40258,c:0.01008}
+              :{a:142.40398,b:442.52671,c:0.04724};
+    }
+  } else if(isEquippedMeet||isEquippedBench){
+    // Powerlifting Equipped (full meet)
+    c=isMale?{a:1236.25115,b:1449.21864,c:0.01644}
+            :{a:758.63878, b:949.31382, c:0.02435};
+  } else {
+    // Powerlifting Classic / Raw (full meet) — default
+    c=isMale?{a:1199.72839,b:1025.18162,c:0.00921}
+            :{a:610.32796, b:1045.59282,c:0.03048};
+  }
+
+  const d=c.a-c.b*Math.exp(-c.c*bw);
+  return d>0?Math.round(t*100/d*100)/100:0;
+}
+
+// Helpers para identificar en qué rankings/tablas aparece un atleta
+function inMeetRanking(a){
+  return a&&(a.mod==='classic'||a.mod==='equipped'||a.mod==='classic_bench'||a.mod==='equipped_bench');
+}
+function inBenchRanking(a){
+  return a&&(a.mod==='onlybench'||a.mod==='classic_bench'||a.mod==='equipped_bench');
+}
+function isMeetClassic(a){
+  return a&&(a.mod==='classic'||a.mod==='classic_bench');
+}
+function isMeetEquipped(a){
+  return a&&(a.mod==='equipped'||a.mod==='equipped_bench');
+}
 function bestOf(a,l){let b=0;a.att[l].forEach(x=>{if(x.r==='g'&&x.w>b)b=x.w});return b}
-function totalOf(a){const s=bestOf(a,'sq'),b=bestOf(a,'bp'),d=bestOf(a,'dl');return(s&&b&&d)?s+b+d:0}
-function rankings(){return DATA.athletes.map(a=>({...a,total:totalOf(a),gl:calcGL(totalOf(a),a.bw,a.sex)})).filter(a=>a.total>0).sort((a,b)=>b.gl-a.gl)}
+function totalOf(a,view){
+  // view: 'meet' (default) → suma SQ+BP+DL para Powerlifting completo
+  //       'bench' → solo mejor BP (para tabla Only Bench)
+  if(!a)return 0;
+  view=view||'meet';
+  // Only Bench puro: siempre devuelve BP (no tiene SQ/DL)
+  if(a.mod==='onlybench')return bestOf(a,'bp')||0;
+  // Combinadas: si view=bench, devolver mejor BP
+  if(view==='bench'&&(a.mod==='classic_bench'||a.mod==='equipped_bench')){
+    return bestOf(a,'bp')||0;
+  }
+  // Default: full meet (Classic/Equipped/combinadas en view=meet)
+  const s=bestOf(a,'sq'),b=bestOf(a,'bp'),d=bestOf(a,'dl');
+  return(s&&b&&d)?s+b+d:0;
+}
+function rankings(){return DATA.athletes.map(a=>({...a,total:totalOf(a),gl:calcGL(totalOf(a),a.bw,a.sex,a.mod)})).filter(a=>a.total>0).sort((a,b)=>b.gl-a.gl)}
 function liftQueue(){return DATA.athletes.filter(a=>a.flight===DATA.flight&&!a.bombed).filter(a=>{const at=a.att[DATA.lift][DATA.round];return at.r===null&&at.w>0}).sort((a,b)=>{const wa=a.att[DATA.lift][DATA.round].w,wb=b.att[DATA.lift][DATA.round].w;return wa!==wb?wa-wb:a.lot-b.lot})}
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({phase:DATA.phase,event:DATA.event,athletes:DATA.athletes,lift:DATA.lift,round:DATA.round,flight:DATA.flight,changeTimers:DATA.changeTimers,lotsGenerated:DATA.lotsGenerated}))}catch(e){}if(!_fbSyncing)debouncedSync()}
 let _syncTimer=null;
@@ -362,7 +440,17 @@ function pickEvent(i){
     const name=a.nombre||'';
     const fl=flightMap&&flightMap[name]?flightMap[name]:'A';
     const rawMod=(a.modalidad||a.mod||'').toLowerCase();
-    const mod=rawMod.includes('equipado')||rawMod.includes('equipped')?'equipped':'classic';
+    // Mapear todas las modalidades soportadas
+    let mod;
+    const isEq=rawMod.includes('equipado')||rawMod.includes('equipped');
+    const isBench=rawMod.includes('only bench')||rawMod.includes('onlybench')||rawMod.includes('only_bench');
+    const isCombined=rawMod.includes('+');
+    if(isCombined&&isEq) mod='equipped_bench';
+    else if(isCombined) mod='classic_bench';
+    else if(isBench&&isEq) mod='equipped_bench'; // edge case raro
+    else if(isBench) mod='onlybench';
+    else if(isEq) mod='equipped';
+    else mod='classic';
     return{id:j,lot:j+1,name,rut:a.rut||'',sex:a.sexo||a.sex||'',cat:a.categoria||'',div:a.division||'',club:a.club||'',uni:a.universidad||'',mod,bw:0,flight:fl,rackSQ:'',rackBP:'',bombed:false,
     att:{sq:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],bp:[{w:0,r:null},{w:0,r:null},{w:0,r:null}],dl:[{w:0,r:null},{w:0,r:null},{w:0,r:null}]}};
   });
@@ -720,7 +808,16 @@ function _inscToAthlete(ins, j, flightMap){
   const name=ins.nombre||'';
   const fl=flightMap&&flightMap[name]?flightMap[name]:(ins.flight||'A');
   const rawMod=(ins.modalidad||'').toLowerCase();
-  const mod=rawMod.includes('equipado')||rawMod.includes('equipped')?'equipped':'classic';
+  let mod;
+  const isEq=rawMod.includes('equipado')||rawMod.includes('equipped');
+  const isBench=rawMod.includes('only bench')||rawMod.includes('onlybench')||rawMod.includes('only_bench');
+  const isCombined=rawMod.includes('+');
+  if(isCombined&&isEq) mod='equipped_bench';
+  else if(isCombined) mod='classic_bench';
+  else if(isBench&&isEq) mod='equipped_bench';
+  else if(isBench) mod='onlybench';
+  else if(isEq) mod='equipped';
+  else mod='classic';
   const catRaw=ins.categoria||'';
   const catNum=catRaw.match(/(\d+\+?)/)?catRaw.match(/(\d+\+?)/)[1]:catRaw;
   return{
@@ -932,9 +1029,21 @@ function editAtt(id,l,r){const a=DATA.athletes.find(x=>x.id===id);if(!a)return;c
 // ═══════════════════════════════════════════════════════════
 // ACTA PDF — jsPDF + autoTable (lazy loaded)
 // ═══════════════════════════════════════════════════════════
+// Helper: quita tildes/acentos para que jsPDF (que usa WinAnsi)
+// no genere caracteres raros en el PDF. Los datos en memoria/Firestore
+// no se modifican — solo se normalizan temporalmente durante la generación.
+function _stripAccentsForPdf(s){
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
 async function generateActaPDF(){
   const btn=document.getElementById('btnActaPDF');
   if(btn){btn.disabled=true;btn.textContent='⏳ Generando...';}
+  // Backup nombres + clubes y normalizar (sin acentos) para el PDF
+  const _pdfBackups=DATA.athletes.map(a=>({ref:a,name:a.name,club:a.club}));
+  DATA.athletes.forEach(a=>{
+    if(a.name)a.name=_stripAccentsForPdf(a.name);
+    if(a.club)a.club=_stripAccentsForPdf(a.club);
+  });
   try{
     // Lazy load jsPDF + autoTable
     if(!window.jspdf){
@@ -974,7 +1083,7 @@ async function generateActaPDF(){
     const all=DATA.athletes.map(a=>({
       ...a,
       total:totalOf(a),
-      gl:calcGL(totalOf(a),a.bw,a.sex)
+      gl:calcGL(totalOf(a),a.bw,a.sex,a.mod)
     }));
 
     // Best Lifter per division (highest GL)
@@ -1271,11 +1380,65 @@ async function generateActaPDF(){
     console.error('PDF error',err);
     alert('Error al generar PDF: '+err.message);
   }finally{
+    // Restaurar nombres/clubes originales con acentos (no se pierden datos)
+    _pdfBackups.forEach(b=>{b.ref.name=b.name;b.ref.club=b.club;});
     if(btn){btn.disabled=false;btn.textContent='\uD83D\uDCCB Generar Acta PDF';}
   }
 }
 
 function exportJSON(){const r=rankings();const blob=new Blob([JSON.stringify(r.map((a,i)=>({rank:i+1,nombre:a.name,rut:a.rut,sexo:a.sex,division:a.div,categoria:a.cat,bw:a.bw,club:a.club,sq:bestOf(a,'sq'),bp:bestOf(a,'bp'),dl:bestOf(a,'dl'),total:a.total,gl:a.gl})),null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const l=document.createElement('a');l.href=u;l.download='resultados.json';l.click()}
+
+// Exporta los resultados en el formato que usa data.json (competencias por atleta).
+// El JSON descargado se puede mergear directo a data.json para que aparezca
+// en los perfiles públicos de cada atleta (atleta.html).
+function exportCompetenciasParaPerfiles(){
+  const evName=DATA.event?.name||'Campeonato sin nombre';
+  const today=new Date().toISOString().slice(0,10);
+  const flightAth=DATA.athletes.filter(a=>!a.bombed||totalOf(a)>0||bestOf(a,'bp')>0);
+  const out=[];
+  flightAth.forEach(a=>{
+    // Para cada vista en la que participa, generar una entrada de competencia
+    const views=[];
+    if(isMeetClassic(a)||isMeetEquipped(a))views.push('meet');
+    if(inBenchRanking(a))views.push('bench');
+    views.forEach(view=>{
+      const t=totalOf(a,view);
+      if(t<=0)return;
+      const gl=calcGL(t,a.bw,a.sex,a.mod,view);
+      const isEq=isMeetEquipped(a);
+      let modLabel;
+      if(view==='bench')modLabel=isEq?'Only Bench Equipado':'Only Bench Classic';
+      else modLabel=isEq?'Powerlifting Equipado':'Powerlifting Classic';
+      const entry={
+        rut:a.rut||'',
+        nombre:a.name||'',
+        evento:evName,
+        fecha:today,
+        sexo:a.sex||'',
+        division:a.div||'',
+        categoria:a.cat||'',
+        modalidad:modLabel,
+        club:a.club||'',
+        resultado:{
+          bw:a.bw||0,
+          sq:view==='bench'?0:bestOf(a,'sq'),
+          bp:bestOf(a,'bp'),
+          dl:view==='bench'?0:bestOf(a,'dl'),
+          total:t,
+          glp:gl
+        },
+        source:'yourlift_livecast'
+      };
+      out.push(entry);
+    });
+  });
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const u=URL.createObjectURL(blob);
+  const l=document.createElement('a');
+  const evShort=(DATA.event?.short||evName).replace(/[^a-zA-Z0-9]+/g,'_');
+  l.href=u;l.download='competencias_'+evShort+'_'+today+'.json';l.click();
+  alert('Exportadas '+out.length+' competencias listas para mergear a data.json');
+}
 
 function renderObsTx(){
   const evId=DATA.event?.id||DATA.event?.name||'';
@@ -1607,7 +1770,17 @@ function _renderTxCerScoreboardBL(cur,opts){
   const divS=txDivShort(cur.div);
   const catLabel=(cur.cat?'-'+txCatNum(cur.cat)+'kg ':'')+divS;
   const cw=cur.att[DATA.lift][DATA.round].w;
-  const timerStr=DATA.timerOn?String(Math.floor(DATA.timer/60)).padStart(2,'0')+':'+String(DATA.timer%60).padStart(2,'0'):'';
+  // Forecast: posición proyectada en sex+cat+div (reemplaza el timer en la barra superior)
+  const _rk=catRankBySub(cur);
+  const _newSubBL=DATA.lift==='sq'?Math.max(bestOf(cur,'sq'),cw)
+                : DATA.lift==='bp'?bestOf(cur,'sq')+Math.max(bestOf(cur,'bp'),cw)
+                : bestOf(cur,'sq')+bestOf(cur,'bp')+Math.max(bestOf(cur,'dl'),cw);
+  const _sameCatBL=DATA.athletes.filter(a=>a.cat===cur.cat&&a.div===cur.div&&a.sex===cur.sex&&a.flight===DATA.flight&&!a.bombed);
+  const _simBL=_sameCatBL.map(a=>a.id===cur.id?{id:a.id,sub:_newSubBL}:{id:a.id,sub:subTotal(a,DATA.lift)}).filter(x=>x.sub>0).sort((a,b)=>b.sub-a.sub);
+  const _simPosBL=_simBL.findIndex(x=>x.id===cur.id)+1;
+  const _forecastPos=_simPosBL||_rk.pos||0;
+  const _forecastTxt=_forecastPos>0?'P'+_forecastPos+(_simBL.length>1?'/'+_simBL.length:''):'—';
+  const _forecastColor=_forecastPos===1?'#22c55e':_forecastPos<=3?'#D4A843':'#fff';
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
   const animOrTx=noAnimate
     ? (scale!==1?'transform:scale('+scale+');transform-origin:bottom left;':'')
@@ -1615,7 +1788,7 @@ function _renderTxCerScoreboardBL(cur,opts){
   return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:6px 14px">'
       +'<div style="font-family:Oswald;font-size:12px;color:rgba(200,215,240,.85);letter-spacing:1px">'+catLabel+'</div>'
-      +'<div style="font-family:Oswald;font-size:18px;font-weight:700;color:'+(DATA.timerOn&&DATA.timer<=10?'#ef4444':'#fff')+';letter-spacing:2px">'+(timerStr||'—:—')+'</div>'
+      +'<div style="font-family:Oswald;font-size:18px;font-weight:800;color:'+_forecastColor+';letter-spacing:2px">'+_forecastTxt+'</div>'
     +'</div>'
     +'<div style="background:linear-gradient(90deg,#D4A843,#c19735);padding:5px 14px;display:flex;align-items:center;gap:10px">'
       +'<div style="background:rgba(10,22,40,.9);color:#D4A843;padding:3px 9px;border-radius:3px;font-family:Oswald;font-size:10px;letter-spacing:2px;font-weight:700">CHI</div>'
@@ -2147,20 +2320,26 @@ function renderTxScoreboard(cur,lifterChanged){
   if(DATA.lift==='sq')newSub=simBest;
   else if(DATA.lift==='bp')newSub=bestOf(cur,'sq')+simBest;
   else newSub=bestOf(cur,'sq')+bestOf(cur,'bp')+simBest;
-  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.flight===DATA.flight&&!a.bombed);
+  // Mismo sexo + cat + div (separar divisiones de edad)
+  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.div===cur.div&&a.sex===cur.sex&&a.flight===DATA.flight&&!a.bombed);
   const simRanked=sameCat.map(a=>{
     if(a.id===cur.id)return{id:a.id,sub:newSub};
     return{id:a.id,sub:subTotal(a,DATA.lift)};
   }).filter(x=>x.sub>0).sort((a,b)=>b.sub-a.sub);
   const simPos=simRanked.findIndex(x=>x.id===cur.id)+1;
-  const timerStr=DATA.timerOn?String(Math.floor(DATA.timer/60)).padStart(2,'0')+':'+String(DATA.timer%60).padStart(2,'0'):'';
+  const totalAth=simRanked.length;
   const rankTxt=(rk.pos&&simPos&&rk.pos!==simPos)?'RANK '+rk.pos+' to '+simPos:'RANK '+(rk.pos||simPos||'—');
+  // Forecast: posición proyectada dentro del sex+cat+div (no mezcla divisiones)
+  // Reemplaza el timer en la barra superior del scoreboard.
+  const forecastPos=simPos||rk.pos||0;
+  const forecastTxt=forecastPos>0?'P'+forecastPos+(totalAth>1?' / '+totalAth:''):'—';
+  const forecastColor=forecastPos===1?'#22c55e':forecastPos<=3?'#D4A843':'#fff';
   return `
     <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':(lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':'')}">
-      <div style="display:grid;grid-template-columns:180px 1fr 130px;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:10px 22px;align-items:center">
+      <div style="display:grid;grid-template-columns:180px 1fr 140px;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:10px 22px;align-items:center">
         <div style="font-family:Oswald;font-size:15px;color:rgba(200,215,240,.85);letter-spacing:1px">${catLabel}</div>
         <div style="text-align:center;font-family:Oswald;font-size:17px;letter-spacing:2px">${rankTxt.split(' ').map((w,i)=>/^\d+$/.test(w)?'<span style="color:#D4A843;font-weight:700">'+w+'</span>':w).join(' ')}</div>
-        <div style="font-family:Oswald;font-size:22px;font-weight:700;color:${DATA.timerOn&&DATA.timer<=10?'#ef4444':'#fff'};letter-spacing:2px;text-align:right">${timerStr||'—:—'}</div>
+        <div style="font-family:Oswald;font-size:22px;font-weight:800;color:${forecastColor};letter-spacing:2px;text-align:right" title="Posición forecast en su sexo+categoría+división">${forecastTxt}</div>
       </div>
       <div style="background:linear-gradient(90deg,#D4A843,#c19735);padding:6px 22px;display:flex;align-items:center;gap:14px">
         <div style="background:rgba(10,22,40,.9);color:#D4A843;padding:4px 12px;border-radius:4px;font-family:Oswald;font-size:12px;letter-spacing:2px;font-weight:700">CHI 🇨🇱</div>
@@ -2193,7 +2372,8 @@ function renderTxLeaderboard(cur,lifterChanged,opts){
   const ref=cur||DATA.athletes.find(a=>a.flight===DATA.flight&&!a.bombed);
   if(!ref)return '';
   // allFlights: ranking de TODA la categoría (cubre todos los vuelos), usado en cycle de fin de lift
-  const sameCat=DATA.athletes.filter(a=>a.cat===ref.cat&&(opts.allFlights||a.flight===DATA.flight)&&!a.bombed);
+  // Mismo sexo + cat + div (separar divisiones de edad en el leaderboard)
+  const sameCat=DATA.athletes.filter(a=>a.cat===ref.cat&&a.div===ref.div&&a.sex===ref.sex&&(opts.allFlights||a.flight===DATA.flight)&&!a.bombed);
   const ranked=sameCat.map(a=>({...a,total:totalOf(a),fTotal:forecastTotal(a),fPlace:0}));
   ranked.sort((a,b)=>b.fTotal-a.fTotal);
   ranked.forEach((a,i)=>a.fPlace=i+1);
@@ -2900,85 +3080,157 @@ function renderCompete(){
   h+='</div></div></div></div>';return h;
 }
 
-function renderResults(){
-  const all=DATA.athletes.filter(a=>a.flight===DATA.flight).map(a=>({...a,total:totalOf(a),gl:calcGL(totalOf(a),a.bw,a.sex)}));
-  const withTotal=all.filter(a=>a.total>0);
+// Orden de divisiones (helper global)
+const _DIV_ORDER=function(d){
+  const x=(d||'').toLowerCase().replace(/[\s-]/g,'');
+  if(x.includes('subjunior'))return 1;
+  if(x.includes('junior'))return 2;
+  if(x.includes('open'))return 3;
+  if(x.includes('masteri')&&!x.includes('masterii')&&!x.includes('masteriii')&&!x.includes('masteriv'))return 4;
+  if(x.includes('masterii')&&!x.includes('masteriii'))return 5;
+  if(x.includes('masteriii'))return 6;
+  if(x.includes('masteriv'))return 7;
+  if(x.includes('universitario'))return 8;
+  return 99;
+};
 
-  // Group by category (sex + cat) and rank within each
+// Renderiza UNA tabla de resultados filtrando por modalidad/vista
+function _renderResultsTable(opts){
+  const view=opts.view||'meet';
+  const isBench=view==='bench';
+  const all=opts.athletes.map(a=>({...a,total:totalOf(a,view),gl:calcGL(totalOf(a,view),a.bw,a.sex,a.mod,view)}));
+  if(!all.length)return '';
+  const SEP='';
   const catGroups={};
-  all.forEach(a=>{const k=(a.sex||'?')+' '+(a.cat||'?');if(!catGroups[k])catGroups[k]=[];catGroups[k].push(a)});
+  all.forEach(a=>{const k=(a.sex||'?')+SEP+(a.cat||'?')+SEP+(a.div||'Sin Div');if(!catGroups[k])catGroups[k]=[];catGroups[k].push(a);});
   Object.values(catGroups).forEach(arr=>arr.sort((a,b)=>b.total-a.total));
   const catPos={};
   Object.values(catGroups).forEach(arr=>{let p=1;arr.forEach(a=>{if(a.total>0){catPos[a.id]=p;p++}})});
-
-  // Sort display: by sex then cat weight ascending, within cat by total desc
   const sorted=[];
   const catKeys=Object.keys(catGroups).sort((a,b)=>{
-    const sa=a.startsWith('Hombre')||a.startsWith('Masculino')||a.startsWith('M')?1:0;
-    const sb=b.startsWith('Hombre')||b.startsWith('Masculino')||b.startsWith('M')?1:0;
-    if(sa!==sb)return sa-sb;
-    const na=parseFloat(a.replace(/[^0-9.]/g,''))||999;
-    const nb=parseFloat(b.replace(/[^0-9.]/g,''))||999;
-    return na-nb;
+    const [sa,ca,da]=a.split(SEP);
+    const [sb,cb,db]=b.split(SEP);
+    const isMa=sa==='Hombre'||sa==='Masculino'||sa==='M'?1:0;
+    const isMb=sb==='Hombre'||sb==='Masculino'||sb==='M'?1:0;
+    if(isMa!==isMb)return isMa-isMb;
+    const na=parseFloat(ca.replace(/[^0-9.]/g,''))||999;
+    const nb=parseFloat(cb.replace(/[^0-9.]/g,''))||999;
+    if(na!==nb)return na-nb;
+    return _DIV_ORDER(da)-_DIV_ORDER(db);
   });
   catKeys.forEach(k=>catGroups[k].forEach(a=>sorted.push(a)));
+  const withTotal=all.filter(a=>a.total>0).length;
+  const colspanTotal=isBench?10:18;
+  let h='<div class="card" style="padding:0;overflow:hidden;margin-bottom:18px">';
+  h+='<div style="padding:10px 16px;background:linear-gradient(90deg,'+opts.color+'22,transparent);border-bottom:2px solid '+opts.color+';display:flex;justify-content:space-between;align-items:center">';
+  h+='<div class="os" style="font-size:15px;font-weight:700;letter-spacing:2px;color:'+opts.color+'">'+opts.icon+' '+opts.title+'</div>';
+  h+='<div style="font-size:10px;color:var(--muted);letter-spacing:1px">'+withTotal+' / '+all.length+' clasificados</div>';
+  h+='</div>';
+  h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="border-bottom:2px solid var(--border)">';
+  h+='<th class="os" style="padding:8px 4px;text-align:center;color:var(--muted);font-size:9px;width:28px">Pos</th>';
+  h+='<th style="padding:8px 4px;text-align:left;color:var(--muted);font-size:9px">Atleta</th>';
+  h+='<th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:44px">BW</th>';
+  h+='<th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px">Div</th>';
+  h+='<th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px">Cat</th>';
+  if(isBench){
+    [1,2,3].forEach(r=>{h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C['bp']+';font-size:9px;width:60px">BP'+r+'</th>'});
+    h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C['bp']+';font-size:9px;width:60px;font-weight:800">Best BP</th>';
+  } else {
+    ['sq','bp','dl'].forEach(l=>{[1,2,3].forEach(r=>{h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C[l]+';font-size:9px;width:46px">'+LIFT_S[l]+r+'</th>'});h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C[l]+';font-size:9px;width:48px;font-weight:800">Sub</th>'});
+  }
+  h+='<th class="os" style="padding:8px 4px;text-align:center;color:var(--text);font-size:10px;width:46px">Total</th>';
+  h+='<th class="os" style="padding:8px 4px;text-align:center;color:var(--gold);font-size:10px;width:48px">GL</th>';
+  h+='</tr></thead><tbody>';
+  let prevCat='';
+  sorted.forEach(a=>{
+    const catKey=(a.sex||'?')+SEP+(a.cat||'?')+SEP+(a.div||'Sin Div');
+    if(catKey!==prevCat){
+      const symb=(a.sex==='Femenino'||a.sex==='Mujer'||a.sex==='F'?'♀':'♂');
+      h+='<tr><td colspan="'+colspanTotal+'" style="padding:7px 8px;background:rgba(196,30,58,.1);border-bottom:2px solid var(--accent);font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--accent)">'+symb+' '+a.cat+' — '+(a.div||'Sin Div')+'</td></tr>';
+      prevCat=catKey;
+    }
+    const pos=catPos[a.id]||'—';
+    h+='<tr style="border-bottom:1px solid rgba(30,58,95,.25);'+(a.bombed?'opacity:.4':'')+'">';
+    h+='<td class="os" style="padding:6px 4px;text-align:center;color:'+(typeof pos==="number"&&pos<=3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:14px">'+pos+'</td>';
+    h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)">'+(window.clubLogoImg?window.clubLogoImg(a.club,14,'background:rgba(10,22,40,.4);padding:1px;'):'')+'<span>'+a.club+'</span></div></td>';
+    h+='<td style="padding:6px 3px;text-align:center;font-size:11px">'+(a.bw||'—')+'</td>';
+    h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.div||'—')+'</td>';
+    h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.cat||'—')+'</td>';
+    if(isBench){
+      a.att.bp.forEach((at,j)=>{let st='',tx=at.w||'—';if(at.r==='g')st='background:rgba(34,197,94,.12);color:var(--green);font-weight:700';else if(at.r==='n')st='background:rgba(239,68,68,.1);color:var(--red);text-decoration:line-through';else if(at.w>0)st='color:var(--text)';else st='color:var(--border)';h+='<td style="padding:4px 2px;text-align:center;'+st+';font-family:Oswald;font-size:11px">'+tx+'</td>'});
+      const bestBP=bestOf(a,'bp');
+      h+='<td style="padding:4px 2px;text-align:center;font-weight:700;font-family:Oswald;color:#d4a843;font-size:12px;background:rgba(212,168,67,.08)">'+(bestBP||'—')+'</td>';
+    } else {
+      ['sq','bp','dl'].forEach(l=>{
+        a.att[l].forEach((at,j)=>{let st='',tx=at.w||'—';if(at.r==='g')st='background:rgba(34,197,94,.12);color:var(--green);font-weight:700';else if(at.r==='n')st='background:rgba(239,68,68,.1);color:var(--red);text-decoration:line-through';else if(at.w>0)st='color:var(--text)';else st='color:var(--border)';h+='<td style="padding:4px 2px;text-align:center;'+st+';font-family:Oswald;font-size:11px">'+tx+'</td>'});
+        const sub=l==='sq'?bestOf(a,'sq'):l==='bp'?bestOf(a,'sq')+bestOf(a,'bp'):bestOf(a,'sq')+bestOf(a,'bp')+bestOf(a,'dl');
+        h+='<td style="padding:4px 2px;text-align:center;font-weight:700;font-family:Oswald;color:#d4a843;font-size:12px;background:rgba(212,168,67,.08)">'+(sub||'—')+'</td>';
+      });
+    }
+    h+='<td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px">'+(a.total||'—')+'</td><td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px;color:var(--gold)">'+(a.gl||'—')+'</td></tr>';
+  });
+  h+='</tbody></table></div></div>';
+  return h;
+}
 
-  // Top 3 GL by division
+function renderResults(){
+  const flightAth=DATA.athletes.filter(a=>a.flight===DATA.flight);
+  const classicAthletes=flightAth.filter(a=>isMeetClassic(a));
+  const equippedAthletes=flightAth.filter(a=>isMeetEquipped(a));
+  const benchAthletes=flightAth.filter(a=>inBenchRanking(a));
+
+  // Top 3 GL por división combinando todas las modalidades
+  const allEntries=[
+    ...classicAthletes.map(a=>({a,view:'meet'})),
+    ...equippedAthletes.map(a=>({a,view:'meet'})),
+    ...benchAthletes.map(a=>({a,view:'bench'}))
+  ];
   const divGroups={};
-  withTotal.forEach(a=>{const d=a.div||'Sin División';if(!divGroups[d])divGroups[d]=[];divGroups[d].push(a)});
+  allEntries.forEach(e=>{
+    const t=totalOf(e.a,e.view);if(t<=0)return;
+    const d=e.a.div||'Sin División';
+    if(!divGroups[d])divGroups[d]=[];
+    divGroups[d].push({...e.a,total:t,gl:calcGL(t,e.a.bw,e.a.sex,e.a.mod,e.view),_view:e.view});
+  });
   Object.values(divGroups).forEach(arr=>arr.sort((a,b)=>b.gl-a.gl));
 
-  let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:24px;letter-spacing:2px">RESULTADOS <span style="background:'+FL_C[DATA.flight]+';color:#fff;padding:2px 10px;border-radius:6px;font-size:14px;vertical-align:middle">VUELO '+DATA.flight+'</span></h2><p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' \u00b7 '+withTotal.length+' clasificados</p></div><button class="btn btn-g" onclick="exportJSON()">\uD83D\uDCE5 Exportar</button><button id=\"btnActaPDF\" class=\"btn btn-r\" onclick=\"generateActaPDF()\" style=\"background:rgba(196,30,58,.15);border-color:var(--accent)\">\uD83D\uDCCB Generar Acta PDF</button></div>';
+  let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:24px;letter-spacing:2px">RESULTADOS <span style="background:'+FL_C[DATA.flight]+';color:#fff;padding:2px 10px;border-radius:6px;font-size:14px;vertical-align:middle">VUELO '+DATA.flight+'</span></h2><p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' · '+DATA.athletes.length+' atletas</p></div><button class="btn btn-g" onclick="exportJSON()">📥 Exportar</button><button class="btn btn-o" onclick="exportCompetenciasParaPerfiles()" title="JSON con resultados en formato de perfiles (data.json)">👤 Subir a perfiles</button><button id="btnActaPDF" class="btn btn-r" onclick="generateActaPDF()" style="background:rgba(196,30,58,.15);border-color:var(--accent)">📋 Generar Acta PDF</button></div>';
 
   // Stats
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">';
-  [[DATA.athletes.length,'Total','var(--blue)'],[withTotal.length,'Clasificados','var(--green)'],[DATA.athletes.filter(a=>a.bombed).length,'Bomb Out','var(--red)'],[withTotal[0]?.gl||'\u2014','Mejor GL','var(--gold)']].forEach(([v,l,c])=>{h+='<div class="card" style="text-align:center;padding:12px"><div class="os" style="font-size:24px;font-weight:700;color:'+c+'">'+v+'</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px">'+l+'</div></div>'});
+  [
+    [DATA.athletes.length,'Total atletas','var(--blue)'],
+    [classicAthletes.length,'Classic','var(--green)'],
+    [equippedAthletes.length,'Equipado','var(--orange)'],
+    [benchAthletes.length,'Only Bench','var(--gold)']
+  ].forEach(([v,l,c])=>{h+='<div class="card" style="text-align:center;padding:12px"><div class="os" style="font-size:24px;font-weight:700;color:'+c+'">'+v+'</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px">'+l+'</div></div>'});
   h+='</div>';
 
   // Top 3 GL by Division
   const divKeys=Object.keys(divGroups).sort();
   if(divKeys.length>0){
-    h+='<div class="card" style="margin-bottom:16px"><h3 class="os" style="font-size:14px;letter-spacing:1px;margin-bottom:12px;color:var(--gold)">\uD83C\uDFC5 TOP 3 GL POINTS POR DIVISI\u00D3N</h3>';
+    h+='<div class="card" style="margin-bottom:16px"><h3 class="os" style="font-size:14px;letter-spacing:1px;margin-bottom:12px;color:var(--gold)">🏅 TOP 3 GL POINTS POR DIVISIÓN (todas las modalidades)</h3>';
     h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
     divKeys.forEach(d=>{
       const top3=divGroups[d].slice(0,3);
       h+='<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border)"><div class="os" style="font-size:13px;letter-spacing:1px;color:var(--accent);margin-bottom:8px">'+d+'</div>';
-      const medals=['\uD83E\uDD47','\uD83E\uDD48','\uD83E\uDD49'];
+      const medals=['🥇','🥈','🥉'];
       top3.forEach((a,i)=>{
-        h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;'+(i<2?'border-bottom:1px solid rgba(30,58,95,.2)':'')+'"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:14px">'+medals[i]+'</span><div><span style="font-weight:600;font-size:12px">'+a.name+'</span><span style="font-size:9px;color:var(--muted);margin-left:4px">'+a.cat+'</span></div></div><div style="text-align:right"><span class="os" style="font-size:15px;font-weight:700;color:var(--gold)">'+a.gl+'</span><span style="font-size:9px;color:var(--muted);margin-left:4px">'+a.total+'kg</span></div></div>';
+        const tag=a._view==='bench'?'<span style="font-size:8px;background:#D4A843;color:#0A1628;padding:1px 4px;border-radius:3px;margin-left:4px;font-family:Oswald;font-weight:700">BENCH</span>':'';
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;'+(i<2?'border-bottom:1px solid rgba(30,58,95,.2)':'')+'"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:14px">'+medals[i]+'</span><div><span style="font-weight:600;font-size:12px">'+a.name+'</span>'+tag+'<span style="font-size:9px;color:var(--muted);margin-left:4px">'+a.cat+'</span></div></div><div style="text-align:right"><span class="os" style="font-size:15px;font-weight:700;color:var(--gold)">'+a.gl+'</span><span style="font-size:9px;color:var(--muted);margin-left:4px">'+a.total+'kg</span></div></div>';
       });
       h+='</div>';
     });
     h+='</div></div>';
   }
 
-  // Results table grouped by category
-  h+='<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="border-bottom:2px solid var(--border)"><th class="os" style="padding:8px 4px;text-align:center;color:var(--muted);font-size:9px;width:28px">Pos</th><th style="padding:8px 4px;text-align:left;color:var(--muted);font-size:9px">Atleta</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px;width:44px">BW</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px">Div</th><th style="padding:8px 3px;text-align:center;color:var(--muted);font-size:9px">Cat</th>';
-  ['sq','bp','dl'].forEach(l=>{[1,2,3].forEach(r=>{h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C[l]+';font-size:9px;width:46px">'+LIFT_S[l]+r+'</th>'});h+='<th style="padding:8px 2px;text-align:center;color:'+LIFT_C[l]+';font-size:9px;width:48px;font-weight:800">Sub</th>'});
-  h+='<th class="os" style="padding:8px 4px;text-align:center;color:var(--text);font-size:10px;width:46px">Total</th><th class="os" style="padding:8px 4px;text-align:center;color:var(--gold);font-size:10px;width:48px">GL</th></tr></thead><tbody>';
+  // 3 tablas separadas por modalidad
+  h+=_renderResultsTable({title:'POWERLIFTING CLASSIC',icon:'🏋️',color:'#22c55e',athletes:classicAthletes,view:'meet'});
+  h+=_renderResultsTable({title:'POWERLIFTING EQUIPADO',icon:'⚙️',color:'#f59e0b',athletes:equippedAthletes,view:'meet'});
+  h+=_renderResultsTable({title:'ONLY BENCH',icon:'💪',color:'#D4A843',athletes:benchAthletes,view:'bench'});
 
-  let prevCat='';
-  sorted.forEach(a=>{
-    const catKey=(a.sex||'?')+' '+(a.cat||'?');
-    if(catKey!==prevCat){
-      h+='<tr><td colspan="18" style="padding:8px 6px;background:rgba(196,30,58,.1);border-bottom:2px solid var(--accent);font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--accent)">'+(a.sex==='Femenino'||a.sex==='Mujer'||a.sex==='F'?'\u2640':'\u2642')+' '+a.cat+'</td></tr>';
-      prevCat=catKey;
-    }
-    const pos=catPos[a.id]||'\u2014';
-    h+='<tr style="border-bottom:1px solid rgba(30,58,95,.25);'+(a.bombed?'opacity:.4':'')+'">';
-    h+='<td class="os" style="padding:6px 4px;text-align:center;color:'+(typeof pos==="number"&&pos<=3?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:14px">'+pos+'</td>';
-    h+='<td style="padding:6px 4px"><div style="font-weight:600;font-size:12px;white-space:nowrap">'+a.name+'</div><div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)">'+(window.clubLogoImg?window.clubLogoImg(a.club,14,'background:rgba(10,22,40,.4);padding:1px;'):'')+'<span>'+a.club+'</span></div></td>';
-    h+='<td style="padding:6px 3px;text-align:center;font-size:11px">'+(a.bw||'\u2014')+'</td>';
-    h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.div||'\u2014')+'</td>';
-    h+='<td style="padding:6px 3px;text-align:center;font-size:10px">'+(a.cat||'\u2014')+'</td>';
-    ['sq','bp','dl'].forEach(l=>{
-      a.att[l].forEach((at,j)=>{let st='',tx=at.w||'\u2014';if(at.r==='g')st='background:rgba(34,197,94,.12);color:var(--green);font-weight:700';else if(at.r==='n')st='background:rgba(239,68,68,.1);color:var(--red);text-decoration:line-through';else if(at.w>0)st='color:var(--text)';else st='color:var(--border)';h+='<td style="padding:4px 2px;text-align:center;'+st+';font-family:Oswald;font-size:11px">'+tx+'</td>'});
-      const sub=l==='sq'?bestOf(a,'sq'):l==='bp'?bestOf(a,'sq')+bestOf(a,'bp'):bestOf(a,'sq')+bestOf(a,'bp')+bestOf(a,'dl');
-      h+='<td style="padding:4px 2px;text-align:center;font-weight:700;font-family:Oswald;color:#d4a843;font-size:12px;background:rgba(212,168,67,.08)">'+(sub||'\u2014')+'</td>';
-    });
-    h+='<td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px">'+(a.total||'\u2014')+'</td><td class="os" style="padding:6px 4px;text-align:center;font-weight:700;font-size:14px;color:var(--gold)">'+(a.gl||'\u2014')+'</td></tr>';
-  });
-  h+='</tbody></table></div></div>';return h;
+  h+='</div>';
+  return h;
 }
 
 function renderSB(){
@@ -3011,7 +3263,8 @@ function subTotal(a,lift){
   return s+b+bestOf(a,'dl');
 }
 function catRankBySub(athlete){
-  const sameCat=DATA.athletes.filter(a=>a.cat===athlete.cat&&a.flight===DATA.flight&&!a.bombed);
+  // Ranking dentro del mismo sexo + categoría + división (no mezcla divisiones de edad)
+  const sameCat=DATA.athletes.filter(a=>a.cat===athlete.cat&&a.div===athlete.div&&a.sex===athlete.sex&&a.flight===DATA.flight&&!a.bombed);
   const withSub=sameCat.map(a=>({id:a.id,sub:subTotal(a,DATA.lift)})).filter(x=>x.sub>0).sort((a,b)=>b.sub-a.sub);
   const idx=withSub.findIndex(x=>x.id===athlete.id);
   return{pos:idx>=0?idx+1:0,of:withSub.length};
@@ -3297,7 +3550,8 @@ function txSiLevantaCompact(cur,evName){
   if(DATA.lift==='sq')newSub=simBest;
   else if(DATA.lift==='bp')newSub=bestOf(cur,'sq')+simBest;
   else newSub=bestOf(cur,'sq')+bestOf(cur,'bp')+simBest;
-  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.flight===DATA.flight&&!a.bombed);
+  // Mismo sexo + cat + div (separar divisiones de edad)
+  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.div===cur.div&&a.sex===cur.sex&&a.flight===DATA.flight&&!a.bombed);
   const simRanked=sameCat.map(a=>{
     if(a.id===cur.id)return{id:a.id,sub:newSub};
     return{id:a.id,sub:subTotal(a,DATA.lift)};
@@ -3426,7 +3680,8 @@ function txSiLevanta(cur,evName){
   else if(DATA.lift==='bp')newSub=bestOf(cur,'sq')+newBest;
   else newSub=bestOf(cur,'sq')+bestOf(cur,'bp')+newBest;
   // Rank with the simulated sub
-  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.flight===DATA.flight&&!a.bombed);
+  // Mismo sexo + cat + div (separar divisiones de edad)
+  const sameCat=DATA.athletes.filter(a=>a.cat===cur.cat&&a.div===cur.div&&a.sex===cur.sex&&a.flight===DATA.flight&&!a.bombed);
   const simRanked=sameCat.map(a=>{
     if(a.id===cur.id)return{id:a.id,sub:newSub};
     return{id:a.id,sub:subTotal(a,DATA.lift)};
@@ -3628,7 +3883,7 @@ function renderAtletaInfo(){
     
     // Current competition lifts
     const curSq=bestOf(a,'sq'),curBp=bestOf(a,'bp'),curDl=bestOf(a,'dl');
-    const curTotal=totalOf(a);const curGL=calcGL(curTotal,a.bw,a.sex);
+    const curTotal=totalOf(a);const curGL=calcGL(curTotal,a.bw,a.sex,a.mod);
     
     // Career PRs from DB
     const prSq=bl.sq||0,prBp=bl.bp||0,prDl=bl.dl||0,prTotal=bl.total||0;
