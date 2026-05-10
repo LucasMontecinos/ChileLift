@@ -2741,7 +2741,7 @@ function renderFotos(){
       h += '<div onclick="seleccionarAtletaFoto(\''+escapeJsAttr(a.codigo)+'\')" style="padding:10px;border-radius:8px;border:2px solid '+(sel?'var(--accent)':'var(--border)')+';background:'+(sel?'rgba(196,30,58,.08)':'var(--bg)')+';cursor:pointer;display:flex;gap:10px;align-items:center" title="Click para seleccionar">';
       h += '<div style="width:48px;height:48px;border-radius:50%;background:'+(hasPhoto?'#fff':'var(--card)')+';border:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">';
       if(hasPhoto){
-        h += '<img src="'+escapeHtml(a.foto_url)+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML=\'<span style=\\'font-size:18px;color:var(--muted)\\'>?</span>\'">';
+        h += '<img src="'+escapeHtml(a.foto_url)+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'">';
       } else {
         h += '<span style="font-size:18px;color:var(--muted)">📷</span>';
       }
