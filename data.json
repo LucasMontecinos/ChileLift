@@ -345,6 +345,23 @@
           "division": "Open",
           "glp": 82.388
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-66 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 64.7,
+          "sq": 197.5,
+          "bp": 130,
+          "dl": 225,
+          "total": 552.5,
+          "glp": 87.04
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -724,6 +741,23 @@
         "categoria": "-83 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 76.8,
+          "sq": 175,
+          "bp": 92.5,
+          "dl": 200,
+          "total": 467.5,
+          "glp": 67.33
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -1297,6 +1331,23 @@
           "division": "Sub Junior",
           "glp": 76.618
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Junior",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 81.6,
+          "sq": 237.5,
+          "bp": 150,
+          "dl": 275,
+          "total": 662.5,
+          "glp": 92.5
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -3197,7 +3248,7 @@
         "categoria": "-74 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino",
-         "resultado": {
+        "resultado": {
           "sq": 200,
           "bp": 122.5,
           "dl": 210,
@@ -3205,8 +3256,8 @@
           "pesoCorporal": 72.4,
           "categoria": "74",
           "division": "Open",
-          "glp":79.007
-         }
+          "glp": 79.007
+        }
       }
     ]
   },
@@ -4010,6 +4061,23 @@
         "categoria": "-93 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 91.5,
+          "sq": 195,
+          "bp": 105,
+          "dl": 215,
+          "total": 515,
+          "glp": 67.91
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -4577,6 +4645,23 @@
           "division": "Sub Junior",
           "glp": 64.457
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 82.8,
+          "sq": 212.5,
+          "bp": 120,
+          "dl": 242.5,
+          "total": 575,
+          "glp": 79.69
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -4771,6 +4856,23 @@
         "categoria": "-83 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 77.8,
+          "sq": 195,
+          "bp": 117.5,
+          "dl": 230,
+          "total": 542.5,
+          "glp": 77.61
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -5398,6 +5500,23 @@
           "division": "Open",
           "glp": 79.06
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 72.4,
+          "sq": 225,
+          "bp": 90,
+          "dl": 230,
+          "total": 545,
+          "glp": 80.93
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -7167,6 +7286,23 @@
           "division": "Open",
           "glp": 76.116
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-57 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 55.4,
+          "sq": 127.5,
+          "bp": 67.5,
+          "dl": 135,
+          "total": 330,
+          "glp": 79.11
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -10632,7 +10768,7 @@
           "bp": 57.5,
           "dl": 152.5,
           "total": 342.5,
-          "pesoCorporal": 55.40,
+          "pesoCorporal": 55.4,
           "categoria": "57",
           "division": "Open",
           "glp": 82.11
@@ -11506,6 +11642,23 @@
         "categoria": "-83 Open",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 87.2,
+          "sq": 222.5,
+          "bp": 115,
+          "dl": 195,
+          "total": 532.5,
+          "glp": 71.91
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -12240,10 +12393,8 @@
           "total": 785,
           "bw": 82.1,
           "glp": 109.23
-          
         }
       },
-      
       {
         "evento": "Campeonato Nacional 2023",
         "fecha": "2023-06-10",
@@ -13284,6 +13435,23 @@
           "division": "Open",
           "glp": 71.746
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-66 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 65.4,
+          "sq": 172.5,
+          "bp": 90,
+          "dl": 220,
+          "total": 482.5,
+          "glp": 75.58
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -15458,6 +15626,23 @@
           "division": "Junior",
           "glp": 75.847
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Junior",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 72,
+          "sq": 192.5,
+          "bp": 102.5,
+          "dl": 232.5,
+          "total": 527.5,
+          "glp": 78.55
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -16157,6 +16342,23 @@
         "categoria": "-63 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Femenino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-63 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 61.4,
+          "sq": 97.5,
+          "bp": 50,
+          "dl": 117.5,
+          "total": 265,
+          "glp": 58.97
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -16248,7 +16450,7 @@
         "categoria": "+120",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino",
-       "resultado": {
+        "resultado": {
           "sq": 240,
           "bp": 132.5,
           "dl": 220,
@@ -16266,7 +16468,6 @@
       "dl": 220,
       "total": 592.5,
       "glp": 65.5
-      
     }
   },
   {
@@ -18534,6 +18735,23 @@
         "categoria": "-83 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 81.9,
+          "sq": 230,
+          "bp": 152.5,
+          "dl": 200,
+          "total": 582.5,
+          "glp": 81.18
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -18630,7 +18848,7 @@
           "dl": 295,
           "total": 807.5,
           "bw": 103.5,
-          "glp": 100.37        
+          "glp": 100.37
         },
         "source": "openpowerlifting"
       },
@@ -18647,7 +18865,7 @@
           "dl": 310,
           "total": 805,
           "bw": 101.14,
-          "glp": 100.37        
+          "glp": 100.37
         },
         "source": "openpowerlifting"
       },
@@ -19042,6 +19260,23 @@
         "categoria": "-74 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 70,
+          "sq": 155,
+          "bp": 80,
+          "dl": 160,
+          "total": 395,
+          "glp": 59.7
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -20756,7 +20991,7 @@
           "dl": 255,
           "total": 773.5,
           "bw": 103.6,
-          "glp": 96.10
+          "glp": 96.1
         }
       },
       {
@@ -20803,7 +21038,7 @@
       "bp": 195,
       "dl": 265,
       "total": 773.5,
-      "glp": 96.10
+      "glp": 96.1
     }
   },
   {
@@ -21285,7 +21520,6 @@
       "dl": 310,
       "total": 930,
       "glp": 92.5
-  
     }
   },
   {
@@ -22283,6 +22517,23 @@
         "categoria": "-93 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Junior",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 91.1,
+          "sq": 160,
+          "bp": 110,
+          "dl": 240,
+          "total": 510,
+          "glp": 67.4
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -24213,6 +24464,23 @@
         "categoria": "-63 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Femenino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-63 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 58.6,
+          "sq": 117.5,
+          "bp": 57.5,
+          "dl": 125,
+          "total": 300,
+          "glp": 68.95
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -24601,7 +24869,6 @@
           "glp": 86.9
         }
       },
-      
       {
         "evento": "Campeonato Nacional 2023",
         "fecha": "2023-06-10",
@@ -27131,7 +27398,7 @@
         "place": "1",
         "source": "liftingcast"
       },
-       {
+      {
         "evento": "Campeonato Sudamericano",
         "fecha": "2025-09-20",
         "division": "Junior",
@@ -27148,7 +27415,7 @@
         },
         "source": "openipf"
       },
-       {
+      {
         "evento": "World Junior and Sub-Juniors Powerlifting Championships",
         "fecha": "2025-08-25",
         "division": "Junior",
@@ -28650,6 +28917,23 @@
           "division": "Open",
           "glp": 66.359
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-63 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 62.5,
+          "sq": 112.5,
+          "bp": 70,
+          "dl": 135,
+          "total": 317.5,
+          "glp": 69.82
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -29631,6 +29915,23 @@
         "source": "openipf",
         "opl_meet": "fesupo/2302",
         "internacional": true
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-69 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 67.4,
+          "sq": 172.5,
+          "bp": 72.5,
+          "dl": 185,
+          "total": 430,
+          "glp": 90.28
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -30517,7 +30818,6 @@
         "categoria": "-63 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Femenino"
-        
       },
       {
         "evento": "Campeonato Nacional FECHIPO 2025",
@@ -33822,6 +34122,23 @@
         "categoria": "-83 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 77.7,
+          "sq": 217.5,
+          "bp": 122.5,
+          "dl": 220,
+          "total": 560,
+          "glp": 80.17
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -33943,7 +34260,7 @@
         "place": "1",
         "source": "liftingcast"
       },
-       {
+      {
         "evento": "World Junior and Sub-Juniors Powerlifting Championships",
         "fecha": "2025-08-25",
         "division": "Junior",
@@ -33996,7 +34313,6 @@
       "dl": 190,
       "total": 452.5,
       "glp": 106.32
-    
     }
   },
   {
@@ -34423,6 +34739,23 @@
           "division": "Open",
           "glp": 84.094
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 72.7,
+          "sq": 210,
+          "bp": 157.5,
+          "dl": 220,
+          "total": 587.5,
+          "glp": 87.05
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -34897,7 +35230,7 @@
           "bp": 130,
           "dl": 255,
           "total": 590,
-          "pesoCorporal": 81.50,
+          "pesoCorporal": 81.5,
           "categoria": "83",
           "division": "Open",
           "glp": 82.43
@@ -35049,7 +35382,7 @@
         "categoria": "93",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino",
-         "resultado": {
+        "resultado": {
           "sq": 165,
           "bp": 90,
           "dl": 215,
@@ -35067,7 +35400,6 @@
       "dl": 215,
       "total": 480,
       "glp": 63.914
-    
     }
   },
   {
@@ -36148,7 +36480,6 @@
       "dl": 245,
       "total": 532.5,
       "glp": 82.432
-      
     }
   },
   {
@@ -36717,7 +37048,6 @@
           "rank": 1
         }
       },
-      
       {
         "evento": "Sudamericano FESUPO 2024",
         "fecha": "2024-09-17",
@@ -40229,6 +40559,23 @@
         "categoria": "-74 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 72.3,
+          "sq": 172.5,
+          "bp": 110,
+          "dl": 212.5,
+          "total": 495,
+          "glp": 73.55
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -40903,6 +41250,23 @@
         "categoria": "-66 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-66 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 62.5,
+          "sq": 177.5,
+          "bp": 100,
+          "dl": 180,
+          "total": 457.5,
+          "glp": 73.41
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -40921,6 +41285,23 @@
         "categoria": "+84 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Femenino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "+84 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 108.6,
+          "sq": 82.5,
+          "bp": 55,
+          "dl": 102.5,
+          "total": 240,
+          "glp": 41.95
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -41014,12 +41395,21 @@
     "debut": "2026",
     "competencias": [
       {
-        "evento": "Regional Centro 2026",
-        "fecha": "2026-05-09",
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
         "division": "Junior",
         "categoria": "-63 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
-        "sexo": "Femenino"
+        "resultado": {
+          "bw": 62.2,
+          "sq": 150,
+          "bp": 87.5,
+          "dl": 140,
+          "total": 377.5,
+          "glp": 83.28
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -41099,6 +41489,23 @@
         "categoria": "-84 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Femenino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-84 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 78.8,
+          "sq": 100,
+          "bp": 55,
+          "dl": 122.5,
+          "total": 277.5,
+          "glp": 53.82
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -41153,6 +41560,23 @@
         "categoria": "-93 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 86.1,
+          "sq": 192.5,
+          "bp": 125,
+          "dl": 217.5,
+          "total": 535,
+          "glp": 72.71
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -41280,6 +41704,23 @@
         "categoria": "-74 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 72.6,
+          "sq": 150,
+          "bp": 95,
+          "dl": 185,
+          "total": 430,
+          "glp": 63.76
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -43320,6 +43761,168 @@
         "categoria": "-93 kg (Hombre)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Masculino"
+      }
+    ]
+  },
+  {
+    "codigo": "230526060_RC2026",
+    "rut": "23052606-0",
+    "nombre": "Oscar Andres Tapia Riquelme",
+    "fechaNac": "",
+    "club": "Himalaya Powerlifting",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-74 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 70.5,
+          "sq": 177.5,
+          "bp": 110,
+          "dl": 205,
+          "total": 492.5,
+          "glp": 74.15
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "162804359_RC2026",
+    "rut": "16280435-9",
+    "nombre": "Jonathan Esteban Rojas Rojas",
+    "fechaNac": "",
+    "club": "Beers and Lifts",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Master I",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 90.1,
+          "sq": 215,
+          "bp": 115,
+          "dl": 220,
+          "total": 550,
+          "glp": 73.08
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "205978682_RC2026",
+    "rut": "20597868-2",
+    "nombre": "Pablo Benjamin Páez Nilo",
+    "fechaNac": "",
+    "club": "South Side",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 91.5,
+          "sq": 212.5,
+          "bp": 132.5,
+          "dl": 240,
+          "total": 585,
+          "glp": 77.14
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "179610655_RC2026",
+    "rut": "17961065-5",
+    "nombre": "Hugo Alfredo Díaz Lobos",
+    "fechaNac": "",
+    "club": "All Power CD",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-93 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 90.8,
+          "sq": 235,
+          "bp": 135,
+          "dl": 225,
+          "total": 595,
+          "glp": 78.76
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "164077993_RC2026",
+    "rut": "16407799-3",
+    "nombre": "Cristopher Juan Fernando Vega Belmar",
+    "fechaNac": "",
+    "club": "All Power CD",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Master I",
+        "categoria": "-105 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 102.9,
+          "sq": 190,
+          "bp": 140,
+          "dl": 215,
+          "total": 545,
+          "glp": 67.93
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "273303375_RC2026",
+    "rut": "27330337-5",
+    "nombre": "Luis José Gil Martinez",
+    "fechaNac": "",
+    "club": "Iron Forces Powerlifting",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-105 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 102.2,
+          "sq": 245,
+          "bp": 150,
+          "dl": 270,
+          "total": 665,
+          "glp": 83.15
+        },
+        "source": "yourlift_livecast"
       }
     ]
   }
