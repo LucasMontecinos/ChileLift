@@ -287,15 +287,18 @@ async function loadAll(){
     privSnap.forEach(d=>{ST.inscripcionesPrivate[d.id]=d.data();});
   }catch(e){console.warn('[loadAll] inscripciones_private:',e.message);ST.inscripcionesPrivate={};}
 
-  // Load atleta_fotos (foto_url por código). Lectura pública.
-  // Mergeamos en ST.data para que aparezca en perfil + búsquedas.
+  // Load atleta_fotos (foto_url por código + status). Lectura pública.
+  // - status:'approved' (default si tiene foto_url) → mergea en ST.data para verse
+  // - status:'rejected' → no aparece como pendiente, no se muestra
+  ST.fotosByCodigo = {};
   try{
     const fotosSnap=await getDocs(collection(db,'atleta_fotos'));
     fotosSnap.forEach(d=>{
       const data=d.data();
       const codigo=data.codigo||d.id;
+      ST.fotosByCodigo[codigo] = data;
       const ath=(ST.data||[]).find(a=>a.codigo===codigo);
-      if(ath && data.foto_url) ath.foto_url = data.foto_url;
+      if(ath && data.foto_url && data.status!=='rejected') ath.foto_url = data.foto_url;
     });
   }catch(e){console.warn('[loadAll] atleta_fotos:',e.message);}
 
@@ -1812,6 +1815,13 @@ function renderCampeonatos(){
             <div style="font-size:11px;color:var(--muted);margin-top:2px">Si está activo, el evento aparece en <code>cronograma.html</code>. <b>Desactivá para ocultarlo (ej. mientras armás los vuelos del Debutantes).</b></div>
           </div>
         </label>
+        <label class="field" style="grid-column:span 2;display:flex;flex-direction:row;align-items:center;gap:10px;padding:10px 12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.3);border-radius:8px">
+          <input type="checkbox" id="ef_requiereFoto" ${(editing.requiereFoto===true)?'checked':''} style="width:18px;height:18px;cursor:pointer">
+          <div>
+            <div style="font-weight:600;color:var(--text)">📸 Requerir foto tipo carnet en inscripción</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Si está activo, el atleta debe subir una foto de rostro al inscribirse. Esa foto luego se procesa con fondo blanco IPF en <b>📸 Fotos Atletas</b> para usarla en perfiles y transmisión.</div>
+          </div>
+        </label>
       </div>
       ${!isNew?`<div style="margin-top:14px;padding:10px 14px;background:rgba(30,58,95,.3);border-radius:8px;font-size:12px;color:var(--muted)">
         <span style="color:var(--text)">📊 Estado actual:</span>
@@ -1880,7 +1890,7 @@ function renderCampeonatos(){
 
 // ── CRUD helpers ────────────────────────────────────────────
 window.newEvento = function(){
-  ST.eventoForm = {id:'',name:'',date:'',closeDate:'',location:'',org:'',days:'',status:'open',extraCols:['modalidad'],recordsEnabled:true};
+  ST.eventoForm = {id:'',name:'',date:'',closeDate:'',location:'',org:'',days:'',status:'open',extraCols:['modalidad'],recordsEnabled:true,cronogramaPublic:true,requiereFoto:false};
   ST.eventoFormMode = 'create';
   render();
 };
@@ -1905,12 +1915,15 @@ window.saveEvento = async function(){
   const days      = document.getElementById('ef_days').value.trim();
   const extra     = document.getElementById('ef_extra').value;
   const recordsEnabled = document.getElementById('ef_recordsEnabled').checked;
+  const cronogramaPublic = document.getElementById('ef_cronogramaPublic')?.checked !== false;
+  const requiereFoto = !!document.getElementById('ef_requiereFoto')?.checked;
 
   if(!id || !name){ showToast('ID y nombre son obligatorios', null, true); return; }
   if(isNew && ST.eventos.find(e=>e.id===id)){ showToast('Ya existe un campeonato con ese ID', null, true); return; }
 
   const data = {id, name, date, closeDate, location, org, days, status,
-    extraCols: [extra], recordsEnabled, updatedAt: serverTimestamp()};
+    extraCols: [extra], recordsEnabled, cronogramaPublic, requiereFoto,
+    updatedAt: serverTimestamp()};
   if(isNew) data.createdAt = serverTimestamp();
 
   try{
@@ -2651,9 +2664,11 @@ function _redrawFotoPreview(){
   ctx.drawImage(img, -dw/2, -dh/2, dw, dh);
   ctx.restore();
   F.preview = c.toDataURL('image/jpeg', 0.92);
-  // Solo actualizar el <img> si existe, evita re-render completo
+  // Actualizar ambos previews en vivo (sin re-render completo)
   const previewEl = document.getElementById('fotoPreviewImg');
   if(previewEl) previewEl.src = F.preview;
+  const previewObs = document.getElementById('fotoPreviewObs');
+  if(previewObs) previewObs.src = F.preview;
 }
 
 window.editorFotoZoom = function(delta){
@@ -2713,7 +2728,10 @@ function renderFotos(){
     }
   });
   const pendientes = all.filter(a=>{
-    if(a.foto_url) return false;  // ya procesada
+    if(a.foto_url) return false;  // ya aceptada y publicada
+    // Si fue rechazada → no aparece como pendiente
+    const fotoDoc = (ST.fotosByCodigo||{})[a.codigo];
+    if(fotoDoc && fotoDoc.status === 'rejected') return false;
     const k = norm(a.rut);
     return k && photosByRut[k];
   });
@@ -2791,12 +2809,14 @@ function renderFotos(){
     // Si hay foto pendiente de inscripcion, mostrar opcion de importarla
     if(F.pendingPhotoUrl && !a.foto_url){
       h += '<div style="background:rgba(212,168,67,.1);border:1px dashed var(--gold);padding:12px;border-radius:8px;margin-bottom:12px">';
-      h += '<div style="font-size:11px;color:var(--gold);font-weight:700;margin-bottom:8px">💡 FOTO PENDIENTE DE INSCRIPCIÓN</div>';
+      h += '<div style="font-size:11px;color:var(--gold);font-weight:700;margin-bottom:8px">💡 FOTO PENDIENTE DE REVISIÓN</div>';
       h += '<div style="display:flex;gap:10px;align-items:flex-start">';
-      h += '<img src="'+escapeHtml(F.pendingPhotoUrl)+'" style="width:80px;height:106px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">';
-      h += '<div style="flex:1;font-size:11px;color:var(--muted);line-height:1.5">El atleta subió una foto al inscribirse. Click para procesarla con fondo blanco automático.</div>';
-      h += '</div>';
-      h += '<button onclick="importarFotoInscripcion()" style="margin-top:10px;padding:8px 14px;background:var(--gold);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;width:100%">📥 Importar y procesar</button>';
+      h += '<img src="'+escapeHtml(F.pendingPhotoUrl)+'" style="width:120px;height:160px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">';
+      h += '<div style="flex:1"><div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">El atleta subió esta foto al inscribirse. <b>NO está publicada todavía</b>. Revisala y decidí:</div>';
+      h += '<div style="display:flex;flex-direction:column;gap:6px">';
+      h += '<button onclick="importarFotoInscripcion()" '+(F.processing?'disabled':'')+' style="padding:10px;background:var(--gold);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">📥 Importar para procesar</button>';
+      h += '<button onclick="rechazarFotoInscripcion()" '+(F.processing?'disabled':'')+' style="padding:8px;background:transparent;color:var(--red);border:1px solid var(--red);border-radius:6px;cursor:pointer;font-size:11px">✗ Rechazar foto</button>';
+      h += '</div></div></div>';
       h += '</div>';
     }
     h += '<input type="file" id="fotoInput" accept="image/*" onchange="cargarFotoAtleta(this)" style="display:none">';
@@ -2804,6 +2824,21 @@ function renderFotos(){
     if(F.preview){
       h += '<div style="margin-top:12px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px">PREVIEW (con fondo blanco — ajustá si hace falta)</div>';
       h += '<img id="fotoPreviewImg" src="'+F.preview+'" style="width:100%;max-width:300px;aspect-ratio:3/4;object-fit:cover;background:#fff;border-radius:8px;border:2px solid var(--green)"></div>';
+
+      // Preview real estilo OBS Profile Widget (cómo se verá en transmisión)
+      h += '<div style="margin-top:14px"><div style="font-size:10px;color:var(--muted);margin-bottom:4px;letter-spacing:1px">VISTA PREVIA EN TRANSMISIÓN</div>';
+      h += '<div style="display:flex;gap:14px;align-items:flex-start;background:linear-gradient(135deg,#0a1628,#11223b);padding:14px;border-radius:8px">';
+      // Imitamos el estilo del widget renderTxProfile (líneas ~2266-2280 en livecast)
+      h += '<div style="width:160px;aspect-ratio:3/4;background:#fff;border:3px solid #D4A843;border-radius:4px;overflow:hidden;flex-shrink:0;box-shadow:0 8px 30px rgba(0,0,0,.5)">';
+      h += '<img id="fotoPreviewObs" src="'+F.preview+'" style="width:100%;height:100%;object-fit:cover">';
+      h += '</div>';
+      h += '<div style="flex:1;font-size:11px;color:rgba(220,230,245,.7);line-height:1.6">';
+      h += '<div style="background:#D4A843;padding:6px 10px;border-radius:4px;color:#0A1628;display:inline-block;margin-bottom:8px;font-family:Oswald;font-weight:700;font-size:11px">🇨🇱 '+escapeHtml((a.nombre||'').toUpperCase().split(/\s+/).slice(0,3).join(' '))+'</div>';
+      h += '<div style="font-family:Oswald;font-size:10px;color:rgba(220,230,245,.55);letter-spacing:2px;margin-top:4px">CLUB</div>';
+      h += '<div style="font-family:Oswald;font-size:14px;color:#D4A843;font-weight:700">'+escapeHtml(a.club||'—')+'</div>';
+      h += '</div></div>';
+      h += '<div style="font-size:10px;color:var(--muted);margin-top:6px">↑ Aprox cómo se verá durante la transmisión OBS. Si la cabeza queda muy abajo o se ve mucho cuerpo, usá los controles de Zoom/Mover de arriba.</div>';
+      h += '</div>';
 
       // Editor de imagen
       h += '<div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">';
@@ -2830,7 +2865,10 @@ function renderFotos(){
 
       h += '</div>';
 
-      h += '<button onclick="guardarFotoAtleta()" '+(F.processing?'disabled':'')+' style="margin-top:10px;padding:12px 20px;background:var(--green);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;width:100%">'+(F.processing?'⏳ Guardando...':'💾 Guardar foto')+'</button>';
+      h += '<div style="display:flex;gap:8px;margin-top:10px">';
+      h += '<button onclick="cancelarFotoAtleta()" '+(F.processing?'disabled':'')+' style="flex:1;padding:12px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px">✗ Cancelar</button>';
+      h += '<button onclick="guardarFotoAtleta()" '+(F.processing?'disabled':'')+' style="flex:2;padding:12px 20px;background:var(--green);color:#000;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700">'+(F.processing?'⏳ Procesando...':'✓ Aceptar y publicar')+'</button>';
+      h += '</div>';
     }
     if(F.status){
       h += '<div style="margin-top:10px;padding:10px;background:rgba(34,197,94,.1);border-left:3px solid var(--green);font-size:12px;color:var(--green)">'+escapeHtml(F.status)+'</div>';
@@ -2916,6 +2954,51 @@ window.seleccionarAtletaFoto = function(codigo){
   // Detectar foto pendiente de la inscripcion
   window._fotosState.pendingPhotoUrl = _findInscriptionPhotoByRut(a.rut);
   render();
+};
+
+// Cancela el procesamiento actual sin guardar nada (descartar preview)
+window.cancelarFotoAtleta = function(){
+  const F = window._fotosState;
+  F.preview = null;
+  F.file = null;
+  F.bgRemovedImg = null;
+  F.transform = {zoom:1.0, offsetX:0, offsetY:0, rotation:0};
+  F.status = '';
+  F.error = '';
+  render();
+};
+
+// Rechaza la foto de inscripción (no la publica). Marca el doc en
+// atleta_fotos con status:'rejected' para que no aparezca como pendiente.
+window.rechazarFotoInscripcion = async function(){
+  const F = window._fotosState;
+  if(!F.selected || !F.pendingPhotoUrl) return;
+  if(F.processing) return;
+  if(!confirm('¿Rechazar la foto de '+F.selected.nombre+'?\n\nLa foto no se publicará. El atleta podrá subir otra.')) return;
+  F.processing = true;
+  F.status = 'Rechazando foto...';
+  render();
+  try{
+    const docRef = doc(db, 'atleta_fotos', F.selected.codigo);
+    await setDoc(docRef, {
+      codigo: F.selected.codigo,
+      rut: F.selected.rut||'',
+      nombre: F.selected.nombre||'',
+      status: 'rejected',
+      rejected_url: F.pendingPhotoUrl,
+      rejected_at: Date.now(),
+      rejected_by: ST.user?.email || 'admin'
+    }, {merge:true});
+    F.pendingPhotoUrl = null;
+    F.status = '✓ Foto rechazada (no se publicó)';
+    F.processing = false;
+    render();
+  } catch(e){
+    F.error = 'Error rechazando: ' + e.message;
+    F.processing = false;
+    F.status = '';
+    render();
+  }
 };
 
 // Importa la foto de inscripcion al flujo de procesamiento
@@ -3014,8 +3097,13 @@ window.guardarFotoAtleta = async function(){
       nombre: F.selected.nombre||'',
       foto_url: url,
       storage_path: path,
+      status: 'approved',
+      approved_by: ST.user?.email || 'admin',
       updated: ts
     }, {merge:true});
+    // Update local cache
+    if(!ST.fotosByCodigo) ST.fotosByCodigo = {};
+    ST.fotosByCodigo[F.selected.codigo] = {codigo: F.selected.codigo, foto_url: url, status:'approved'};
     // Update local state
     F.selected.foto_url = url;
     const localAth = (ST.data||[]).find(a=>a.codigo===F.selected.codigo);
