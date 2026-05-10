@@ -96,8 +96,9 @@ if(TX_MODE){
     @keyframes txSlideInRight{0%{transform:translateX(110%);opacity:0}60%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:1}}
     @keyframes txSlideOutRight{0%{transform:translateX(0);opacity:1}100%{transform:translateX(110%);opacity:0}}
     /* Scoreboard: entra desde abajo (sube hacia su posición) */
-    @keyframes txSlideInBottom{0%{transform:translateY(120%);opacity:0}55%{transform:translateY(-4px);opacity:1}80%{transform:translateY(0);opacity:1}100%{transform:translateY(0);opacity:1}}
-    @keyframes txSlideOutBottom{0%{transform:translateY(0);opacity:1}100%{transform:translateY(120%);opacity:0}}
+    /* Scoreboard slide-in/out: usamos px fijos (no %) porque el wrapper tiene altura 0 (position:fixed inside) */
+    @keyframes txSlideInBottom{0%{transform:translateY(260px);opacity:0}55%{transform:translateY(-6px);opacity:1}80%{transform:translateY(2px);opacity:1}100%{transform:translateY(0);opacity:1}}
+    @keyframes txSlideOutBottom{0%{transform:translateY(0);opacity:1}100%{transform:translateY(260px);opacity:0}}
     @keyframes txBuildRow{0%{transform:translateX(-30px) scaleY(0);opacity:0;transform-origin:left center}60%{transform:translateX(0) scaleY(1);opacity:1}100%{transform:translateX(0) scaleY(1);opacity:1}}
     @keyframes txScoreboardCycle{0%{transform:translateY(110%);opacity:0}3%{transform:translateY(0);opacity:1}97%{transform:translateY(0);opacity:1}100%{transform:translateY(110%);opacity:0}}
     @keyframes txLbCycle{0%{transform:scale(.92);opacity:0}5%{transform:scale(1);opacity:1}95%{transform:scale(1);opacity:1}100%{transform:scale(1.04);opacity:0;filter:blur(4px)}}
@@ -1867,10 +1868,13 @@ function _renderTxCerScoreboardBL(cur,opts){
   const _forecastTxt=_forecastPos>0?'P'+_forecastPos+(_simBL.length>1?'/'+_simBL.length:''):'—';
   const _forecastColor=_forecastPos===1?'#5cb37f':_forecastPos<=3?'#D4A843':'#fff';   // verde sage suave
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
+  // animOrTx → animación de ciclo automatico (modo widget standalone) o transform de scale
+  // extraStyle → animación in/out cuando se enciende/apaga desde control TX (slide vertical)
+  const extraStyle=opts.extraStyle||'';
   const animOrTx=noAnimate
     ? (scale!==1?'transform:scale('+scale+');transform-origin:bottom left;':'')
     : 'animation:txScoreboardCycle '+(TX_CEREMONY.scoreboardMs/1000)+'s ease-in-out forwards;';
-  return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
+  return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+extraStyle+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:6px 14px">'
       +'<div style="font-family:Oswald;font-size:12px;color:rgba(200,215,240,.85);letter-spacing:1px">'+catLabel+'</div>'
       +'<div style="font-family:Oswald;font-size:18px;font-weight:800;color:'+_forecastColor+';letter-spacing:2px">'+_forecastTxt+'</div>'
@@ -2198,10 +2202,12 @@ function renderTxDirector(container){
   }
   // Scoreboard (corner) — slide-in/out desde la derecha (mismo estilo que el timer)
   if((showSb||(animSb&&animSb.dir==='out'))&&cur){
-    // Scoreboard entra subiendo desde abajo (lower-third clásico) y sale bajando
+    // Scoreboard entra subiendo desde abajo y sale bajando.
+    // Pasamos la animación al render del scoreboard (no a un wrapper) porque
+    // el scoreboard usa position:fixed y el wrapper tendría altura 0.
     const sbAnim=animSb?(animSb.dir==='in'?'animation:txSlideInBottom .8s cubic-bezier(.2,.85,.3,1) forwards;':'animation:txSlideOutBottom .55s cubic-bezier(.5,0,.7,.5) forwards;'):'';
-    const sbHtml=_renderTxCerScoreboardBL(cur,{noAnimate:true,scale:_txDirState.scoreboard?.scale||1});
-    html+=sbAnim?'<div style="'+sbAnim+'">'+sbHtml+'</div>':sbHtml;
+    const sbHtml=_renderTxCerScoreboardBL(cur,{noAnimate:true,scale:_txDirState.scoreboard?.scale||1,extraStyle:sbAnim});
+    html+=sbHtml;
   }
   // Timer (corner) — slide-in/out desde la derecha
   if(showTm||(animTm&&animTm.dir==='out')){
