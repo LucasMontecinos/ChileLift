@@ -193,9 +193,13 @@ window.showProfile=function(codigo){
   // ── Header ──────────────────────────────────────────────
   const clubBadge=window.clubLogoImg?window.clubLogoImg(a.club,32,'background:var(--card);padding:2px;border:2px solid var(--card);position:absolute;bottom:-6px;right:-6px;border-radius:50%;'):'';
   const clubInline=window.clubLogoImg?window.clubLogoImg(a.club,16,'background:var(--bg);padding:1px;vertical-align:middle;margin-right:4px;'):'';
+  // Foto del atleta (con fondo blanco IPF) si existe; sino iniciales
+  const fotoHtml = a.foto_url
+    ? '<img src="'+a.foto_url+'" alt="'+(a.nombre||'')+'" style="width:100%;height:100%;object-fit:cover;background:#fff" onerror="this.parentElement.innerHTML=\'<span class=os style=&quot;font-size:26px;font-weight:700;color:var(--muted)&quot;>'+initials+'</span>\'">'
+    : '<span class="os" style="font-size:26px;font-weight:700;color:var(--muted)">'+initials+'</span>';
   h+='<div class="card card-accent"><div style="display:flex;gap:14px;align-items:flex-start">'
-    +'<div style="position:relative;flex-shrink:0"><div style="width:68px;height:68px;border-radius:12px;background:var(--bg);border:2px solid var(--border);display:flex;align-items:center;justify-content:center">'
-      +'<span class="os" style="font-size:26px;font-weight:700;color:var(--muted)">'+initials+'</span>'
+    +'<div style="position:relative;flex-shrink:0"><div style="width:68px;height:68px;border-radius:12px;background:var(--bg);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden">'
+      +fotoHtml
     +'</div>'+clubBadge+'</div>'
     +'<div style="flex:1;min-width:0">'
       +'<div class="os" style="font-size:clamp(16px,4vw,24px);font-weight:700;letter-spacing:1px">'+a.nombre+'</div>'
