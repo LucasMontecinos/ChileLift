@@ -2728,7 +2728,7 @@ function renderFotos(){
   // Buscador
   h += '<div class="card" style="margin-bottom:14px">';
   h += '<div style="display:flex;gap:8px;align-items:center">';
-  h += '<input type="text" placeholder="Buscar por nombre, RUT o código..." value="'+escapeHtml(F.search)+'" oninput="window._fotosState.search=this.value;render();this.focus();" style="flex:1;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">';
+  h += '<input type="text" id="fotoSearchInput" placeholder="Buscar por nombre, RUT o código..." value="'+escapeHtml(F.search)+'" oninput="onFotoSearchInput(this)" style="flex:1;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px">';
   h += '</div>';
 
   if(q && matches.length===0){
@@ -2874,6 +2874,22 @@ function _findInscriptionPhotoByRut(rut){
   });
   return bestMatch;
 }
+
+// Manejo del input de búsqueda: actualiza estado, re-renderiza, y
+// restaura foco + posición del cursor al final (sino se sale al escribir)
+window.onFotoSearchInput = function(el){
+  window._fotosState.search = el.value;
+  const cursorPos = el.selectionStart;
+  render();
+  // Después del re-render, recuperamos foco y cursor en el nuevo elemento
+  requestAnimationFrame(()=>{
+    const newEl = document.getElementById('fotoSearchInput');
+    if(newEl){
+      newEl.focus();
+      try{ newEl.setSelectionRange(cursorPos, cursorPos); }catch(e){}
+    }
+  });
+};
 
 window.seleccionarAtletaFoto = function(codigo){
   const a = (ST.data||[]).find(x=>x.codigo===codigo);
