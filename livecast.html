@@ -590,6 +590,8 @@ function setAtt(id,l,r,val){
   a.att[l][r].w=w;
   if(DATA.changeTimers[key])delete DATA.changeTimers[key];
   save();
+  // Refrescar la UI para que la celda muestre el peso (no el countdown viejo)
+  if(typeof R==='function')R();
 }
 
 function setResult(id,l,r,res){
@@ -1110,10 +1112,22 @@ setInterval(()=>{
     }
   });
   if(changed)save();
-  // Si hay change timers activos y estamos en Control en Vivo, refrescar la tabla
-  // para que se vea la cuenta regresiva en la celda del próximo intento.
-  if(anyActive && DATA.phase==='compete' && typeof R==='function'){
-    R();
+  // Actualizar las celdas de timer en la tabla de Control en Vivo SIN re-renderizar
+  // (evita flicker). Cada celda con timer tiene id="ctcell_KEY".
+  Object.keys(DATA.changeTimers).forEach(k=>{
+    const ct=DATA.changeTimers[k];
+    const cellEl=document.getElementById('ctcell_'+k);
+    if(!cellEl)return;
+    if(ct&&!ct.expired&&ct.remaining>0){
+      cellEl.textContent='⏱ '+ct.remaining+'s';
+    } else if(ct&&ct.expired){
+      cellEl.textContent='⏰ TIEMPO';
+      cellEl.style.color='var(--red)';
+    }
+  });
+  // Si un timer recién expiró (changed=true), re-render una vez para actualizar el cambio de estado
+  if(changed && DATA.phase==='compete' && typeof R==='function'){
+    setTimeout(R,100);
   }
 },1000);
 
@@ -1139,7 +1153,17 @@ function startTimer(){DATA.timerOn=true;syncToFB();mainTI=setInterval(()=>{DATA.
 function pauseTimer(){DATA.timerOn=false;clearInterval(mainTI);mainTI=null;syncToFB()}
 function resetTimer(){DATA.timer=60;DATA.timerOn=false;clearInterval(mainTI);mainTI=null;const el=document.getElementById('mainTimer');if(el){el.style.color='var(--green)';el.textContent='1:00';el.style.animation='none'}syncToFB()}
 function advanceLift(){const li=LIFTS.indexOf(DATA.lift);if(DATA.round<2)DATA.round++;else if(li<2){DATA.lift=LIFTS[li+1];DATA.round=0}else go('results');saveNow();R()}
-function editAtt(id,l,r){const a=DATA.athletes.find(x=>x.id===id);if(!a)return;const v=prompt(a.name+' \u2014 '+LIFT_S[l]+' Int '+(r+1)+'\nPeso actual: '+(a.att[l][r].w||'\u2014')+'\nNuevo peso (kg):',a.att[l][r].w||'');if(v!==null){a.att[l][r].w=parseFloat(v)||0;save();R()}}
+function editAtt(id,l,r){
+  const a=DATA.athletes.find(x=>x.id===id);if(!a)return;
+  const v=prompt(a.name+' \u2014 '+LIFT_S[l]+' Int '+(r+1)+'\nPeso actual: '+(a.att[l][r].w||'\u2014')+'\nNuevo peso (kg):',a.att[l][r].w||'');
+  if(v!==null){
+    a.att[l][r].w=parseFloat(v)||0;
+    // Si hab\u00eda un change timer corriendo para este intento, cancelarlo
+    const key=id+'_'+l+'_'+r;
+    if(DATA.changeTimers[key])delete DATA.changeTimers[key];
+    save();R();
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 // ACTA PDF — jsPDF + autoTable (lazy loaded)
@@ -3392,8 +3416,8 @@ function renderCompete(){
       h+='<tr style="border-bottom:1px solid rgba(30,58,95,.18);'+rowBg+';'+rowExtra+'">';
       // Posici\u00f3n en queue
       h+='<td style="text-align:center;padding:8px 4px"><span class="os" style="color:'+(isCurrent?'#fff':inQueue?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:'+(isCurrent?20:13)+'px">'+(inQueue?(queuePos+1):'\u00b7')+'</span></td>';
-      // Nombre del atleta \u2014 atleta actual con prefijo "\u25b6 EN TARIMA"
-      h+='<td style="padding:8px;font-size:'+(isCurrent?16:13)+'px;font-weight:'+(isCurrent?800:500)+';color:'+(isCurrent?'#fff':'var(--text)')+'">'+(isCurrent?'<span style="background:'+LIFT_C[DATA.lift]+';color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-family:Oswald;letter-spacing:1px;margin-right:8px;vertical-align:middle">\u25b6 EN TARIMA</span>':'')+a.name+'</td>';
+      // Nombre del atleta \u2014 click para editar BW + racks. Atleta actual con prefijo "\u25b6 EN TARIMA"
+      h+='<td style="padding:8px;cursor:pointer" onclick="openWeighIn('+a.id+')" title="Click para editar BW + alturas de rack"><div style="font-size:'+(isCurrent?16:13)+'px;font-weight:'+(isCurrent?800:500)+';color:'+(isCurrent?'#fff':'var(--text)')+';display:flex;align-items:center;gap:6px">'+(isCurrent?'<span style="background:'+LIFT_C[DATA.lift]+';color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-family:Oswald;letter-spacing:1px">\u25b6 EN TARIMA</span>':'')+'<span>'+a.name+'</span><span style="font-size:9px;color:var(--muted);opacity:.6">\u270f</span></div><div style="font-size:9px;color:var(--muted);margin-top:2px">'+(a.bw>0?a.bw+'kg':'sin BW')+(a.rackSQ?' \u00b7 SQ '+a.rackSQ:'')+(a.rackBP?' \u00b7 BP '+a.rackBP:'')+'</div></td>';
       // 3 intentos \u2014 solo el atleta EN TARIMA tiene botones \u2713/\u2717 grandes (en su intento actual)
       a.att[DATA.lift].forEach((at,j)=>{
         const c = at.r==='g'?'att-g':at.r==='n'?'att-n':at.w>0?'att-p':'att-e';
@@ -3405,9 +3429,9 @@ function renderCompete(){
         const ct = DATA.changeTimers[ctKey];
         const ctRem = (ct && !ct.expired && ct.remaining>0) ? ct.remaining : null;
         h+='<td style="padding:4px;vertical-align:top">';
-        // Si hay change timer corriendo para este intento \u2192 mostrar el conteo
+        // Si hay change timer corriendo para este intento \u2192 mostrar el conteo (actualizado in-place cada segundo)
         if(ctRem!==null){
-          h+='<div class="att att-p" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:18px;font-weight:700;padding:10px 6px;background:rgba(245,158,11,.15);border:2px solid var(--orange);color:var(--orange);text-align:center" title="Tiene '+ctRem+'s para declarar el peso">\u23f1 '+ctRem+'s</div>';
+          h+='<div id="ctcell_'+ctKey+'" class="att att-p" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:18px;font-weight:700;padding:10px 6px;background:rgba(245,158,11,.15);border:2px solid var(--orange);color:var(--orange);text-align:center" title="Tiene '+ctRem+'s para declarar el peso">\u23f1 '+ctRem+'s</div>';
         } else {
           h+='<div class="'+c+' att" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:'+(isCurrentAtt?18:14)+'px;font-weight:700;padding:'+(isCurrentAtt?'14px 6px':'10px 6px')+';'+(isCurrentAtt?'box-shadow:inset 0 0 0 3px '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'\u2014')+'</div>';
         }
