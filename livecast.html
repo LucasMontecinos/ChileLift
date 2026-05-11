@@ -815,9 +815,12 @@ function openWeighIn(id){
       </label>
     </div>
     <div id="wi_alert" style="display:none;background:rgba(196,30,58,.15);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--accent);font-family:Oswald;letter-spacing:1px"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="document.getElementById('weighInModal').remove()" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;cursor:pointer">CANCELAR</button>
-      <button id="wi_confirm_btn" onclick="confirmWeighIn(${id},${catKg},${limit||0})" style="padding:10px 24px;border-radius:8px;border:none;background:var(--green);color:#000;font-family:Oswald;font-size:13px;font-weight:700;cursor:pointer">✓ CONFIRMAR PESAJE</button>
+    <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+      ${a.weighedIn||a.bw>0?`<button onclick="clearWeighIn(${id})" style="padding:8px 14px;border-radius:8px;border:1px solid var(--red);background:transparent;color:var(--red);font-family:Oswald;font-size:11px;cursor:pointer" title="Borrar BW + racks + intentos">🗑️ BORRAR PESAJE</button>`:'<span></span>'}
+      <div style="display:flex;gap:10px">
+        <button onclick="document.getElementById('weighInModal').remove()" style="padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;cursor:pointer">CANCELAR</button>
+        <button id="wi_confirm_btn" onclick="confirmWeighIn(${id},${catKg},${limit||0})" style="padding:10px 24px;border-radius:8px;border:none;background:var(--green);color:#000;font-family:Oswald;font-size:13px;font-weight:700;cursor:pointer">✓ CONFIRMAR PESAJE</button>
+      </div>
     </div>
     <div style="text-align:center;margin-top:10px;font-size:10px;color:var(--muted)">💡 Usá <kbd style="background:var(--bg);padding:1px 6px;border-radius:3px;border:1px solid var(--border);font-family:monospace">Enter</kbd> para avanzar al siguiente campo</div>
   </div>`;
@@ -853,6 +856,33 @@ function openWeighIn(id){
     }
   });
 }
+
+// Borra el pesaje del atleta: BW, racks y todos los intentos (vuelve a "sin pesar")
+window.clearWeighIn = function(id){
+  const a = DATA.athletes.find(x=>x.id===id);
+  if(!a) return;
+  const msg = `🗑️ ¿Borrar el pesaje de ${a.name}?\n\nSe borrarán:\n• Peso corporal (BW)\n• Alturas de rack (SQ y BP)\n• Todos los intentos cargados\n\nEsto NO borra al atleta del evento. Solo le reinicia el pesaje.`;
+  if(!confirm(msg)) return;
+  a.bw = 0;
+  a.rackSQ = '';
+  a.rackBP = '';
+  a.weighedIn = false;
+  // Limpiar intentos del atleta (pesos y resultados)
+  ['sq','bp','dl'].forEach(l=>{
+    if(a.att && a.att[l]){
+      a.att[l].forEach(at=>{at.w=0; at.r=null;});
+    }
+  });
+  // Limpiar cualquier change timer activo del atleta
+  Object.keys(DATA.changeTimers).forEach(k=>{
+    if(k.startsWith(id+'_')) delete DATA.changeTimers[k];
+  });
+  saveNow();
+  const modal = document.getElementById('weighInModal');
+  if(modal) modal.remove();
+  R();
+  showToastLC('🗑️ Pesaje borrado: '+a.name);
+};
 
 function confirmWeighIn(id,catKg,limit){
   const bw=parseFloat(document.getElementById('wi_bw').value)||0;
@@ -1027,6 +1057,16 @@ function overrideResult(id,l,r,res){
     setTimeout(()=>{if(typeof startTimer==='function')startTimer();},150);
   }
   saveNow();R();
+  // Auto-advance: si la cola de levantamientos quedó vacía, avanzar de ronda automáticamente
+  if(!wasSame && res){
+    const snapLift=DATA.lift, snapRound=DATA.round;
+    if(liftQueue().length===0){
+      showToastLC('✅ Ronda completada — avanzando automáticamente en 3s…');
+      setTimeout(()=>{
+        if(DATA.lift===snapLift && DATA.round===snapRound) advanceLift();
+      }, 3000);
+    }
+  }
 }
 
 // Helper: ¿el atleta quedó descalificado del TOTAL?
@@ -1121,8 +1161,13 @@ setInterval(()=>{
     if(ct&&!ct.expired&&ct.remaining>0){
       cellEl.textContent='⏱ '+ct.remaining+'s';
     } else if(ct&&ct.expired){
-      cellEl.textContent='⏰ TIEMPO';
+      // Tiempo expirado → reloj rojo + signo de exclamación
+      cellEl.textContent='⏰❗';
+      cellEl.style.background='rgba(239,68,68,.18)';
+      cellEl.style.borderColor='var(--red)';
       cellEl.style.color='var(--red)';
+      cellEl.style.animation='pulse 1.5s ease-in-out infinite';
+      cellEl.title='Tiempo expirado — requiere aprobación del jurado';
     }
   });
   // Si un timer recién expiró (changed=true), re-render una vez para actualizar el cambio de estado
@@ -2776,6 +2821,7 @@ function renderShell(){
   h+='<button class="side-btn '+(p==='director'?'active':'')+'" onclick="go(\'director\')"><span class="icon">🎮</span>Control TX</button>';
   }
   h+='<div class="side-label">P\u00fablico</div>';
+  h+='<button class="side-btn '+(p==='liveView'?'active':'')+'" onclick="go(\'liveView\')"><span class="icon">\uD83D\uDCFA</span>Competencia en Vivo</button>';
   h+='<button class="side-btn '+(p==='results'?'active':'')+'" onclick="go(\'results\')"><span class="icon">\uD83C\uDFC6</span>Resultados</button>';
   h+='<button class="side-btn '+(p==='atletaInfo'?'active':'')+'" onclick="go(\'atletaInfo\')"><span class="icon">\uD83D\uDC64</span>Atletas</button>';
   h+='<div class="side-label">Vuelo Activo</div><div style="display:flex;gap:4px;flex-wrap:wrap">';
@@ -2798,7 +2844,7 @@ function renderShell(){
   h+='</div>';
   }
   h+='</div><div class="main">';
-  if(p==='manage'&&isAdmin)h+=renderManage();else if(p==='compete'&&isAdmin)h+=renderCompete();else if(p==='obsTx'&&isAdmin)h+=renderObsTx();else if(p==='director'&&isAdmin)h+=renderDirector();else if(p==='results')h+=renderResults();else if(p==='atletaInfo')h+=renderAtletaInfo();else if(!isAdmin&&(p==='manage'||p==='compete'||p==='transmision'||p==='obsTx'||p==='director')){DATA.phase='results';h+=renderResults();}
+  if(p==='manage'&&isAdmin)h+=renderManage();else if(p==='compete'&&isAdmin)h+=renderCompete();else if(p==='obsTx'&&isAdmin)h+=renderObsTx();else if(p==='director'&&isAdmin)h+=renderDirector();else if(p==='results')h+=renderResults();else if(p==='liveView')h+=renderLiveView();else if(p==='atletaInfo')h+=renderAtletaInfo();else if(!isAdmin&&(p==='manage'||p==='compete'||p==='transmision'||p==='obsTx'||p==='director')){DATA.phase='liveView';h+=renderLiveView();}
   h+='</div></div>';return h;
 }
 
@@ -3424,15 +3470,20 @@ function renderCompete(){
         const isCurrentAtt = isCurrent && j===DATA.round;
         const gActive = at.r==='g';
         const nActive = at.r==='n';
-        // Change timer (cuenta regresiva 60s para que entregue su pr\u00f3ximo peso)
+        // Change timer: corriendo (orange), expirado (red), o sin timer
         const ctKey = a.id+'_'+DATA.lift+'_'+j;
         const ct = DATA.changeTimers[ctKey];
         const ctRem = (ct && !ct.expired && ct.remaining>0) ? ct.remaining : null;
+        const ctExpired = ct && ct.expired;
         h+='<td style="padding:4px;vertical-align:top">';
-        // Si hay change timer corriendo para este intento \u2192 mostrar el conteo (actualizado in-place cada segundo)
         if(ctRem!==null){
+          // Timer corriendo (naranja) \u2014 actualizado in-place por el master tick
           h+='<div id="ctcell_'+ctKey+'" class="att att-p" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:18px;font-weight:700;padding:10px 6px;background:rgba(245,158,11,.15);border:2px solid var(--orange);color:var(--orange);text-align:center" title="Tiene '+ctRem+'s para declarar el peso">\u23f1 '+ctRem+'s</div>';
+        } else if(ctExpired && !at.w){
+          // Timer EXPIRADO sin peso declarado \u2014 reloj rojo + animaci\u00f3n
+          h+='<div id="ctcell_'+ctKey+'" class="att att-n" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:20px;font-weight:800;padding:10px 6px;background:rgba(239,68,68,.18);border:2px solid var(--red);color:var(--red);text-align:center;animation:pulse 1.5s ease-in-out infinite" title="Tiempo expirado \u2014 requiere aprobaci\u00f3n del jurado">\u23f0\u2757</div>';
         } else {
+          // Sin timer activo \u2014 mostrar peso o em-dash
           h+='<div class="'+c+' att" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:'+(isCurrentAtt?18:14)+'px;font-weight:700;padding:'+(isCurrentAtt?'14px 6px':'10px 6px')+';'+(isCurrentAtt?'box-shadow:inset 0 0 0 3px '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'\u2014')+'</div>';
         }
         // Solo el atleta EN TARIMA en su intento actual tiene los botones GOOD/NO LIFT
@@ -4282,6 +4333,118 @@ function showLogin(){
 
 async function doLogin(){showLogin();}
 
+
+// ═══════════════════════════════════════════════════════════════
+// COMPETENCIA EN VIVO (público): muestra todos los vuelos en orden
+// con el atleta en tarima destacado. Sin botones GOOD/NO LIFT.
+// Auto-scroll al atleta actual cuando se carga.
+// ═══════════════════════════════════════════════════════════════
+function renderLiveView(){
+  const allFlights = [...new Set(DATA.athletes.map(a=>a.flight))].filter(Boolean).sort();
+  const currentFlight = DATA.flight;
+  const liftN = LIFT_N[DATA.lift];
+  const liftColor = LIFT_C[DATA.lift];
+
+  let h = '<div class="fade">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">';
+  h += '<div><h2 class="os" style="font-size:24px;letter-spacing:2px">📺 COMPETENCIA EN VIVO</h2>';
+  h += '<p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' · '+liftN+' · Ronda '+(DATA.round+1)+'</p></div>';
+  h += '<div style="display:flex;gap:6px;align-items:center">';
+  h += '<span style="font-size:11px;color:var(--muted)">Vuelo activo:</span>';
+  h += '<span style="background:'+(FL_C[currentFlight]||'#666')+';color:#fff;padding:4px 12px;border-radius:6px;font-family:Oswald;font-weight:700">'+(currentFlight||'—')+'</span>';
+  h += '</div></div>';
+
+  // Indicador del lift actual
+  h += '<div style="display:flex;gap:6px;margin-bottom:14px">';
+  LIFTS.forEach(l=>{
+    const isCur = l===DATA.lift;
+    h += '<div style="flex:1;padding:8px 0;border-radius:6px;text-align:center;border:2px solid '+(isCur?LIFT_C[l]:'var(--border)')+';background:'+(isCur?LIFT_C[l]+'25':'transparent')+';color:'+(isCur?LIFT_C[l]:'var(--muted)')+';font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:2px">'+LIFT_N[l]+(isCur?' · INT '+(DATA.round+1):'')+'</div>';
+  });
+  h += '</div>';
+
+  // Cada vuelo se renderiza apilado verticalmente
+  allFlights.forEach(fl=>{
+    const flAthletes = DATA.athletes.filter(a=>a.flight===fl && !a.bombed);
+    if(!flAthletes.length) return;
+    const isCurFlight = fl===currentFlight;
+
+    // Cola del vuelo actual (sólo)
+    const flQueue = isCurFlight
+      ? flAthletes.filter(a=>{const at=a.att[DATA.lift][DATA.round];return at.r===null && at.w>0})
+                  .sort((a,b)=>{const wa=a.att[DATA.lift][DATA.round].w,wb=b.att[DATA.lift][DATA.round].w;return wa!==wb?wa-wb:a.lot-b.lot})
+      : [];
+    const queueIds = new Set(flQueue.map(a=>a.id));
+    const ordered = [...flQueue, ...flAthletes.filter(a=>!queueIds.has(a.id))];
+
+    const flColor = FL_C[fl] || '#666';
+    h += '<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden;border:2px solid '+(isCurFlight?flColor:'var(--border)')+'">';
+    h += '<div style="background:linear-gradient(90deg,'+flColor+'22,transparent);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid '+flColor+'">';
+    h += '<div style="display:flex;align-items:center;gap:10px">';
+    h += '<span style="background:'+flColor+';color:#fff;padding:4px 14px;border-radius:6px;font-family:Oswald;font-size:16px;font-weight:800;letter-spacing:2px">TANDA '+fl+'</span>';
+    if(isCurFlight) h += '<span style="background:rgba(34,197,94,.2);color:var(--green);padding:2px 10px;border-radius:4px;font-family:Oswald;font-size:11px;font-weight:700;letter-spacing:1px;animation:pulse 2s infinite">● EN VIVO</span>';
+    h += '</div>';
+    h += '<div style="font-size:11px;color:var(--muted)">'+flAthletes.length+' atletas</div>';
+    h += '</div>';
+
+    // Tabla del vuelo
+    h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">';
+    h += '<thead><tr style="border-bottom:1px solid var(--border)">';
+    h += '<th style="text-align:center;padding:6px 4px;color:var(--muted);font-size:10px;width:30px">#</th>';
+    h += '<th style="text-align:left;padding:6px 8px;color:var(--muted);font-size:10px">ATLETA</th>';
+    [1,2,3].forEach(r=>{h += '<th style="text-align:center;padding:6px 4px;color:'+liftColor+';font-size:11px;font-weight:700;width:78px">INT '+r+'</th>'});
+    h += '<th style="text-align:center;padding:6px 4px;color:var(--gold);font-size:10px;width:60px">BEST</th>';
+    h += '</tr></thead><tbody>';
+
+    ordered.forEach((a,i)=>{
+      const inQueue = queueIds.has(a.id);
+      const queuePos = inQueue ? flQueue.findIndex(q=>q.id===a.id) : -1;
+      const isCurrentLifter = isCurFlight && queuePos === 0;
+      const b = bestOf(a,DATA.lift);
+      let rowBg='', rowExtra='';
+      if(isCurrentLifter){
+        rowBg = 'background:linear-gradient(90deg,'+liftColor+'35,'+liftColor+'15)';
+        rowExtra = 'box-shadow:inset 4px 0 0 '+liftColor+';';
+      } else if(inQueue && queuePos<3){
+        rowBg = 'background:'+liftColor+'08';
+      }
+      // Anchor id para auto-scroll
+      const rowId = isCurrentLifter ? 'id="liveCurrentLifter"' : '';
+      h += '<tr '+rowId+' style="border-bottom:1px solid rgba(30,58,95,.18);'+rowBg+';'+rowExtra+'">';
+      h += '<td style="text-align:center;padding:8px 4px"><span class="os" style="color:'+(isCurrentLifter?'#fff':inQueue?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:'+(isCurrentLifter?20:13)+'px">'+(inQueue?(queuePos+1):'·')+'</span></td>';
+      h += '<td style="padding:8px"><div style="font-size:'+(isCurrentLifter?16:13)+'px;font-weight:'+(isCurrentLifter?800:500)+';color:'+(isCurrentLifter?'#fff':'var(--text)')+';display:flex;align-items:center;gap:6px">';
+      if(isCurrentLifter) h += '<span style="background:'+liftColor+';color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-family:Oswald;letter-spacing:1px">▶ EN TARIMA</span>';
+      h += '<span>'+a.name+'</span></div>';
+      h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">'+a.club+' · '+(a.bw||'—')+'kg · '+a.div+' · '+a.cat+'</div>';
+      h += '</td>';
+      // 3 intentos (sin botones)
+      a.att[DATA.lift].forEach((at,j)=>{
+        const c = at.r==='g'?'att-g':at.r==='n'?'att-n':at.w>0?'att-p':'att-e';
+        const isCurAtt = isCurrentLifter && j===DATA.round;
+        h += '<td style="padding:4px"><div class="'+c+' att" style="font-size:'+(isCurAtt?18:14)+'px;font-weight:700;padding:'+(isCurAtt?'14px 6px':'10px 6px')+';'+(isCurAtt?'box-shadow:inset 0 0 0 3px '+liftColor+';':'')+';cursor:default">'+(at.w||'—')+'</div></td>';
+      });
+      h += '<td style="text-align:center;padding:6px 4px;font-weight:700;font-family:Oswald;color:var(--gold);font-size:14px">'+(b||'—')+'</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '</div>';
+  });
+
+  h += '</div>';
+  // Auto-scroll al atleta actual SOLO cuando cambia (evita interrumpir al usuario que esté
+  // mirando otro atleta). Detectamos cambio comparando contra la última posición.
+  setTimeout(()=>{
+    const el = document.getElementById('liveCurrentLifter');
+    if(!el) return;
+    const flQ = liftQueue();
+    const curId = flQ[0]?.id;
+    const key = currentFlight+'_'+DATA.lift+'_'+DATA.round+'_'+(curId||'');
+    if(window._liveLastKey !== key){
+      window._liveLastKey = key;
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+  }, 200);
+  return h;
+}
 
 function renderAtletaInfo(){
   const ath=DATA.athletes;
