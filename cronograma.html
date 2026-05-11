@@ -435,7 +435,7 @@ function renderCronograma(){
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
     <div><h2 class="os" style="font-size:22px;letter-spacing:1px">${ev.name}</h2>
     <p style="color:var(--muted);font-size:12px">${ev.organizer||ev.org||''} · ${ev.location||''} · ${ev.days||ev.date||''}</p></div>
-    <div style="display:flex;gap:8px"><button class="btn btn-o" onclick="selectedEvent=null;config.adminUnlocked=false;render()">← Volver</button>
+    <div style="display:flex;gap:8px">
     <button class="btn btn-o" onclick="resetFlights()">↺ Regenerar</button>
     <button class="btn btn-o" onclick="addFlight()">+ Vuelo</button>
     ${coachUser?`<button class="btn" onclick="doCoachLogout()" style="background:rgba(212,168,67,.15);border:1px solid var(--gold);color:var(--gold);font-size:11px;padding:6px 12px">🏋️ ${coachUser.nombre.split(' ')[0]} · Salir</button>`:`<button class="btn" onclick="showCoachLogin()" style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.4);color:var(--gold);font-size:11px;padding:6px 12px">🏋️ Entrenador / Handler</button>`}

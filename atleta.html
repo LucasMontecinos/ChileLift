@@ -98,6 +98,54 @@ const PEERS={"M|93|Open|classic":{"n":44,"avg":589.5,"top":740,"p75":680,"p50":5
       // Re-render si hay un perfil abierto
       if(window._curCodigo)showProfile(window._curCodigo);
     });
+
+    // Resultados de competencias cerradas en livecast (en vivo, sin redeploy).
+    // Mergea cada doc en el atleta correspondiente como nueva competencia.
+    fb.onSnapshot(fb.collection(db,'competition_results'),snap=>{
+      snap.docs.forEach(d=>{
+        const data=d.data();
+        if(!data.evento)return;
+        // Match por codigo, luego por rut, luego por nombre
+        let ath = data.codigo ? (DB||[]).find(a=>a.codigo===data.codigo) : null;
+        if(!ath && data.rut){
+          const rnorm = String(data.rut).replace(/[^0-9kK]/g,'').toLowerCase();
+          ath = (DB||[]).find(a=>String(a.rut||'').replace(/[^0-9kK]/g,'').toLowerCase()===rnorm);
+        }
+        if(!ath && data.nombre){
+          const nnorm = String(data.nombre).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+          ath = (DB||[]).find(a=>String(a.nombre||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')===nnorm);
+        }
+        if(!ath){
+          // Atleta no existe en data.json → crear entrada virtual mínima
+          ath = {
+            codigo: data.codigo || ('FB_'+d.id),
+            rut: data.rut || '',
+            nombre: data.nombre || '',
+            club: data.club || '',
+            competencias: []
+          };
+          (DB||[]).push(ath);
+        }
+        ath.competencias = ath.competencias || [];
+        // Reemplazar si ya existe la misma competencia + modalidad
+        const sameIdx = ath.competencias.findIndex(c =>
+          c.evento === data.evento && c.modalidad === data.modalidad
+        );
+        const comp = {
+          evento: data.evento,
+          fecha: data.fecha || '',
+          sexo: data.sexo || '',
+          division: data.division || '',
+          categoria: data.categoria || '',
+          modalidad: data.modalidad || '',
+          resultado: data.resultado || {},
+          source: data.source || 'yourlift_livecast'
+        };
+        if(sameIdx >= 0) ath.competencias[sameIdx] = comp;
+        else ath.competencias.push(comp);
+      });
+      if(window._curCodigo)showProfile(window._curCodigo);
+    });
   }catch(e){console.warn('Firebase unavailable',e)}
 
   try{

@@ -1491,6 +1491,105 @@ function exportJSON(){const r=rankings();const blob=new Blob([JSON.stringify(r.m
 // Exporta los resultados en el formato que usa data.json (competencias por atleta).
 // El JSON descargado se puede mergear directo a data.json para que aparezca
 // en los perfiles públicos de cada atleta (atleta.html).
+// ═══════════════════════════════════════════════════════════════
+// CERRAR COMPETENCIA — sube todos los resultados a Firestore.
+// Los atletas los ven en sus perfiles y aparecen en el ranking
+// global sin necesidad de re-deployar.
+// ═══════════════════════════════════════════════════════════════
+async function cerrarCompetenciaConfirm(){
+  const evName = DATA.event?.name || '';
+  const evId   = DATA.event?.id || (window.LIVE_EVENTS ? Object.keys(window.LIVE_EVENTS).find(k=>window.LIVE_EVENTS[k]===evName) : '') || evName.replace(/[^a-zA-Z0-9]+/g,'_').toLowerCase();
+  if(!evName){ alert('No hay evento cargado.'); return; }
+  const ath = DATA.athletes || [];
+  const counts = {meet:0, bench:0, dq:0};
+  ath.forEach(a=>{
+    if(isMeetClassic(a)||isMeetEquipped(a)){
+      if(isDQ(a)) counts.dq++;
+      else if(totalOf(a,'meet')>0) counts.meet++;
+    }
+    if(inBenchRanking(a) && bestOf(a,'bp')>0) counts.bench++;
+  });
+  const msg = `🏁 CERRAR COMPETENCIA\n\nEvento: ${evName}\n\nSe publicarán los resultados en Firestore:\n  • ${counts.meet} con total válido\n  • ${counts.dq} marcados como DQ\n  • ${counts.bench} en ranking Only Bench\n\nApareceran inmediatamente en los perfiles de cada atleta y en el ranking general.\n\n¿Confirmar?`;
+  if(!confirm(msg)) return;
+  await cerrarCompetencia(evId, evName);
+}
+
+async function cerrarCompetencia(evId, evName){
+  const fb = window._fb;
+  if(!fb || !fbDB){ alert('Firebase no está listo. Volvé a intentar en 5s.'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  const ath = DATA.athletes || [];
+
+  // Toast de progreso
+  showToastLC('⏳ Publicando resultados...');
+  let written = 0;
+  let errors = 0;
+
+  for(const a of ath){
+    // Generar entradas por vista (meet/bench si compite en combinada)
+    const views = [];
+    if(isMeetClassic(a)||isMeetEquipped(a)) views.push('meet');
+    if(inBenchRanking(a) && bestOf(a,'bp')>0) views.push('bench');
+
+    for(const view of views){
+      const dq = view==='meet' && isDQ(a);
+      const t = totalOf(a, view);
+      // Saltar si no hay total ni DQ ni intentos
+      if(t<=0 && !dq) continue;
+      const gl = dq ? 0 : calcGL(t, a.bw, a.sex, a.mod, view);
+      const isEq = isMeetEquipped(a);
+      let modLabel;
+      if(view==='bench') modLabel = isEq ? 'Only Bench Equipado' : 'Only Bench Classic';
+      else modLabel = isEq ? 'Powerlifting Equipado' : 'Powerlifting Classic';
+
+      // Doc ID determinístico: {eventoId}_{codigo o rut}_{view}
+      const codeKey = (a.codigo || a.rut || a.id || 'unknown').toString().replace(/[^a-zA-Z0-9_-]/g,'_');
+      const docId = `${evId}_${codeKey}_${view}`;
+
+      const payload = {
+        evento: evName,
+        evento_id: evId,
+        fecha: today,
+        codigo: a.codigo || '',
+        rut: a.rut || '',
+        nombre: a.name || '',
+        club: a.club || '',
+        sexo: a.sex || '',
+        division: a.div || '',
+        categoria: a.cat || '',
+        modalidad: modLabel,
+        view: view,
+        resultado: {
+          bw: a.bw || 0,
+          sq: view==='bench' ? 0 : bestOf(a,'sq'),
+          bp: bestOf(a,'bp'),
+          dl: view==='bench' ? 0 : bestOf(a,'dl'),
+          total: dq ? 0 : t,
+          glp: dq ? 0 : gl,
+          status: dq ? 'DQ' : 'OK'
+        },
+        published_at: fb.serverTimestamp(),
+        source: 'yourlift_livecast'
+      };
+      try{
+        await fb.setDoc(fb.doc(fbDB, 'competition_results', docId), payload);
+        written++;
+      } catch(e){
+        console.error('[cerrar] error:', a.name, view, e);
+        errors++;
+      }
+    }
+  }
+
+  if(errors===0){
+    showToastLC(`✅ Competencia cerrada: ${written} resultados publicados`);
+    alert(`✅ Competencia "${evName}" cerrada.\n\n${written} resultados publicados.\n\nYa son visibles en yourlift.cl/atleta y en el ranking.`);
+  } else {
+    showToastLC(`⚠️ Publicados ${written}, errores ${errors}`);
+    alert(`Se publicaron ${written} resultados.\n${errors} fallaron — revisá la consola (F12).`);
+  }
+}
+
 function exportCompetenciasParaPerfiles(){
   const evName=DATA.event?.name||'Campeonato sin nombre';
   const today=new Date().toISOString().slice(0,10);
@@ -3409,7 +3508,7 @@ function renderResults(){
   });
   Object.values(divGroups).forEach(arr=>arr.sort((a,b)=>b.gl-a.gl));
 
-  let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:24px;letter-spacing:2px">RESULTADOS <span style="background:'+FL_C[DATA.flight]+';color:#fff;padding:2px 10px;border-radius:6px;font-size:14px;vertical-align:middle">VUELO '+DATA.flight+'</span></h2><p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' · '+DATA.athletes.length+' atletas</p></div><button class="btn btn-g" onclick="exportJSON()">📥 Exportar</button><button class="btn btn-o" onclick="exportCompetenciasParaPerfiles()" title="JSON con resultados en formato de perfiles (data.json)">👤 Subir a perfiles</button><button id="btnActaPDF" class="btn btn-r" onclick="generateActaPDF()" style="background:rgba(196,30,58,.15);border-color:var(--accent)">📋 Generar Acta PDF</button></div>';
+  let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:24px;letter-spacing:2px">RESULTADOS <span style="background:'+FL_C[DATA.flight]+';color:#fff;padding:2px 10px;border-radius:6px;font-size:14px;vertical-align:middle">VUELO '+DATA.flight+'</span></h2><p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' · '+DATA.athletes.length+' atletas</p></div><button class="btn btn-g" onclick="exportJSON()">📥 Exportar</button><button class="btn" onclick="cerrarCompetenciaConfirm()" style="background:rgba(168,85,247,.15);border:1px solid #a855f7;color:#a855f7;font-weight:700" title="Publica todos los resultados a Firestore — visibles inmediatamente en perfiles + ranking">🏁 Cerrar competencia</button><button id="btnActaPDF" class="btn btn-r" onclick="generateActaPDF()" style="background:rgba(196,30,58,.15);border-color:var(--accent)">📋 Generar Acta PDF</button></div>';
 
   // Stats
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">';
