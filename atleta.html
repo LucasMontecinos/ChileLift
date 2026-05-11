@@ -121,7 +121,7 @@ function nrm(s){return(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').to
 function getPeerKey(a){
   // Only compare within same modality (classic vs equipped are separate disciplines)
   const comps=[...(a.competencias||[])]
-    .filter(c=>c.sexo&&c.categoria&&c.resultado&&c.resultado.total>0)
+    .filter(c=>c.sexo&&c.categoria&&c.resultado&&(c.resultado.total>0||c.resultado.status==='DQ'))
     .sort((x,y)=>(y.fecha||'').localeCompare(x.fecha||''));
   if(!comps.length)return null;
   const l=comps[0];
@@ -170,7 +170,7 @@ window.showProfile=function(codigo){
 
   const bl=a.bestLifts||{};
   const allComps=a.competencias||[];
-  const compsWithResults=allComps.filter(c=>c.resultado&&c.resultado.total>0);
+  const compsWithResults=allComps.filter(c=>c.resultado&&(c.resultado.total>0||c.resultado.status==='DQ'));
   const sorted=[...compsWithResults].sort((x,y)=>(y.fecha||y.evento||'').localeCompare(x.fecha||x.evento||''));
 
   // Sex from most recent comp
@@ -365,10 +365,11 @@ window.showProfile=function(codigo){
     h+='<div class="card"><div class="sec-title">Historial de competencias ('+(sorted.length)+')</div>';
     sorted.forEach((c,ci)=>{
       const r=c.resultado||{};
+      const isDQ=r.status==='DQ';
       const prevTotal=sorted[ci+1]?.resultado?.total||0;
-      const delta=prevTotal?r.total-prevTotal:null;
-      const glVal=r.glp||r.gl||null;
-      h+='<div class="comp-row">'
+      const delta=(prevTotal && !isDQ && r.total)?r.total-prevTotal:null;
+      const glVal=isDQ?null:(r.glp||r.gl||null);
+      h+='<div class="comp-row"'+(isDQ?' style="opacity:.85"':'')+'>'
         +'<div style="flex:1;min-width:0">'
           +'<div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.evento+'</div>'
           +'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+(c.division||'—')+' · '+(c.categoria||'—')+(c.modalidad?' · '+c.modalidad:'')+'</div>'
@@ -380,9 +381,12 @@ window.showProfile=function(codigo){
           +'</div>'
         +'</div>'
         +'<div style="text-align:right;flex-shrink:0;margin-left:12px">'
-          +'<div class="os" style="font-size:19px;font-weight:700;color:var(--gold)">'+r.total+' kg</div>'
-          +(delta!==null?'<div style="font-size:11px;font-weight:700;color:'+(delta>0?'var(--green)':delta<0?'var(--red)':'var(--muted)')+'">'+  (delta>0?'+':'')+delta+' kg</div>':'')
-          +(glVal?'<div style="font-size:10px;color:var(--muted)">GL '+glVal+(r.pos?' · #'+r.pos:'')+'</div>':'')
+          +(isDQ
+            ? '<div class="os" style="font-size:19px;font-weight:700;color:var(--red)">DQ</div><div style="font-size:10px;color:var(--red);opacity:.85">3 fallos en algún lift</div>'
+            : '<div class="os" style="font-size:19px;font-weight:700;color:var(--gold)">'+(r.total||'—')+' kg</div>'
+              +(delta!==null?'<div style="font-size:11px;font-weight:700;color:'+(delta>0?'var(--green)':delta<0?'var(--red)':'var(--muted)')+'">'+  (delta>0?'+':'')+delta+' kg</div>':'')
+              +(glVal?'<div style="font-size:10px;color:var(--muted)">GL '+glVal+(r.pos?' · #'+r.pos:'')+'</div>':'')
+          )
         +'</div>'
       +'</div>';
     });

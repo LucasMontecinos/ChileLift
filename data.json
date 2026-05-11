@@ -8993,6 +8993,24 @@
           "division": "Open",
           "glp": 85.589
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-57 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 56.3,
+          "sq": 0,
+          "bp": 0,
+          "dl": 0,
+          "total": 0,
+          "glp": 0,
+          "status": "DQ"
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -11601,6 +11619,24 @@
           "division": "Sub Junior",
           "glp": 65.99
         }
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Subjunior",
+        "categoria": "-59 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 57.6,
+          "sq": 140,
+          "bp": 0,
+          "dl": 185,
+          "total": 0,
+          "glp": 0,
+          "status": "DQ"
+        },
+        "source": "yourlift_livecast"
       }
     ],
     "bestLifts": {
@@ -41428,6 +41464,24 @@
         "categoria": "-63 kg (Mujer)",
         "modalidad": "Powerlifting Classic",
         "sexo": "Femenino"
+      },
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-63 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 62.3,
+          "sq": 0,
+          "bp": 0,
+          "dl": 145,
+          "total": 0,
+          "glp": 0,
+          "status": "DQ"
+        },
+        "source": "yourlift_livecast"
       }
     ]
   },
@@ -43921,6 +43975,90 @@
           "dl": 270,
           "total": 665,
           "glp": 83.15
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "HIMALAYA_POWERLIFTING_RC2026_DQ_FRANCISCA",
+    "rut": "",
+    "nombre": "Francisca Constanza Cortes Acuna",
+    "fechaNac": "",
+    "club": "Himalaya Powerlifting",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Mujer",
+        "division": "Open",
+        "categoria": "-69 kg (Mujer)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 67.5,
+          "sq": 132.5,
+          "bp": 0,
+          "dl": 180,
+          "total": 0,
+          "glp": 0,
+          "status": "DQ"
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "HIMALAYA_POWERLIFTING_RC2026_DQ_JULIAN",
+    "rut": "",
+    "nombre": "Julian Ramirez Espina",
+    "fechaNac": "",
+    "club": "Himalaya Powerlifting",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 78.8,
+          "sq": 205,
+          "bp": 0,
+          "dl": 205,
+          "total": 0,
+          "glp": 0,
+          "status": "DQ"
+        },
+        "source": "yourlift_livecast"
+      }
+    ]
+  },
+  {
+    "codigo": "HIMALAYA_POWERLIFTING_RC2026_DQ_MAXI",
+    "rut": "",
+    "nombre": "Maxi Esteban Jacob Moya Vieytes",
+    "fechaNac": "",
+    "club": "Himalaya Powerlifting",
+    "debut": "2026",
+    "competencias": [
+      {
+        "evento": "Campeonato Regional Centro FECHIPO 2026",
+        "fecha": "2026-05-10",
+        "sexo": "Hombre",
+        "division": "Open",
+        "categoria": "-83 kg (Hombre)",
+        "modalidad": "Powerlifting Classic",
+        "resultado": {
+          "bw": 81.3,
+          "sq": 0,
+          "bp": 130,
+          "dl": 247.5,
+          "total": 0,
+          "glp": 0,
+          "status": "DQ"
         },
         "source": "yourlift_livecast"
       }

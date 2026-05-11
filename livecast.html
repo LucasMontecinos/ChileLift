@@ -736,7 +736,9 @@ const CAT_LIMITS={"47":47,"52":52,"57":57,"63":63,"69":69,"76":76,"84":84,"53":5
 function openWeighIn(id){
   const a=DATA.athletes.find(x=>x.id===id);if(!a)return;
   const catKg=parseFloat((a.cat||'').replace(/[^0-9.]/g,''))||0;
-  const limit=CAT_LIMITS[String(catKg)]||catKg||null;
+  // Categorías "+120", "120+", "+84" → SIN límite superior (atleta debe pesar MÁS que el número)
+  const isPlusCat=(a.cat||'').includes('+');
+  const limit=isPlusCat?null:(CAT_LIMITS[String(catKg)]||catKg||null);
   // Remove any existing modal
   const ex=document.getElementById('weighInModal');if(ex)ex.remove();
   const m=document.createElement('div');m.id='weighInModal';
@@ -753,7 +755,7 @@ function openWeighIn(id){
         PESO CORPORAL (kg)
         <input id="wi_bw" type="number" step="0.01" value="${a.bw||''}" placeholder="0.00" data-wi-next="wi_rackSQ"
           style="padding:10px;border-radius:8px;border:2px solid var(--border);background:var(--bg);color:var(--text);font-family:Oswald;font-size:18px;font-weight:700;text-align:center">
-        ${limit?`<span id="wi_bw_status" style="font-size:10px;color:var(--muted)">Límite categoría: ${limit} kg</span>`:''}
+        ${limit?`<span id="wi_bw_status" style="font-size:10px;color:var(--muted)">Límite categoría: ${limit} kg</span>`:(isPlusCat&&catKg?`<span id="wi_bw_status" style="font-size:10px;color:var(--muted)">Categoría +${catKg} kg (debe pesar más de ${catKg} kg)</span>`:'')}
       </label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
         EQUIPO / MODALIDAD
@@ -822,10 +824,17 @@ function openWeighIn(id){
   document.getElementById('wi_bw').addEventListener('input',function(){
     const v=parseFloat(this.value)||0;
     const st=document.getElementById('wi_bw_status');
-    if(st&&limit){
+    if(!st)return;
+    if(limit){
+      // Categoría normal: máximo permitido = limit
       if(v>limit){st.textContent='⚠️ '+v+'kg EXCEDE el límite de '+limit+'kg';st.style.color='var(--red)';}
       else if(v>0){st.textContent='✓ '+v+'kg dentro del límite ('+limit+'kg)';st.style.color='var(--green)';}
       else{st.textContent='Límite categoría: '+limit+' kg';st.style.color='var(--muted)';}
+    } else if(isPlusCat && catKg){
+      // Categoría "+X": el atleta DEBE pesar más que X
+      if(v>0 && v<=catKg){st.textContent='⚠️ '+v+'kg NO califica para +'+catKg+'kg (debe pesar más de '+catKg+'kg)';st.style.color='var(--red)';}
+      else if(v>catKg){st.textContent='✓ '+v+'kg califica para +'+catKg+'kg';st.style.color='var(--green)';}
+      else{st.textContent='Categoría +'+catKg+' kg (debe pesar más de '+catKg+' kg)';st.style.color='var(--muted)';}
     }
   });
 }
@@ -841,8 +850,13 @@ function confirmWeighIn(id,catKg,limit){
   const alertEl=document.getElementById('wi_alert');
   // Validate BW > 0
   if(!bw){alertEl.style.display='block';alertEl.textContent='⚠️ Ingresa el peso corporal';return;}
-  // Warn if over limit (don't block — jury decision)
-  if(limit>0&&bw>limit){
+  // Re-derivar si es categoría "+" (sin límite superior)
+  const _a=DATA.athletes.find(x=>x.id===id);
+  const _isPlusCat=_a&&(_a.cat||'').includes('+');
+  // Warn según el tipo de categoría
+  if(_isPlusCat && catKg>0 && bw<=catKg){
+    if(!confirm('⚠️ El peso '+bw+'kg NO califica para la categoría +'+catKg+'kg (debe pesar más de '+catKg+'kg).\n¿Confirmar igualmente?'))return;
+  } else if(!_isPlusCat && limit>0 && bw>limit){
     if(!confirm('⚠️ El peso '+bw+'kg EXCEDE el límite de la categoría ('+limit+'kg).\n¿El atleta compite fuera de categoría o el jurado aprobó? Confirmar igualmente.'))return;
   }
   // Save
@@ -1480,7 +1494,14 @@ function exportJSON(){const r=rankings();const blob=new Blob([JSON.stringify(r.m
 function exportCompetenciasParaPerfiles(){
   const evName=DATA.event?.name||'Campeonato sin nombre';
   const today=new Date().toISOString().slice(0,10);
-  const flightAth=DATA.athletes.filter(a=>!a.bombed||totalOf(a)>0||bestOf(a,'bp')>0);
+  // Incluimos también atletas DQ (3 fallos en algún lift) y los que tienen
+  // al menos un intento registrado (aunque su total sea 0).
+  const flightAth=DATA.athletes.filter(a=>{
+    if(a.bombed && totalOf(a)<=0 && bestOf(a,'bp')<=0)return false;
+    // Incluir si tiene al menos un peso registrado o intento marcado
+    const hasAnyAttempt=['sq','bp','dl'].some(l=>(a.att?.[l]||[]).some(at=>at.w>0||at.r));
+    return hasAnyAttempt;
+  });
   const out=[];
   flightAth.forEach(a=>{
     // Para cada vista en la que participa, generar una entrada de competencia
@@ -1488,9 +1509,11 @@ function exportCompetenciasParaPerfiles(){
     if(isMeetClassic(a)||isMeetEquipped(a))views.push('meet');
     if(inBenchRanking(a))views.push('bench');
     views.forEach(view=>{
+      const dq=view==='meet'&&isDQ(a);
       const t=totalOf(a,view);
-      if(t<=0)return;
-      const gl=calcGL(t,a.bw,a.sex,a.mod,view);
+      // Excluir solo si NO hay total Y NO está DQ (i.e. no compitió ese movimiento)
+      if(t<=0 && !dq)return;
+      const gl=dq?0:calcGL(t,a.bw,a.sex,a.mod,view);
       const isEq=isMeetEquipped(a);
       let modLabel;
       if(view==='bench')modLabel=isEq?'Only Bench Equipado':'Only Bench Classic';
@@ -1510,8 +1533,9 @@ function exportCompetenciasParaPerfiles(){
           sq:view==='bench'?0:bestOf(a,'sq'),
           bp:bestOf(a,'bp'),
           dl:view==='bench'?0:bestOf(a,'dl'),
-          total:t,
-          glp:gl
+          total:dq?0:t,
+          glp:dq?0:gl,
+          status:dq?'DQ':'OK'
         },
         source:'yourlift_livecast'
       };

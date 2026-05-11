@@ -351,12 +351,37 @@ async function loadEventos() {
         }
       );
     }
+    // Cargar fotos ya aprobadas (atleta_fotos) — si el atleta ya tiene foto
+    // no le pediremos otra al inscribirse.
+    if (!window._fotosListener) {
+      window.FOTOS_BY_RUT = window.FOTOS_BY_RUT || {};
+      window._fotosListener = window.FB.onSnapshot(
+        window.FB.collection(db, 'atleta_fotos'),
+        (snap) => {
+          window.FOTOS_BY_RUT = {};
+          snap.docs.forEach(d => {
+            const data = d.data();
+            if (data.foto_url && data.status !== 'rejected' && data.rut) {
+              const key = String(data.rut).replace(/[^0-9kK]/g,'').toLowerCase();
+              if (key) window.FOTOS_BY_RUT[key] = data.foto_url;
+            }
+          });
+        }
+      );
+    }
   } catch(e) {
     console.warn('Eventos load error', e);
     EVENTS = [];
     render();
   }
 }
+
+// Helper: ¿el atleta del RUT ya tiene una foto aprobada?
+window.atletaTieneFoto = function(rut){
+  if(!rut) return false;
+  const key = String(rut).replace(/[^0-9kK]/g,'').toLowerCase();
+  return !!(window.FOTOS_BY_RUT && window.FOTOS_BY_RUT[key]);
+};
 
 function openEventsFromFirebase() {
   // Only show events explicitly marked as 'open' by admin
@@ -550,14 +575,35 @@ function renderForm() {
         ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA (opcional para nivel nacional)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
       </div>
     </div>
-    ${(EVENTS.find(e=>e.id===f.evento)?.requiereFoto)?`
-    <div class="field">
-      <label>Foto tipo Carnet (fondo blanco) <span class="req">*</span></label>
-      <div class="upload-zone ${state.carnetPhotoName?'done':''}" id="carnetPhotoZone">
-        <input type="file" accept="image/*" onchange="handleFile(this,'carnetPhoto')">
-        ${state.carnetPhotoName ? `<div class="icon">✅</div><div class="fname">${state.carnetPhotoName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📸</div><div class="txt">Foto de rostro con fondo blanco (tipo carnet)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG · Máx 5MB</div>`}
-      </div>
-    </div>`:''}
+    ${(()=>{
+      const ev = EVENTS.find(e=>e.id===f.evento);
+      const requiere = ev?.requiereFoto;
+      const yaTiene = window.atletaTieneFoto && window.atletaTieneFoto(f.rut);
+      if(!requiere) return '';
+      if(yaTiene){
+        // Ya tiene foto aprobada → mostramos confirmación, no se pide otra
+        return `
+        <div class="field">
+          <label>Foto tipo Carnet</label>
+          <div style="display:flex;align-items:center;gap:10px;padding:14px;background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:8px">
+            <span style="font-size:22px">✅</span>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:var(--green)">Foto ya cargada</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">El sistema usará la foto que tenés en tu perfil. No necesitás subir otra. Si querés cambiarla, contactá al admin.</div>
+            </div>
+          </div>
+        </div>`;
+      }
+      // No tiene foto → pedir la foto normalmente
+      return `
+      <div class="field">
+        <label>Foto tipo Carnet (fondo blanco) <span class="req">*</span></label>
+        <div class="upload-zone ${state.carnetPhotoName?'done':''}" id="carnetPhotoZone">
+          <input type="file" accept="image/*" onchange="handleFile(this,'carnetPhoto')">
+          ${state.carnetPhotoName ? `<div class="icon">✅</div><div class="fname">${state.carnetPhotoName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📸</div><div class="txt">Foto de rostro con fondo blanco (tipo carnet)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG · Máx 5MB</div>`}
+        </div>
+      </div>`;
+    })()}
     
     <!-- Summary -->
     <div style="background:var(--bg);border-radius:10px;padding:16px;margin-top:16px;border:1px solid var(--border)">
@@ -571,13 +617,28 @@ function renderForm() {
         <div><span style="color:var(--muted)">Categoría:</span> ${f.categoria}</div>
         <div><span style="color:var(--muted)">Modalidad:</span> ${f.modalidad}</div>
         <div><span style="color:var(--muted)">Carnet:</span> ${state.carnetName?'✅':'❌ Falta'}</div>
-        ${(EVENTS.find(e=>e.id===f.evento)?.requiereFoto)?`<div><span style="color:var(--muted)">Foto carnet:</span> ${state.carnetPhotoName?'✅':'❌ Falta'}</div>`:''}
+        ${(()=>{
+          const requiere = EVENTS.find(e=>e.id===f.evento)?.requiereFoto;
+          if(!requiere) return '';
+          const yaTiene = window.atletaTieneFoto && window.atletaTieneFoto(f.rut);
+          if(yaTiene) return '<div><span style="color:var(--muted)">Foto carnet:</span> ✅ (perfil)</div>';
+          return `<div><span style="color:var(--muted)">Foto carnet:</span> ${state.carnetPhotoName?'✅':'❌ Falta'}</div>`;
+        })()}
       </div>
     </div>
 
     <div style="display:flex;justify-content:space-between;margin-top:20px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
-      <button class="btn btn-green" onclick="submitForm()" ${!state.carnetName||((EVENTS.find(e=>e.id===f.evento)?.requiereFoto)&&!state.carnetPhotoName)||state.submitting?'disabled':''}>${state.submitting?'<span class="sp"></span> Enviando...':'✓ Enviar Inscripción'}</button>
+      <button class="btn btn-green" onclick="submitForm()" ${(()=>{
+        if(!state.carnetName) return 'disabled';
+        if(state.submitting) return 'disabled';
+        const requiere = EVENTS.find(e=>e.id===f.evento)?.requiereFoto;
+        if(requiere){
+          const yaTiene = window.atletaTieneFoto && window.atletaTieneFoto(f.rut);
+          if(!yaTiene && !state.carnetPhotoName) return 'disabled';
+        }
+        return '';
+      })()}>${state.submitting?'<span class="sp"></span> Enviando...':'✓ Enviar Inscripción'}</button>
     </div></div>`;
   }
 
