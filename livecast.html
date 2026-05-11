@@ -610,7 +610,9 @@ function setResult(id,l,r,res){
   // pero NO bombed (sigue compitiendo en los lifts siguientes).
   // bombed solo si falla los 9 intentos del meet completo.
   if(a.att.sq.every(x=>x.r==='n')&&a.att.bp.every(x=>x.r==='n')&&a.att.dl.every(x=>x.r==='n'))a.bombed=true;
+  // Reset timer y arrancar automáticamente para el próximo atleta
   DATA.timer=60;DATA.timerOn=false;clearInterval(mainTI);mainTI=null;
+  setTimeout(()=>{if(typeof startTimer==='function')startTimer();},150);
   // Record alert: check if this good lift breaks a national record
   if(res==='g')checkRecord(a,l,r);
   // Reset judge lights for next athlete
@@ -1002,10 +1004,26 @@ function loadLiveAthletes(ev){
 function overrideResult(id,l,r,res){
   const a=DATA.athletes.find(x=>x.id===id);if(!a)return;
   // Toggle: clicking same result clears it
-  a.att[l][r].r=(a.att[l][r].r===res)?null:res;
+  const wasSame=(a.att[l][r].r===res);
+  a.att[l][r].r=wasSame?null:res;
   // bombed = TODOS los 9 intentos fallidos (atleta totalmente fuera).
   // Si solo falla los 3 de un lift → queda DQ pero sigue compitiendo en los otros.
   a.bombed=a.att.sq.every(x=>x.r==='n')&&a.att.bp.every(x=>x.r==='n')&&a.att.dl.every(x=>x.r==='n');
+  // Si MARCAMOS un resultado (no limpiamos), arrancar timer para el siguiente atleta.
+  // Si era el current lifter en current round, también activar change timer para el próximo intento.
+  if(!wasSame && res){
+    if(l===DATA.lift && r===DATA.round && r<2){
+      const key=id+'_'+l+'_'+(r+1);
+      if(!a.att[l][r+1]||!a.att[l][r+1].w){
+        DATA.changeTimers[key]={remaining:60,expired:false};
+        startCT(key);
+      } else if(DATA.changeTimers[key]){
+        delete DATA.changeTimers[key];
+      }
+    }
+    DATA.timer=60;DATA.timerOn=false;clearInterval(mainTI);mainTI=null;
+    setTimeout(()=>{if(typeof startTimer==='function')startTimer();},150);
+  }
   saveNow();R();
 }
 
@@ -3286,16 +3304,13 @@ function renderCompete(){
   // Timer
   h+='<div class="card" style="padding:10px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><span id="mainTimer" class="os" style="font-size:34px;font-weight:700;color:'+(DATA.timer<=10?'var(--red)':DATA.timer<=30?'var(--orange)':'var(--green)')+';min-width:65px;text-align:center">'+Math.floor(DATA.timer/60)+':'+String(DATA.timer%60).padStart(2,'0')+'</span><div style="display:flex;gap:5px"><button class="btn btn-g" onclick="startTimer()" style="padding:7px 10px;font-size:10px" '+(DATA.timerOn?'disabled':'')+'>&#9654;</button><button class="btn" onclick="pauseTimer()" style="padding:7px 10px;font-size:10px;background:var(--gold);color:#fff">&#9208;</button><button class="btn btn-o" onclick="resetTimer()" style="padding:7px 10px;font-size:10px">\u21BA</button></div></div>';
   if(cur){
-    h+='<div class="card" style="border-left:4px solid '+LIFT_C[DATA.lift]+';margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div><div class="os" style="font-size:20px;font-weight:700">'+cur.name+'</div><div style="font-size:11px;color:var(--muted)">'+cur.club+' \u00b7 Lot #'+cur.lot+' \u00b7 '+cur.bw+'kg \u00b7 '+cur.div+' \u00b7 '+cur.cat+'</div></div><div style="display:flex;gap:6px;align-items:center">'+(rack?'<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:5px;font-size:10px">\uD83D\uDD27 '+rack+'</span>':'')+'<span class="flight-badge" style="background:'+(FL_C[cur.flight]||'#666')+'">'+cur.flight+'</span><span style="background:'+LIFT_C[DATA.lift]+';color:#fff;padding:3px 10px;border-radius:5px;font-family:Oswald;font-weight:700;font-size:12px">'+LIFT_S[DATA.lift]+(DATA.round+1)+'</span></div></div>';
-    h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><input type="number" step="2.5" class="inp" value="'+(cw||'')+'" onchange="setAtt('+cur.id+',\''+DATA.lift+'\','+DATA.round+',this.value);R()" style="font-size:22px;font-weight:700;font-family:Oswald;text-align:center;letter-spacing:2px;border-color:'+LIFT_C[DATA.lift]+';padding:12px"><span class="os" style="color:var(--muted);font-size:15px">KG</span></div>';
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    if(!judgeMode){
-      h+='<button onclick="setResult('+cur.id+',\''+DATA.lift+'\','+DATA.round+',\'g\')" style="padding:14px;border-radius:10px;border:3px solid var(--green);background:rgba(34,197,94,.08);color:var(--green);font-size:16px;font-weight:700;font-family:Oswald;letter-spacing:2px;cursor:pointer">\u2713 GOOD LIFT</button><button onclick="setResult('+cur.id+',\''+DATA.lift+'\','+DATA.round+',\'n\')" style="padding:14px;border-radius:10px;border:3px solid var(--red);background:rgba(239,68,68,.08);color:var(--red);font-size:16px;font-weight:700;font-family:Oswald;letter-spacing:2px;cursor:pointer">\u2717 NO LIFT</button>';
-    }else{
-      // Judge lights display — big=outcome(white/red), small=infraction color
+    // Info compacta del atleta actual (sin botones grandes - los GOOD/NO LIFT estan en la tabla)
+    h+='<div class="card" style="border-left:4px solid '+LIFT_C[DATA.lift]+';margin-bottom:10px;padding:10px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1;min-width:0"><div class="os" style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+cur.name+'</div><div style="font-size:10px;color:var(--muted)">'+cur.club+' \u00b7 '+cur.bw+'kg \u00b7 '+cur.div+' \u00b7 '+cur.cat+' \u00b7 pr\u00f3ximo: <strong style="color:'+LIFT_C[DATA.lift]+'">'+(cw||'\u2014')+'kg</strong></div></div><div style="display:flex;gap:6px;align-items:center">'+(rack?'<span style="background:var(--bg);border:1px solid var(--border);padding:3px 8px;border-radius:5px;font-size:10px">\uD83D\uDD27 '+rack+'</span>':'')+'<span class="flight-badge" style="background:'+(FL_C[cur.flight]||'#666')+'">'+cur.flight+'</span><span style="background:'+LIFT_C[DATA.lift]+';color:#fff;padding:3px 10px;border-radius:5px;font-family:Oswald;font-weight:700;font-size:12px">'+LIFT_S[DATA.lift]+(DATA.round+1)+'</span></div></div></div>';
+    // Modo Jueces: panel de luces. Si no, los GOOD/NO LIFT estan en cada celda de la tabla abajo.
+    if(judgeMode){
       const jcSmall={white:'#f0f0f0',red:'#ef4444',yellow:'#f59e0b',blue:'#3b82f6'};
       const jl=['izq','central','der'];const jn={izq:'IZQ',central:'CENTRAL',der:'DER'};
-      h+='<div style="grid-column:span 2;display:flex;justify-content:center;gap:20px;padding:10px 14px 4px">';
+      h+='<div class="card" style="margin-bottom:10px;padding:12px"><div style="display:flex;justify-content:center;gap:20px;padding:4px">';
       jl.forEach(j=>{
         const v=judgeLights[j];
         const bigCol=v?(v==='white'?'#f0f0f0':'#ef4444'):'var(--border)';
@@ -3311,24 +3326,24 @@ function renderCompete(){
       const votes=[judgeLights.izq,judgeLights.central,judgeLights.der].filter(Boolean);
       if(votes.length===3){
         const goods=votes.filter(v=>v==='white').length;
-        h+='<div style="grid-column:span 2;text-align:center;font-family:Oswald;font-size:22px;font-weight:700;letter-spacing:3px;color:'+(goods>=2?'var(--green)':'var(--red)')+';padding:6px">'+(goods>=2?'✓ GOOD LIFT':'✗ NO LIFT')+'</div>';
-        h+='<div style="grid-column:span 2;text-align:center;margin-top:2px"><button onclick="resetJudgeLights()" style="padding:5px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;font-size:10px;letter-spacing:1px;cursor:pointer">↺ LIMPIAR LUCES</button></div>';
+        h+='<div style="text-align:center;font-family:Oswald;font-size:22px;font-weight:700;letter-spacing:3px;color:'+(goods>=2?'var(--green)':'var(--red)')+';padding:6px">'+(goods>=2?'\u2713 GOOD LIFT':'\u2717 NO LIFT')+'</div>';
+        h+='<div style="text-align:center;margin-top:2px"><button onclick="resetJudgeLights()" style="padding:5px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;font-size:10px;letter-spacing:1px;cursor:pointer">\u21BA LIMPIAR LUCES</button></div>';
       }else if(votes.length>0){
-        h+='<div style="grid-column:span 2;text-align:center;font-family:Oswald;font-size:13px;color:var(--muted);padding:6px">Esperando jueces ('+votes.length+'/3)…</div>';
-        h+='<div style="grid-column:span 2;text-align:center"><button onclick="resetJudgeLights()" style="padding:5px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;font-size:10px;letter-spacing:1px;cursor:pointer">↺ LIMPIAR LUCES</button></div>';
+        h+='<div style="text-align:center;font-family:Oswald;font-size:13px;color:var(--muted);padding:6px">Esperando jueces ('+votes.length+'/3)\u2026</div>';
+        h+='<div style="text-align:center"><button onclick="resetJudgeLights()" style="padding:5px 16px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Oswald;font-size:10px;letter-spacing:1px;cursor:pointer">\u21BA LIMPIAR LUCES</button></div>';
       }else{
-        h+='<div style="grid-column:span 2;text-align:center;font-family:Oswald;font-size:13px;color:var(--muted);padding:6px">Esperando jueces (0/3)…</div>';
+        h+='<div style="text-align:center;font-family:Oswald;font-size:13px;color:var(--muted);padding:6px">Esperando jueces (0/3)\u2026</div>';
       }
+      h+='</div>';
     }
-    h+='</div>';
-    // Judge mode toggle
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid '+(judgeMode?'var(--green)':'var(--border)')+'">';
-    h+='<div><span style="font-size:12px;font-weight:600;color:'+(judgeMode?'var(--green)':'var(--muted)')+'">Modo Jueces</span><span style="font-size:10px;color:var(--muted);margin-left:6px">'+(judgeMode?'ACTIVO — decisiones desde panel de jueces':'DESACTIVADO — decisiones manuales')+'</span></div>';
+    // Judge mode toggle + record button (siempre visibles)
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:8px 12px;background:var(--bg);border-radius:8px;border:1px solid '+(judgeMode?'var(--green)':'var(--border)')+'">';
+    h+='<div><span style="font-size:12px;font-weight:600;color:'+(judgeMode?'var(--green)':'var(--muted)')+'">Modo Jueces</span><span style="font-size:10px;color:var(--muted);margin-left:6px">'+(judgeMode?'ACTIVO \u2014 luces':'DESACTIVADO \u2014 manual')+'</span></div>';
     h+='<button onclick="toggleJudgeMode()" style="padding:6px 14px;border-radius:6px;border:1px solid '+(judgeMode?'var(--green)':'var(--border)')+';background:'+(judgeMode?'rgba(34,197,94,.15)':'transparent')+';color:'+(judgeMode?'var(--green)':'var(--muted)')+';font-family:Oswald;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:1px">'+(judgeMode?'DESACTIVAR':'ACTIVAR')+'</button></div>';
-    // Record attempt button
-    h+='<button onclick="manualRecordAlert()" style="width:100%;margin-top:8px;padding:9px 14px;border-radius:8px;border:2px solid #D4A843;background:rgba(212,168,67,.08);color:#D4A843;font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">&#127942; SE PERMITE RÉCORD NACIONAL</button>';
-    h+='</div>';
-  }else{h+='<div class="card" style="text-align:center;padding:20px"><p class="os" style="font-size:15px;color:var(--gold);margin-bottom:10px">RONDA COMPLETADA</p><button class="btn btn-r" onclick="advanceLift()">Siguiente \u2192</button></div>'}
+    h+='<button onclick="manualRecordAlert()" style="width:100%;padding:9px 14px;border-radius:8px;border:2px solid #D4A843;background:rgba(212,168,67,.08);color:#D4A843;font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">\uD83C\uDFC6 SE PERMITE R\u00C9CORD NACIONAL</button>';
+  }else{
+    h+='<div class="card" style="text-align:center;padding:20px"><p class="os" style="font-size:15px;color:var(--gold);margin-bottom:10px">RONDA COMPLETADA</p><button class="btn btn-r" onclick="advanceLift()">Siguiente \u2192</button></div>';
+  }
   // Active change timers
   const activeCTs=Object.keys(DATA.changeTimers).filter(k=>{const ct=DATA.changeTimers[k];return ct&&!ct.expired&&ct.remaining>0});
   if(activeCTs.length){
@@ -3367,11 +3382,19 @@ function renderCompete(){
       h+='<td style="text-align:center;padding:8px 4px"><span class="os" style="color:'+(isCurrent?LIFT_C[DATA.lift]:inQueue?'var(--gold)':'var(--muted)')+';font-weight:700;font-size:'+(isCurrent?16:13)+'px">'+(inQueue?(queuePos+1):'\u00b7')+'</span></td>';
       // Nombre del atleta
       h+='<td style="padding:8px;font-size:'+(isCurrent?14:13)+'px;font-weight:'+(isCurrent?700:500)+';color:'+(isCurrent?'#fff':'var(--text)')+'">'+a.name+'</td>';
-      // 3 intentos
+      // 3 intentos \u2014 cada celda tiene el peso editable + botones \u2713/\u2717 debajo
       a.att[DATA.lift].forEach((at,j)=>{
         const c = at.r==='g'?'att-g':at.r==='n'?'att-n':at.w>0?'att-p':'att-e';
         const isCurrentAtt = inQueue && j===DATA.round;
-        h+='<td style="padding:4px"><div class="'+c+' att" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:'+(isCurrentAtt?16:14)+'px;font-weight:700;padding:10px 6px;'+(isCurrentAtt?'box-shadow:inset 0 0 0 2px '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'\u2014')+'</div></td>';
+        const gActive = at.r==='g';
+        const nActive = at.r==='n';
+        h+='<td style="padding:4px;vertical-align:top">'
+          +'<div class="'+c+' att" onclick="editAtt('+a.id+',\''+DATA.lift+'\','+j+')" style="font-size:'+(isCurrentAtt?16:14)+'px;font-weight:700;padding:10px 6px;margin-bottom:3px;'+(isCurrentAtt?'box-shadow:inset 0 0 0 2px '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'\u2014')+'</div>'
+          +'<div style="display:flex;gap:2px">'
+            +'<button onclick="event.stopPropagation();overrideResult('+a.id+',\''+DATA.lift+'\','+j+',\'g\')" title="GOOD LIFT (click otra vez para limpiar)" style="flex:1;padding:5px 0;border-radius:4px;border:1px solid '+(gActive?'#5cb37f':'rgba(92,179,127,.35)')+';background:'+(gActive?'rgba(92,179,127,.3)':'transparent')+';color:'+(gActive?'#5cb37f':'rgba(92,179,127,.6)')+';font-size:11px;font-weight:700;cursor:pointer;line-height:1">\u2713</button>'
+            +'<button onclick="event.stopPropagation();overrideResult('+a.id+',\''+DATA.lift+'\','+j+',\'n\')" title="NO LIFT (click otra vez para limpiar)" style="flex:1;padding:5px 0;border-radius:4px;border:1px solid '+(nActive?'#cc6666':'rgba(204,102,102,.35)')+';background:'+(nActive?'rgba(204,102,102,.3)':'transparent')+';color:'+(nActive?'#cc6666':'rgba(204,102,102,.6)')+';font-size:11px;font-weight:700;cursor:pointer;line-height:1">\u2717</button>'
+          +'</div>'
+          +'</td>';
       });
       // Best
       h+='<td style="text-align:center;padding:6px 4px;font-weight:700;font-family:Oswald;color:var(--gold);font-size:14px">'+(b||'\u2014')+'</td>';
