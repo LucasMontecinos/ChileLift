@@ -197,7 +197,7 @@ async function initFB(){
           R();
         }).catch(()=>{isAdmin=true;R();}); // fallback: trust auth
       } else {
-        if(isAdmin){isAdmin=false;DATA.phase='results';R();}
+        if(isAdmin){isAdmin=false;DATA.phase='liveView';R();}
       }
     });
     console.log('[FB] Firebase ready');
@@ -285,7 +285,7 @@ async function doLogin(){
   }
 }
 async function doLogout(){
-  isAdmin=false;DATA.phase='results';save();
+  isAdmin=false;DATA.phase='liveView';save();
   // Sign out from Firebase so admin.html also reflects the logout
   try{
     const authMod=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
@@ -480,10 +480,10 @@ function pickEvent(i){
   if(!isAdmin&&fbReady){
     tryLoadFromFB().then(ok=>{
       if(ok)console.log('[FB] Using Firebase state');
-      DATA.phase='results';save();R();startFBSync();
+      DATA.phase='liveView';save();R();startFBSync();
     });
   }else{
-    go(isAdmin?'manage':'results');startFBSync();
+    go(isAdmin?'manage':'liveView');startFBSync();
   }
 }
 let judgeMode=false,judgeLights={izq:null,central:null,der:null},judgeUnsub=null,_lastTimerSignal=0;
@@ -3644,7 +3644,14 @@ function renderResults(){
   });
   Object.values(divGroups).forEach(arr=>arr.sort((a,b)=>b.gl-a.gl));
 
-  let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:24px;letter-spacing:2px">RESULTADOS <span style="background:'+FL_C[DATA.flight]+';color:#fff;padding:2px 10px;border-radius:6px;font-size:14px;vertical-align:middle">VUELO '+DATA.flight+'</span></h2><p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' · '+DATA.athletes.length+' atletas</p></div><button class="btn btn-g" onclick="exportJSON()">📥 Exportar</button><button class="btn" onclick="cerrarCompetenciaConfirm()" style="background:rgba(168,85,247,.15);border:1px solid #a855f7;color:#a855f7;font-weight:700" title="Publica todos los resultados a Firestore — visibles inmediatamente en perfiles + ranking">🏁 Cerrar competencia</button><button id="btnActaPDF" class="btn btn-r" onclick="generateActaPDF()" style="background:rgba(196,30,58,.15);border-color:var(--accent)">📋 Generar Acta PDF</button></div>';
+  // Los botones admin (Exportar, Cerrar, PDF) solo se muestran si está logueado como admin
+  let adminButtons = '';
+  if(isAdmin){
+    adminButtons = '<button class="btn btn-g" onclick="exportJSON()">📥 Exportar</button>'
+      +'<button class="btn" onclick="cerrarCompetenciaConfirm()" style="background:rgba(168,85,247,.15);border:1px solid #a855f7;color:#a855f7;font-weight:700" title="Publica todos los resultados a Firestore — visibles inmediatamente en perfiles + ranking">🏁 Cerrar competencia</button>'
+      +'<button id="btnActaPDF" class="btn btn-r" onclick="generateActaPDF()" style="background:rgba(196,30,58,.15);border-color:var(--accent)">📋 Generar Acta PDF</button>';
+  }
+  let h='<div class="fade"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px"><div><h2 class="os" style="font-size:24px;letter-spacing:2px">RESULTADOS <span style="background:'+FL_C[DATA.flight]+';color:#fff;padding:2px 10px;border-radius:6px;font-size:14px;vertical-align:middle">VUELO '+DATA.flight+'</span></h2><p style="color:var(--muted);font-size:12px">'+(DATA.event?.name||'')+' · '+DATA.athletes.length+' atletas</p></div>'+adminButtons+'</div>';
 
   // Stats
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">';
