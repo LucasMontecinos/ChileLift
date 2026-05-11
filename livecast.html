@@ -321,10 +321,13 @@ function calcGL(t,bw,sex,mod,view){
   view=view||'meet';
 
   // Detectar la modalidad efectiva según la tabla a la que pertenece este cálculo
-  const isOnlyBenchPure=(mod==='onlybench');
+  const isOnlyBenchPure=(mod==='onlybench'||mod==='oe_bench');
   const isClassicBench=(mod==='classic_bench');
   const isEquippedBench=(mod==='equipped_bench');
   const isEquippedMeet=(mod==='equipped'||mod==='Equipado'||mod==='SP');
+  // Special Olympics: usa los MISMOS coeficientes Classic IPF GL
+  // (la modalidad solo separa el ranking, no cambia la fórmula)
+  // const isOE=(mod==='oe_classic'||mod==='oe_bench');
 
   let c;
 
@@ -360,6 +363,11 @@ function inMeetRanking(a){
 function inBenchRanking(a){
   return a&&(a.mod==='onlybench'||a.mod==='classic_bench'||a.mod==='equipped_bench');
 }
+function inOERanking(a){
+  return a&&(a.mod==='oe_classic'||a.mod==='oe_bench');
+}
+function isOEClassic(a){return a&&a.mod==='oe_classic';}
+function isOEBench(a){return a&&a.mod==='oe_bench';}
 function isMeetClassic(a){
   return a&&(a.mod==='classic'||a.mod==='classic_bench');
 }
@@ -372,15 +380,15 @@ function totalOf(a,view){
   //       'bench' → solo mejor BP (para tabla Only Bench)
   if(!a)return 0;
   view=view||'meet';
-  // Only Bench puro: siempre devuelve BP (no tiene SQ/DL)
-  if(a.mod==='onlybench')return bestOf(a,'bp')||0;
+  // Only Bench puro (incluido OE bench): siempre devuelve BP
+  if(a.mod==='onlybench'||a.mod==='oe_bench')return bestOf(a,'bp')||0;
   // Combinadas: si view=bench, devolver mejor BP
   if(view==='bench'&&(a.mod==='classic_bench'||a.mod==='equipped_bench')){
     return bestOf(a,'bp')||0;
   }
   // Para Powerlifting completo: si está DQ (3 fails en algún lift) → total inválido
   if(isDQ(a))return 0;
-  // Default: full meet (Classic/Equipped/combinadas en view=meet)
+  // Default: full meet (Classic/Equipped/OE Classic/combinadas en view=meet)
   const s=bestOf(a,'sq'),b=bestOf(a,'bp'),d=bestOf(a,'dl');
   return(s&&b&&d)?s+b+d:0;
 }
@@ -448,10 +456,13 @@ function pickEvent(i){
     const rawMod=(a.modalidad||a.mod||'').toLowerCase();
     // Mapear todas las modalidades soportadas
     let mod;
+    const isOE=rawMod.includes('special olympics')||rawMod.includes('olimpiadas')||rawMod.includes(' oe')||rawMod.endsWith('oe');
     const isEq=rawMod.includes('equipado')||rawMod.includes('equipped');
     const isBench=rawMod.includes('only bench')||rawMod.includes('onlybench')||rawMod.includes('only_bench');
     const isCombined=rawMod.includes('+');
-    if(isCombined&&isEq) mod='equipped_bench';
+    if(isOE&&isBench) mod='oe_bench';
+    else if(isOE) mod='oe_classic';
+    else if(isCombined&&isEq) mod='equipped_bench';
     else if(isCombined) mod='classic_bench';
     else if(isBench&&isEq) mod='equipped_bench'; // edge case raro
     else if(isBench) mod='onlybench';
@@ -1528,8 +1539,8 @@ async function cerrarCompetencia(evId, evName){
   for(const a of ath){
     // Generar entradas por vista (meet/bench si compite en combinada)
     const views = [];
-    if(isMeetClassic(a)||isMeetEquipped(a)) views.push('meet');
-    if(inBenchRanking(a) && bestOf(a,'bp')>0) views.push('bench');
+    if(isMeetClassic(a)||isMeetEquipped(a)||isOEClassic(a)) views.push('meet');
+    if((inBenchRanking(a)||isOEBench(a)) && bestOf(a,'bp')>0) views.push('bench');
 
     for(const view of views){
       const dq = view==='meet' && isDQ(a);
@@ -1538,8 +1549,11 @@ async function cerrarCompetencia(evId, evName){
       if(t<=0 && !dq) continue;
       const gl = dq ? 0 : calcGL(t, a.bw, a.sex, a.mod, view);
       const isEq = isMeetEquipped(a);
+      const isOE = isOEClassic(a) || isOEBench(a);
       let modLabel;
-      if(view==='bench') modLabel = isEq ? 'Only Bench Equipado' : 'Only Bench Classic';
+      if(isOE && view==='bench') modLabel = 'Only Bench Classic Special Olympics';
+      else if(isOE) modLabel = 'Powerlifting Classic Special Olympics';
+      else if(view==='bench') modLabel = isEq ? 'Only Bench Equipado' : 'Only Bench Classic';
       else modLabel = isEq ? 'Powerlifting Equipado' : 'Powerlifting Classic';
 
       // Doc ID determinístico: {eventoId}_{codigo o rut}_{view}
@@ -3492,6 +3506,8 @@ function renderResults(){
   const classicAthletes=flightAth.filter(a=>isMeetClassic(a));
   const equippedAthletes=flightAth.filter(a=>isMeetEquipped(a));
   const benchAthletes=flightAth.filter(a=>inBenchRanking(a));
+  const oeClassicAthletes=flightAth.filter(a=>isOEClassic(a));
+  const oeBenchAthletes=flightAth.filter(a=>isOEBench(a));
 
   // Top 3 GL por división combinando todas las modalidades
   const allEntries=[
@@ -3542,6 +3558,8 @@ function renderResults(){
   h+=_renderResultsTable({title:'POWERLIFTING CLASSIC',icon:'🏋️',color:'#22c55e',athletes:classicAthletes,view:'meet'});
   h+=_renderResultsTable({title:'POWERLIFTING EQUIPADO',icon:'⚙️',color:'#f59e0b',athletes:equippedAthletes,view:'meet'});
   h+=_renderResultsTable({title:'ONLY BENCH',icon:'💪',color:'#D4A843',athletes:benchAthletes,view:'bench'});
+  h+=_renderResultsTable({title:'POWERLIFTING — OLIMPIADAS ESPECIALES (OE)',icon:'🌟',color:'#a855f7',athletes:oeClassicAthletes,view:'meet'});
+  h+=_renderResultsTable({title:'ONLY BENCH — OLIMPIADAS ESPECIALES (OE)',icon:'🌟',color:'#a855f7',athletes:oeBenchAthletes,view:'bench'});
 
   h+='</div>';
   return h;
