@@ -115,9 +115,7 @@ var TABS=[
 {id:'bench_eq_m',lb:'💪 Bench Equipado Masculino',s:'sm'},
 {id:'bench_eq_f',lb:'💪 Bench Equipado Femenino',s:'sf'},
 {id:'oe_m',lb:'🌟 OE Masculino',s:'sm'},
-{id:'oe_f',lb:'🌟 OE Femenino',s:'sf'},
-{id:'bench_oe_m',lb:'🌟 Bench OE Masculino',s:'sm'},
-{id:'bench_oe_f',lb:'🌟 Bench OE Femenino',s:'sf'}
+{id:'oe_f',lb:'🌟 OE Femenino',s:'sf'}
 ];
 
 var DO={'Sub Junior':0,'Junior':1,'Open':2,'Master I':3,'Master II':4};
@@ -143,7 +141,8 @@ function _getTab(sex,modalidad,view){
   var isOE=/special olympics|olimpiadas|\bOE\b/i.test(mod);
   var isEq=/(equipado|equipped)/i.test(mod);
   var isBenchOnly=/only ?bench/i.test(mod);
-  if(isOE) return (view==='bench'||isBenchOnly?'bench_oe_':'oe_')+s;
+  // OE solo tiene Powerlifting Classic (no Only Bench)
+  if(isOE) return 'oe_'+s;
   if(view==='bench'||isBenchOnly) return (isEq?'bench_eq_':'bench_cl_')+s;
   return (isEq?'eq_':'cl_')+s;
 }
