@@ -48,7 +48,20 @@ input,select,button{font-family:inherit;outline:none}
 .sb-wrap{background:var(--bg);min-height:100vh}
 .sb-top{display:flex;justify-content:space-between;align-items:center;padding:12px 30px;background:linear-gradient(90deg,var(--accent),#8B1525);color:#fff}
 .sb-body{display:grid;grid-template-columns:1fr 380px;min-height:calc(100vh - 56px)}
-@media(max-width:900px){.shell{grid-template-columns:1fr}.side{display:none}.sb-body{grid-template-columns:1fr}}
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  /* Sidebar como barra horizontal arriba en móviles (scrollable) */
+  .side{position:relative;top:auto;height:auto;max-height:none;padding:8px;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:6px;border-right:none;border-bottom:1px solid var(--border)}
+  .side .logo{display:none}
+  .side .user{display:none}
+  .side-label{display:none}
+  .event-name-side{display:none}
+  .side-btn{flex-shrink:0;padding:8px 12px;margin:0;font-size:11px;white-space:nowrap;width:auto}
+  .side-btn .icon{margin-right:4px}
+  /* Sin scroll vertical en main para que la barra superior no se pegue */
+  .main{padding:14px}
+  .sb-body{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -254,6 +267,9 @@ function startFBSync(){
     const d=snap.data();
     _fbSyncing=true;
     try{
+      // Detectar si SOLO cambió el timer (eso pasa cada segundo y no debe causar re-render
+      // en la vista pública "Competencia en Vivo")
+      const prevSig = (DATA.athletes?JSON.stringify(DATA.athletes):'')+'|'+DATA.lift+'|'+DATA.round+'|'+DATA.flight;
       DATA.event=d.event||DATA.event;
       DATA.athletes=JSON.parse(d.athletes||'[]');
       DATA.lift=d.lift||DATA.lift;
@@ -262,7 +278,18 @@ function startFBSync(){
       DATA.changeTimers=JSON.parse(d.changeTimers||'{}');
       DATA.lotsGenerated=d.lotsGenerated||false;
       if(typeof d.timer==='number'){DATA.timer=d.timer;DATA.timerOn=d.timerOn||false;if(DATA.timerOn&&!mainTI)startTimer();if(!DATA.timerOn&&mainTI){clearInterval(mainTI);mainTI=null}}
-      R();
+      const newSig = JSON.stringify(DATA.athletes)+'|'+DATA.lift+'|'+DATA.round+'|'+DATA.flight;
+      const structuralChange = prevSig !== newSig;
+      // Solo re-renderizar si hubo cambio estructural (no solo timer) — evita flicker en vista pública
+      if(structuralChange){
+        R();
+      } else {
+        // Actualizar solo el timer en pantalla sin re-render
+        const tmEls = ['mainTimer','sbTimer','txTimer','txTimerPanel'];
+        const mm = Math.floor(DATA.timer/60), ss = DATA.timer%60;
+        const txt = String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+        tmEls.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=txt;});
+      }
     }catch(e){console.warn('[FB] Sync read error',e)}
     _fbSyncing=false;
   });
@@ -2810,8 +2837,8 @@ function renderShell(){
   const flights=[...new Set(DATA.athletes.map(a=>a.flight))].sort();const p=DATA.phase;
   // El botón "Volver a YourLift" sobre el logo (estilo unificado)
   let h='<div class="shell"><div class="side">';
-  h+='<a href="index.html" style="display:flex;align-items:center;gap:6px;padding:8px 12px;margin-bottom:12px;background:rgba(10,22,40,.6);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;transition:all .15s" onmouseenter="this.style.borderColor=\'#D4A843\';this.style.color=\'#D4A843\'" onmouseleave="this.style.borderColor=\'rgba(212,168,67,.4)\';this.style.color=\'rgba(220,230,245,.85)\'">← Volver a YourLift</a>';
-  h+='<div class="logo"><img src="YourLift_logo.png" style="height:28px" onerror="this.remove()"> LC</div><div style="font-size:11px;color:var(--muted);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(DATA.event?.short||DATA.event?.name||'')+'</div>';
+  h+='<a href="index.html" class="side-back-yl" style="display:flex;align-items:center;gap:6px;padding:8px 12px;margin-bottom:12px;background:rgba(10,22,40,.6);border:1px solid rgba(212,168,67,.4);border-radius:8px;color:rgba(220,230,245,.85);font-family:Oswald,sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-decoration:none;cursor:pointer;transition:all .15s;flex-shrink:0;white-space:nowrap" onmouseenter="this.style.borderColor=\'#D4A843\';this.style.color=\'#D4A843\'" onmouseleave="this.style.borderColor=\'rgba(212,168,67,.4)\';this.style.color=\'rgba(220,230,245,.85)\'">← YourLift</a>';
+  h+='<div class="logo"><img src="YourLift_logo.png" style="height:28px" onerror="this.remove()"> LC</div><div class="event-name-side" style="font-size:11px;color:var(--muted);margin-bottom:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(DATA.event?.short||DATA.event?.name||'')+'</div>';
   if(isAdmin){
   h+='<div class="side-label">Gesti\u00f3n</div><button class="side-btn '+(p==='manage'?'active':'')+'" onclick="go(\'manage\')"><span class="icon">\uD83D\uDCCB</span>Atletas & Pesaje</button>';
   h+='<div class="side-label">Competencia</div><button class="side-btn '+(p==='compete'?'active':'')+'" onclick="go(\'compete\')"><span class="icon">\uD83C\uDFCB\uFE0F</span>Control en Vivo</button>';
