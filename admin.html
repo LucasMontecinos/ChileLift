@@ -1792,8 +1792,14 @@ function renderCampeonatos(){
           <input class="inp" type="date" id="ef_date" value="${editing.date||''}">
         </label>
         <label class="field">
-          <span>🔒 Cierre de nómina</span>
-          <input class="inp" type="date" id="ef_closeDate" value="${editing.closeDate||''}">
+          <span>📝 Cierre PRE-NÓMINA (inscripciones)</span>
+          <input class="inp" type="datetime-local" id="ef_preNominaCloseAt" value="${editing.preNominaCloseAt||''}" title="Fecha y hora límite para inscribirse al evento">
+          <span style="font-size:10px;color:var(--muted);margin-top:2px">Después de esta fecha NO se aceptan nuevas inscripciones</span>
+        </label>
+        <label class="field">
+          <span>🔒 Cierre NÓMINA (cambios)</span>
+          <input class="inp" type="datetime-local" id="ef_nominaCloseAt" value="${editing.nominaCloseAt||editing.closeDate||''}" title="Fecha y hora límite para cambios de categoría o bajas">
+          <span style="font-size:10px;color:var(--muted);margin-top:2px">Después: no se permiten cambios de cat ni bajas</span>
         </label>
         <label class="field">
           <span>📍 Ubicación</span>
@@ -1903,7 +1909,7 @@ function renderCampeonatos(){
 
 // ── CRUD helpers ────────────────────────────────────────────
 window.newEvento = function(){
-  ST.eventoForm = {id:'',name:'',date:'',closeDate:'',location:'',org:'',days:'',status:'open',extraCols:['modalidad'],recordsEnabled:true,cronogramaPublic:true,requiereFoto:false};
+  ST.eventoForm = {id:'',name:'',date:'',closeDate:'',preNominaCloseAt:'',nominaCloseAt:'',location:'',org:'',days:'',status:'open',extraCols:['modalidad'],recordsEnabled:true,cronogramaPublic:true,requiereFoto:false};
   ST.eventoFormMode = 'create';
   render();
 };
@@ -1922,7 +1928,12 @@ window.saveEvento = async function(){
   const name = (document.getElementById('ef_name').value||'').trim();
   const status = document.getElementById('ef_status').value;
   const date   = document.getElementById('ef_date').value;
-  const closeDate = document.getElementById('ef_closeDate').value;
+  // Nuevos campos: cierre de pre-nómina (inscripciones) + cierre de nómina (cambios)
+  const preNominaCloseAt = document.getElementById('ef_preNominaCloseAt')?.value || '';
+  const nominaCloseAt = document.getElementById('ef_nominaCloseAt')?.value || '';
+  // Compat: closeDate es la fecha (sin hora) del cierre de nómina, para mantener
+  // funcionando el auto-close existente que solo lee fechas.
+  const closeDate = nominaCloseAt ? nominaCloseAt.slice(0,10) : '';
   const location  = document.getElementById('ef_location').value.trim();
   const org       = document.getElementById('ef_org').value.trim();
   const days      = document.getElementById('ef_days').value.trim();
@@ -1934,7 +1945,7 @@ window.saveEvento = async function(){
   if(!id || !name){ showToast('ID y nombre son obligatorios', null, true); return; }
   if(isNew && ST.eventos.find(e=>e.id===id)){ showToast('Ya existe un campeonato con ese ID', null, true); return; }
 
-  const data = {id, name, date, closeDate, location, org, days, status,
+  const data = {id, name, date, closeDate, preNominaCloseAt, nominaCloseAt, location, org, days, status,
     extraCols: [extra], recordsEnabled, cronogramaPublic, requiereFoto,
     updatedAt: serverTimestamp()};
   if(isNew) data.createdAt = serverTimestamp();

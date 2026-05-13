@@ -419,8 +419,32 @@ window.atletaTieneFoto = function(rut){
 };
 
 function openEventsFromFirebase() {
-  // Only show events explicitly marked as 'open' by admin
-  return EVENTS.filter(e => e.status === 'open');
+  // Solo eventos abiertos Y cuya pre-nómina aún no haya cerrado.
+  const now = new Date();
+  return EVENTS.filter(e => {
+    if (e.status !== 'open') return false;
+    // Si tiene preNominaCloseAt (datetime-local: 'YYYY-MM-DDTHH:MM'), validar que aún no pasó.
+    if (e.preNominaCloseAt) {
+      const close = new Date(e.preNominaCloseAt);
+      if (!isNaN(close) && now > close) return false;
+    }
+    return true;
+  });
+}
+
+// Helper para mostrar el tiempo restante hasta el cierre de pre-nómina
+function timeUntilPreClose(ev) {
+  if (!ev?.preNominaCloseAt) return null;
+  const close = new Date(ev.preNominaCloseAt);
+  if (isNaN(close)) return null;
+  const diff = close - new Date();
+  if (diff <= 0) return 'CERRADO';
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (days > 0) return `${days}d ${hours}h restantes`;
+  if (hours > 0) return `${hours}h ${mins}min restantes`;
+  return `${mins}min restantes`;
 }
 
 // Admin auth: handled by Firebase Auth + admins/{uid} doc (see initFirebase)
@@ -946,6 +970,19 @@ async function lookupEdit() {
     candidates.sort((a,b) => (b.timestamp?.seconds||0) - (a.timestamp?.seconds||0));
     const found = candidates[0];
 
+    // VERIFICAR cierre de pre-nómina: si ya pasó, NO se puede editar
+    // (solo el admin puede modificar inscripciones post-cierre)
+    const ev = EVENTS.find(e => e.id === found.evento);
+    if (ev?.preNominaCloseAt) {
+      const close = new Date(ev.preNominaCloseAt);
+      if (!isNaN(close) && new Date() > close) {
+        const fechaCierre = close.toLocaleString('es-CL', {dateStyle:'short', timeStyle:'short'});
+        state.error = '🔒 La pre-nómina cerró el ' + fechaCierre + '. Ya no podés editar tu inscripción.\n\nPara cambios de categoría o bajas, contactá al admin del evento.';
+        render();
+        return;
+      }
+    }
+
     state.editId = found.id;
     state.editDoc = found;
     state.form = {
@@ -982,6 +1019,18 @@ async function saveEdit() {
 
   try {
     const f = state.form;
+    // Re-validar el cierre de pre-nómina al momento de enviar
+    // (el atleta pudo abrir el form ANTES del cierre y enviar DESPUÉS)
+    const ev = EVENTS.find(e => e.id === f.evento);
+    if (ev?.preNominaCloseAt) {
+      const close = new Date(ev.preNominaCloseAt);
+      if (!isNaN(close) && new Date() > close) {
+        state.submitting = false;
+        state.error = '🔒 La pre-nómina cerró mientras editabas. Tu solicitud no se envió. Contactá al admin del evento.';
+        render();
+        return;
+      }
+    }
     // Solo campos editables por el atleta. NO evento, status, flight,
     // sortOrder, rut, carnetURL, wadeURL, pin.
     const changes = {
