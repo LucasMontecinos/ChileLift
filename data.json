@@ -10554,45 +10554,7 @@
         "place": "1",
         "source": "liftingcast"
       },
-      {
-        "evento": "V Campeonato Zona Centro Clausura FECHIPO 2024",
-        "fecha": "2024-12-07",
-        "division": "",
-        "categoria": "93",
-        "modalidad": "Powerlifting Classic",
-        "sexo": "Hombre",
-        "resultado": {
-          "sq": 205,
-          "bp": 110,
-          "dl": 235,
-          "total": 550,
-          "bw": 90.3,
-          "glp": 73,
-          "rank": 79
-        },
-        "source": "openpowerlifting",
-        "opl_meet": "fechipo/2402"
-      },
-      {
-        "evento": "Nacional Chile 2017",
-        "fecha": "2017-01-01",
-        "division": "",
-        "categoria": "63",
-        "modalidad": "Powerlifting Classic",
-        "sexo": "Mujer",
-        "resultado": {
-          "sq": 70,
-          "bp": 42.5,
-          "dl": 90,
-          "total": 202.5,
-          "bw": 58,
-          "glp": null,
-          "rank": 39,
-          "wilks": 231.8
-        },
-        "source": "openpowerlifting",
-        "opl_meet": "fechipo/1701"
-      },
+    
       {
         "evento": "Campeonato Nacional FECHIPO 2025",
         "fecha": "2025-05-23",
@@ -10625,9 +10587,9 @@
       }
     ],
     "bestLifts": {
-      "sq": 205,
-      "bp": 110,
-      "dl": 235,
+      "sq": 190.5,
+      "bp": 101,
+      "dl": 180,
       "total": 471.5,
       "glp": 85.066,
       "dots": 408.96318082612777
