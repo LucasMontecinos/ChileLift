@@ -572,7 +572,7 @@ function renderForm() {
       <label>Certificado ADEL/WADA</label>
       <div class="upload-zone ${state.wadeName?'done':''}" id="wadeZone">
         <input type="file" accept="image/*,.pdf" onchange="handleFile(this,'wade')">
-        ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA (opcional para nivel nacional)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
+        ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
       </div>
     </div>
     ${(()=>{
