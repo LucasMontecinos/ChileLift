@@ -279,23 +279,58 @@ function generateCode(rut, nombre) {
 function autoFillCode() {
   const f = state.form;
   const rut = formatRut(f.rut);
-  const nombre = formatName(f.nombre);
-  if (!rut || !nombre) return;
+  if (!rut) return;
 
-  // Search DB
+  // Buscar por RUT en base de datos
   const found = findAthleteByRut(rut);
   if (found && found.codigo) {
+    // ATLETA EXISTENTE → autocompletar nombre completo, sexo, fecha de nacimiento
+    const nameChanged = (found.nombre || '').trim() && (found.nombre || '').trim() !== (f.nombre || '').trim();
     f.codigo = found.codigo;
     f._codigoSource = 'db';
-  } else {
-    // Not in DB — generate new code
-    const code = generateCode(rut, nombre);
-    if (code) {
-      f.codigo = code;
-      f._codigoSource = 'new';
+    // Nombre completo de la base (sobreescribe el que el atleta haya tipeado mal)
+    if (found.nombre && found.nombre.trim()) {
+      f.nombre = found.nombre.trim();
     }
+    // Avisar al atleta que se autocompletó
+    if (nameChanged) {
+      state.success = '✓ Atleta encontrado — autocompletamos tu nombre completo, fecha y sexo';
+      setTimeout(() => { if (state.success.includes('autocompletamos')) { state.success = ''; render(); } }, 4000);
+    }
+    // Fecha de nacimiento (formato: yyyy-mm-dd para input[type=date])
+    if (found.fechaNac && !f.fechaNac) {
+      // Convertir dd/mm/yyyy → yyyy-mm-dd si hace falta
+      let fn = found.fechaNac.trim();
+      const m = fn.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) fn = `${m[3]}-${m[2]}-${m[1]}`;
+      f.fechaNac = fn;
+    }
+    // Sexo: tomar de la última competencia registrada
+    if (!f.sexo && Array.isArray(found.competencias) && found.competencias.length > 0) {
+      const lastComp = [...found.competencias]
+        .sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''))[0];
+      const s = (lastComp?.sexo || '').toLowerCase();
+      if (s.includes('muj') || s === 'f' || s.includes('fem')) f.sexo = 'Femenino';
+      else if (s.includes('hom') || s === 'm' || s.includes('mas')) f.sexo = 'Masculino';
+    }
+    // Club (opcional: si el atleta no eligió uno, sugerir el último)
+    if (!f.club && found.club) {
+      f.club = found.club;
+    }
+    // Re-renderizar para reflejar los datos autocompletados
+    render();
+    return;
   }
-  // Update DOM directly
+
+  // ATLETA NUEVO → necesita el nombre tipeado para generar código
+  const nombre = formatName(f.nombre);
+  if (!nombre) return;
+  const code = generateCode(rut, nombre);
+  if (code) {
+    f.codigo = code;
+    f._codigoSource = 'new';
+  }
+  // Update DOM directly (no rerender, evita perder foco del input)
   const el = document.getElementById('codigoInput');
   const lb = document.getElementById('codigoLabel');
   if (el) {
@@ -303,8 +338,8 @@ function autoFillCode() {
     el.style.borderColor = f.codigo ? 'var(--gold)' : 'var(--border)';
   }
   if (lb) {
-    lb.textContent = f._codigoSource === 'db' ? '✓ Atleta encontrado en base de datos' : f._codigoSource === 'new' ? 'Nuevo atleta — código generado automáticamente' : '';
-    lb.style.color = f._codigoSource === 'db' ? 'var(--green)' : 'var(--orange, #f59e0b)';
+    lb.textContent = f._codigoSource === 'new' ? 'Nuevo atleta — código generado automáticamente' : '';
+    lb.style.color = 'var(--orange, #f59e0b)';
   }
 }
 
@@ -572,7 +607,7 @@ function renderForm() {
       <label>Certificado ADEL/WADA</label>
       <div class="upload-zone ${state.wadeName?'done':''}" id="wadeZone">
         <input type="file" accept="image/*,.pdf" onchange="handleFile(this,'wade')">
-        ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
+        ${state.wadeName ? `<div class="icon">✅</div><div class="fname">${state.wadeName}</div><div class="txt">Click para cambiar</div>` : `<div class="icon">📄</div><div class="txt">Certificado ADEL/WADA (opcional para nivel nacional)</div><div style="font-size:10px;color:var(--muted);margin-top:4px">JPG, PNG o PDF · Máx 5MB</div>`}
       </div>
     </div>
     ${(()=>{
