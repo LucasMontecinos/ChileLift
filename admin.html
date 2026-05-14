@@ -3034,18 +3034,36 @@ window.importarFotoInscripcion = async function(){
   F.error = '';
   render();
   try{
-    // Convertir la URL en File object para reusar cargarFotoAtleta
-    const resp = await fetch(F.pendingPhotoUrl);
-    if(!resp.ok) throw new Error('No se pudo descargar la foto: '+resp.status);
-    const blob = await resp.blob();
-    const file = new File([blob], 'inscripcion_photo.jpg', {type: blob.type || 'image/jpeg'});
-    // Simular el input file para reusar la logica existente
+    // Firebase Storage bloquea fetch() directo por CORS desde yourlift.cl.
+    // Workaround: cargar como <img>, dibujar en canvas, exportar a Blob.
+    // Los <img> tags NO tienen restricción de CORS para cargar la imagen,
+    // pero canvas.toBlob() puede fallar si la imagen NO está crossorigin'd.
+    // Por eso intentamos primero con crossOrigin='anonymous' (funciona con
+    // Firebase Storage cuando el bucket tiene CORS público o el download
+    // token está presente).
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = 'anonymous';
+      i.onload = () => resolve(i);
+      i.onerror = (e) => reject(new Error('No se pudo cargar la imagen (revisar CORS o URL)'));
+      i.src = F.pendingPhotoUrl;
+    });
+    // Dibujar en canvas para extraer Blob
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('No se pudo convertir la imagen')), 'image/jpeg', 0.95);
+    });
+    const file = new File([blob], 'inscripcion_photo.jpg', {type: 'image/jpeg'});
     const fakeInput = {files:[file]};
     F.processing = false;
     await window.cargarFotoAtleta(fakeInput);
   } catch(e){
     console.error('[Fotos] importar inscripcion error:', e);
-    F.error = 'Error importando: '+e.message;
+    F.error = 'Error importando: '+e.message+' — alternativa: descargá la foto manualmente del enlace 🪪 Ver en Nóminas y subila con "📁 Elegir otra foto".';
     F.processing = false;
     F.status = '';
     render();
