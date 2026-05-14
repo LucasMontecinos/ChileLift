@@ -36,7 +36,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </style>
 </head>
 <body>
-<script src="yl-compat.js"></script>
 <script src="clubs.js"></script>
 
 <a href="index.html" class="btn-volver" title="Volver a YourLift">← Volver a YourLift</a>
@@ -151,7 +150,6 @@ const PEERS={"M|93|Open|classic":{"n":44,"avg":589.5,"top":740,"p75":680,"p50":5
 
   try{
     DB=await fetch('data.json').then(r=>r.json());
-    if(window.__ylNormalizeDataJsonForLegacy) window.__ylNormalizeDataJsonForLegacy(DB);
     const params=new URLSearchParams(location.search);
     const cod=params.get('codigo');
     const q=params.get('q');

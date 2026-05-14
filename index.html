@@ -90,7 +90,6 @@ a{color:var(--accent);text-decoration:none}
 </head>
 <body>
 <div class="ctn" id="app"><div class="ld"><div class="sp"></div><p>Cargando base de datos...</p></div></div>
-<script src="yl-compat.js"></script>
 <script src="clubs.js"></script>
 <script>
 // Firebase config (same as inscripcion.html)
@@ -364,7 +363,7 @@ function bk(){ST.sel=null;render()}
 function mp(){ST.p++;render()}
 function sr(t,l){if(t)ST.rt=t;if(l)ST.rl=l;render()}
 
-Promise.all([fetch("data.json").then(r=>r.json()),fetch("records.json").then(r=>r.json()).catch(()=>({})),fetch("nominas.json").then(r=>r.json()).catch(()=>({events:[]}))]).then(([d,r,n])=>{if(window.__ylNormalizeDataJsonForLegacy) window.__ylNormalizeDataJsonForLegacy(d); D=d;R=r;NM=n;NM._static=[...(n.events||[])];render();initFB();setInterval(()=>{if(ST.v==="nominas"){loadFBNominas()}},30000)}).catch(e=>{document.getElementById("app").innerHTML=`<div class="ld"><p style="color:var(--accent);font-weight:600">Error cargando datos</p><p style="color:var(--muted);font-size:13px">${e.message}</p></div>`});
+Promise.all([fetch("data.json").then(r=>r.json()),fetch("records.json").then(r=>r.json()).catch(()=>({})),fetch("nominas.json").then(r=>r.json()).catch(()=>({events:[]}))]).then(([d,r,n])=>{D=d;R=r;NM=n;NM._static=[...(n.events||[])];render();initFB();setInterval(()=>{if(ST.v==="nominas"){loadFBNominas()}},30000)}).catch(e=>{document.getElementById("app").innerHTML=`<div class="ld"><p style="color:var(--accent);font-weight:600">Error cargando datos</p><p style="color:var(--muted);font-size:13px">${e.message}</p></div>`});
 </script>
 <script>
 if('serviceWorker' in navigator){
