@@ -59,6 +59,7 @@ select.input{cursor:pointer}
 </style>
 </head>
 <body>
+<script src="yl-compat.js"></script>
 
 <a href="index.html" class="btn-volver" title="Volver a YourLift">← Volver a YourLift</a>
 
@@ -244,7 +245,7 @@ function validateRut(val){
 // ATHLETE DB & AUTO-CODE
 // ══════════════════════════════════════════════
 let athleteDB = [];
-fetch('data.json').then(r => r.json()).then(d => { athleteDB = d; }).catch(() => {});
+fetch('data.json').then(r => r.json()).then(d => { if(window.__ylNormalizeDataJsonForLegacy) window.__ylNormalizeDataJsonForLegacy(d); athleteDB = d; }).catch(() => {});
 
 function findAthleteByRut(rut) {
   if (!rut) return null;
