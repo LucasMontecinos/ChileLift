@@ -179,10 +179,15 @@ async function initFB(){
     fb.onSnapshot(fb.collection(fbDB,'eventos'),(snap)=>{
       const evs={};
       window.LIVE_EVENT_META=window.LIVE_EVENT_META||{};
+      window.LIVE_EVENT_HIDDEN=new Set();
+      window.LIVE_EVENT_HIDDEN_NAMES=new Set();
       snap.docs.forEach(d=>{
         const e=d.data();
-        if(e.status==='archived')return;
-        if(e.livecastVisible===false)return;
+        if(e.status==='archived'||e.livecastVisible===false){
+          window.LIVE_EVENT_HIDDEN.add(d.id);
+          if(e.name)window.LIVE_EVENT_HIDDEN_NAMES.add(e.name);
+          return;
+        }
         evs[d.id]=e.name;
         // Default récords activos; en "Universitario" arrancan apagados.
         const recordsEnabled=(typeof e.recordsEnabled==='boolean')
@@ -2831,7 +2836,10 @@ function renderSetup(){
       }
     });
   }
-  DATA.events.forEach((ev,i)=>{h+='<div class="card" style="cursor:pointer;transition:all .2s" onclick="pickEvent('+i+')" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'var(--border)\'"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="os" style="font-size:18px;font-weight:700">'+ev.name+'</div><p style="color:var(--muted);font-size:12px;margin-top:4px">'+(ev.organizer||'')+' \u00b7 '+(ev.location||'')+(ev._fromFirestore?' \u00b7 <span style="color:var(--gold)">creado en admin</span>':'')+'</p></div><div style="text-align:right"><div style="background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;font-size:14px;font-weight:700;font-family:Oswald">'+ev.athletes.length+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">atletas</div></div></div></div>'});
+  const _hidden=window.LIVE_EVENT_HIDDEN,_hiddenN=window.LIVE_EVENT_HIDDEN_NAMES;
+  DATA.events.forEach((ev,i)=>{
+    if(_hidden&&(_hidden.has(ev.id)||_hiddenN?.has(ev.name)))return;
+    h+='<div class="card" style="cursor:pointer;transition:all .2s" onclick="pickEvent('+i+')" onmouseenter="this.style.borderColor=\'var(--accent)\'" onmouseleave="this.style.borderColor=\'var(--border)\'"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="os" style="font-size:18px;font-weight:700">'+ev.name+'</div><p style="color:var(--muted);font-size:12px;margin-top:4px">'+(ev.organizer||'')+' \u00b7 '+(ev.location||'')+(ev._fromFirestore?' \u00b7 <span style="color:var(--gold)">creado en admin</span>':'')+'</p></div><div style="text-align:right"><div style="background:var(--accent);color:#fff;padding:4px 14px;border-radius:20px;font-size:14px;font-weight:700;font-family:Oswald">'+ev.athletes.length+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">atletas</div></div></div></div>'});
   h+='</div>';return h;
 }
 
