@@ -257,6 +257,19 @@ async function loadAll(){
     ST.nominas=ST.nominas||{events:[]};
   }
 
+  // Load atletas_pending (debutants who inscribed but aren't in data.json yet)
+  try{
+    const pendSnap=await getDocs(collection(db,'atletas_pending'));
+    const rutNorm=(s)=>String(s||'').replace(/[^0-9kK]/g,'').toUpperCase();
+    pendSnap.forEach(d=>{
+      const pd=d.data();
+      const alreadyIn=(ST.data||[]).find(a=>rutNorm(a.rut)===rutNorm(pd.rut));
+      if(!alreadyIn && pd.nombre && pd.codigo){
+        ST.data.push({...pd, _isPending:true});
+      }
+    });
+  }catch(e){console.warn('[loadAll] atletas_pending:',e.message);}
+
   // Apply athlete_edits non-blocking
   try{
     const editsSnap=await getDocs(collection(db,'athlete_edits'));
@@ -2772,7 +2785,9 @@ function renderFotos(){
       h += '<div onclick="seleccionarAtletaFoto(\''+escapeJsAttr(a.codigo)+'\')" style="background:var(--bg);padding:8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;display:flex;gap:8px;align-items:center" title="Click para procesar">';
       h += '<img src="'+escapeHtml(photoUrl)+'" style="width:36px;height:48px;object-fit:cover;border-radius:3px;flex-shrink:0">';
       h += '<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(a.nombre||'')+'</div>';
-      h += '<div style="font-size:9px;color:var(--muted)">'+escapeHtml(a.rut||'')+'</div></div>';
+      h += '<div style="font-size:9px;color:var(--muted)">'+escapeHtml(a.rut||'')+'</div>';
+      if(a._isPending) h += '<div style="font-size:9px;color:var(--gold);font-weight:700;margin-top:2px">★ DEBUT</div>';
+      h += '</div>';
       h += '</div>';
     });
     if(pendientes.length>30) h += '<div style="grid-column:1/-1;text-align:center;font-size:11px;color:var(--muted);padding:8px">y '+(pendientes.length-30)+' más...</div>';
@@ -2800,7 +2815,7 @@ function renderFotos(){
         h += '<span style="font-size:18px;color:var(--muted)">📷</span>';
       }
       h += '</div>';
-      h += '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(a.nombre||'(sin nombre)')+'</div>';
+      h += '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(a.nombre||'(sin nombre)')+(a._isPending?' <span style="background:var(--gold);color:#000;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700">DEBUT</span>':'')+'</div>';
       h += '<div style="font-size:10px;color:var(--muted)">'+escapeHtml(a.rut||a.codigo||'')+' · '+escapeHtml(a.club||'')+'</div></div>';
       if(hasPhoto) h+='<span style="background:var(--green);color:#000;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700">✓</span>';
       h += '</div>';

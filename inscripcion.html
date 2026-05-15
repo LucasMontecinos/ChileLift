@@ -203,6 +203,8 @@ const MODALITIES = [
   "Powerlifting Classic Special Olympics"
 ];
 
+const ZONAS = ["Zona Norte","Zona Centro","Zona Sur","Internacional"];
+
 // ══════════════════════════════════════════════
 // FORMATTING HELPERS
 // ══════════════════════════════════════════════
@@ -349,7 +351,7 @@ function autoFillCode() {
 let state = {
   view: 'form', // form, confirm, admin, edit_lookup, edit, admin_eventos, admin_evento_form
   step: 0,
-  form: {evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''},
+  form: {evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',zona:'',comuna:'',pin:'',universidad:''},
   carnetFile: null, carnetName: '',
   wadeFile: null, wadeName: '',
   carnetPhotoFile: null, carnetPhotoName: '',
@@ -562,7 +564,14 @@ function renderForm() {
         </select>
       </div>
       <div class="field">
-        <label>Comuna y Región</label>
+        <label>Zona FECHIPO <span class="req">*</span></label>
+        <select class="input ${f.zona?'ok':''}" onchange="updR('zona',this.value)">
+          <option value="">Seleccionar zona...</option>
+          ${ZONAS.map(z => `<option ${f.zona===z?'selected':''}>${z}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Ciudad / Región <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(opcional)</span></label>
         <input class="input" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)">
       </div>
     </div>
@@ -576,7 +585,7 @@ function renderForm() {
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
-      <button class="btn btn-accent" onclick="nextStep()" ${!(f.nombre&&f.rut&&f.sexo&&f.fechaNac&&f.club)?'disabled':''}>Siguiente →</button>
+      <button class="btn btn-accent" onclick="nextStep()" ${!(f.nombre&&f.rut&&f.sexo&&f.fechaNac&&f.club&&f.zona&&f.pin&&f.pin.length===4)?'disabled':''}>Siguiente →</button>
     </div></div>`;
   }
 
@@ -923,7 +932,14 @@ function renderEdit() {
         <input class="input" type="text" value="${f.universidad||''}" oninput="upd('universidad',this.value)">
       </div>`:''}
       <div class="field">
-        <label>Comuna y Región</label>
+        <label>Zona FECHIPO <span class="req">*</span></label>
+        <select class="input ${f.zona?'ok':''}" onchange="updR('zona',this.value)">
+          <option value="">Seleccionar zona...</option>
+          ${ZONAS.map(z => `<option ${f.zona===z?'selected':''}>${z}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Ciudad / Región</label>
         <input class="input" type="text" value="${f.comuna}" oninput="upd('comuna',this.value)">
       </div>
     </div>
@@ -997,6 +1013,7 @@ async function lookupEdit() {
       modalidad: found.modalidad || '',
       club: found.club || '',
       clubOtro: found.clubOtro || '',
+      zona: found.zona || '',
       comuna: found.comuna || '',
       pin: pin, // del input, se usará al enviar la solicitud
       universidad: found.universidad || '',
@@ -1043,6 +1060,7 @@ async function saveEdit() {
       modalidad: f.modalidad,
       club: sanitizeInput(f.club),
       clubOtro: sanitizeInput(f.clubOtro),
+      zona: f.zona,
       comuna: sanitizeInput(f.comuna),
       universidad: sanitizeInput(f.universidad || ''),
     };
@@ -1085,7 +1103,8 @@ function nextStep() {
   const f = state.form;
   if (state.step === 0 && !f.evento) { state.error = 'Selecciona un evento'; render(); return; }
   if (state.step === 1) {
-    if (!f.nombre || !f.rut || !f.sexo || !f.fechaNac || !f.club || !f.pin || f.pin.length !== 4) { state.error = 'Completa todos los campos obligatorios (incluye PIN de 4 dígitos)'; render(); return; }
+    if (!f.nombre || !f.rut || !f.sexo || !f.fechaNac || !f.club || !f.zona || !f.pin || f.pin.length !== 4) { state.error = 'Completa todos los campos obligatorios (incluye Zona FECHIPO y PIN de 4 dígitos)'; render(); return; }
+    if (!validateRut(f.rut).valid) { state.error = 'RUT inválido: ' + validateRut(f.rut).msg; render(); return; }
   }
   if (state.step === 2) {
     if (!f.division || !f.categoria || !f.modalidad) { state.error = 'Completa todos los campos obligatorios'; render(); return; }
@@ -1159,6 +1178,7 @@ async function submitForm() {
       modalidad: f.modalidad,
       club: sanitizeInput(f.club),
       clubOtro: sanitizeInput(f.clubOtro),
+      zona: f.zona,
       comuna: sanitizeInput(f.comuna),
       universidad: sanitizeInput(f.universidad || ''),
       carnetName: state.carnetName,
@@ -1169,6 +1189,7 @@ async function submitForm() {
     // Datos PRIVADOS (inscripciones_private): solo admin.
     const privateEntry = {
       pin: f.pin,
+      rut: sanitizeInput(f.rut),
     };
 
     if (firebaseReady) {
@@ -1216,6 +1237,29 @@ async function submitForm() {
         }
         throw txErr;
       }
+
+      // Si es atleta NUEVO (no estaba en data.json), registrarlo en Firestore
+      // para que el admin pueda subirle la foto aunque no esté en data.json aún.
+      if (f._codigoSource === 'new' && f.codigo) {
+        try {
+          const rutClean2 = f.rut.replace(/[^0-9kK]/g, '').toUpperCase();
+          await window.FB.setDoc(
+            window.FB.doc(db, 'atletas_pending', rutClean2),
+            {
+              nombre: sanitizeInput(f.nombre),
+              rut: sanitizeInput(f.rut),
+              codigo: sanitizeInput(f.codigo),
+              sexo: f.sexo,
+              fechaNac: f.fechaNac,
+              club: sanitizeInput(f.club),
+              zona: f.zona,
+              debut: true,
+              inscripcion_evento: f.evento,
+              ts: window.FB.serverTimestamp(),
+            }
+          );
+        } catch(e2) { console.warn('[atletas_pending]', e2.message); }
+      }
     } else {
       // Demo mode: aplana en un solo objeto para localStorage.
       demoSave({...publicEntry, ...privateEntry});
@@ -1233,7 +1277,7 @@ async function submitForm() {
 }
 
 function resetForm() {
-  state = {...state, view:'form', step:0, form:{evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',comuna:'',pin:'',universidad:''}, carnetFile:null, carnetName:'', wadeFile:null, wadeName:'', carnetPhotoFile:null, carnetPhotoName:'', submitting:false, error:'', success:'', editDoc:null, editId:null};
+  state = {...state, view:'form', step:0, form:{evento:'',nombre:'',rut:'',codigo:'',sexo:'',fechaNac:'',division:'',categoria:'',modalidad:'',club:'',clubOtro:'',zona:'',comuna:'',pin:'',universidad:''}, carnetFile:null, carnetName:'', wadeFile:null, wadeName:'', carnetPhotoFile:null, carnetPhotoName:'', submitting:false, error:'', success:'', editDoc:null, editId:null};
   render();
 }
 
