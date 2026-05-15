@@ -330,6 +330,19 @@ async function doLogout(){
 }
 const LIFTS=['sq','bp','dl'],LIFT_N={sq:'SQUAT',bp:'BENCH PRESS',dl:'DEADLIFT'},LIFT_S={sq:'SQ',bp:'BP',dl:'DL'},LIFT_C={sq:'#3b82f6',bp:'#f59e0b',dl:'#ef4444'};
 const FL_C={A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899',F:'#06b6d4'};
+// ── TX Widget Color System ───────────────────────────────────────────
+const _TX_COLOR_DEFAULTS={
+  goodLift:'#5cb37f',    // good attempt cell & GOOD LIFT slam
+  noLift:'#cc6666',      // no lift cell & NO LIFT slam
+  nameBg:'#D4A843',      // nombre bar background (scoreboard + profile)
+  nameBg2:'#c19735',     // nombre bar gradient end
+  accent:'#D4A843',      // borders, total cell, leaderboard highlights
+  headerBg:'rgba(28,50,90,.96)', // scoreboard/leaderboard header bg
+};
+function _txC(key){
+  const c=(_dirState&&_dirState.colors)||{};
+  return c[key]||_TX_COLOR_DEFAULTS[key];
+}
 const SAVE_KEY='fechipo_lc3';
 const PLATES=[25,20,15,10,5,2.5,1.25,0.5,0.25];
 const PLATE_C={25:'#ef4444',20:'#3b82f6',15:'#f59e0b',10:'#22c55e',5:'#888','2.5':'#ef4444','1.25':'#f59e0b','0.5':'#7c3aed','0.25':'#ec4899'};
@@ -2328,8 +2341,16 @@ function _renderTxCerScoreboardBL(cur,opts){
   const _simBL=_sameCatBL.map(a=>a.id===cur.id?{id:a.id,sub:_newSubBL}:{id:a.id,sub:subTotal(a,DATA.lift)}).filter(x=>x.sub>0).sort((a,b)=>b.sub-a.sub);
   const _simPosBL=_simBL.findIndex(x=>x.id===cur.id)+1;
   const _forecastPos=_simPosBL||_rk.pos||0;
-  const _forecastTxt=_forecastPos>0?'P'+_forecastPos+(_simBL.length>1?'/'+_simBL.length:''):'—';
-  const _forecastColor=_forecastPos===1?'#5cb37f':_forecastPos<=3?'#D4A843':'#fff';   // verde sage suave
+  const _willChangeBL=_rk.pos>0&&_simPosBL>0&&_simPosBL!==_rk.pos;
+  let _forecastTxt,_forecastColor;
+  if(_forecastPos<=0){_forecastTxt='—';_forecastColor='#fff';}
+  else if(_willChangeBL){
+    _forecastTxt='Puesto '+_rk.pos+' → '+_simPosBL;
+    _forecastColor=_simPosBL===1?_txC('goodLift'):_simPosBL<=3?_txC('accent'):'#fff';
+  }else{
+    _forecastTxt='Posición '+_forecastPos;
+    _forecastColor=_forecastPos===1?_txC('goodLift'):_forecastPos<=3?_txC('accent'):'#fff';
+  }
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
   // animOrTx → animación de ciclo automatico (modo widget standalone) o transform de scale
   // extraStyle → animación in/out cuando se enciende/apaga desde control TX (slide vertical)
@@ -2338,12 +2359,12 @@ function _renderTxCerScoreboardBL(cur,opts){
     ? (scale!==1?'transform:scale('+scale+');transform-origin:bottom left;':'')
     : 'animation:txScoreboardCycle '+(TX_CEREMONY.scoreboardMs/1000)+'s ease-in-out forwards;';
   return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+extraStyle+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:6px 14px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,'+_txC('headerBg')+','+_txC('headerBg')+');border-top:2px solid '+_txC('accent')+';padding:6px 14px">'
       +'<div style="font-family:Oswald;font-size:12px;color:rgba(200,215,240,.85);letter-spacing:1px">'+catLabel+'</div>'
       +'<div style="font-family:Oswald;font-size:18px;font-weight:800;color:'+_forecastColor+';letter-spacing:2px">'+_forecastTxt+'</div>'
     +'</div>'
-    +'<div style="background:linear-gradient(90deg,#D4A843,#c19735);padding:5px 14px;display:flex;align-items:center;gap:10px">'
-      +'<div style="background:rgba(10,22,40,.9);color:#D4A843;padding:3px 9px;border-radius:3px;font-family:Oswald;font-size:10px;letter-spacing:2px;font-weight:700">CHI</div>'
+    +'<div style="background:linear-gradient(90deg,'+_txC('nameBg')+','+_txC('nameBg2')+');padding:5px 14px;display:flex;align-items:center;gap:10px">'
+      +'<div style="background:rgba(10,22,40,.9);color:'+_txC('nameBg')+';padding:3px 9px;border-radius:3px;font-family:Oswald;font-size:10px;letter-spacing:2px;font-weight:700">CHI</div>'
       +'<div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px;overflow:hidden">'
         +'<div style="font-size:24px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(firstName?firstName+' ':'')+lastName+'</div>'
       +'</div>'
@@ -2352,14 +2373,14 @@ function _renderTxCerScoreboardBL(cur,opts){
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr) 100px;background:rgba(10,22,40,.94)">'
       +cur.att[DATA.lift].map((at,j)=>{
         let bg,clr,td='none';
-        if(at.r==='g'){bg='#5cb37f';clr='#0A1628'}        // verde sage suave
-        else if(at.r==='n'){bg='#cc6666';clr='#fff';td='line-through'}  // rojo brick suave
+        if(at.r==='g'){bg=_txC('goodLift');clr='#0A1628'}
+        else if(at.r==='n'){bg=_txC('noLift');clr='#fff';td='line-through'}
         else if(j===DATA.round&&at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
         else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
         const isCur=j===DATA.round&&at.r===null&&at.w>0;
         return '<div style="padding:7px 10px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:18px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
       }).join('')
-      +'<div style="padding:7px 10px;text-align:center;background:'+(isDQ(cur)?'#cc6666':'#D4A843')+';color:'+(isDQ(cur)?'#fff':'#0A1628')+';font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:1px">'+(isDQ(cur)?'DQ':(subTotal(cur,DATA.lift)||0).toFixed(1))+'</div>'
+      +'<div style="padding:7px 10px;text-align:center;background:'+(isDQ(cur)?_txC('noLift'):_txC('accent'))+';color:'+(isDQ(cur)?'#fff':'#0A1628')+';font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:1px">'+(isDQ(cur)?'DQ':(subTotal(cur,DATA.lift)||0).toFixed(1))+'</div>'
     +'</div>'
   +'</div>';
 }
@@ -2917,21 +2938,27 @@ function renderTxScoreboard(cur,lifterChanged){
   }).filter(x=>x.sub>0).sort((a,b)=>b.sub-a.sub);
   const simPos=simRanked.findIndex(x=>x.id===cur.id)+1;
   const totalAth=simRanked.length;
-  const rankTxt=(rk.pos&&simPos&&rk.pos!==simPos)?'RANK '+rk.pos+' to '+simPos:'RANK '+(rk.pos||simPos||'—');
-  // Forecast: posición proyectada dentro del sex+cat+div (no mezcla divisiones)
-  // Reemplaza el timer en la barra superior del scoreboard.
+  // Forecast mejorado: muestra cambio de posición si corresponde
   const forecastPos=simPos||rk.pos||0;
-  const forecastTxt=forecastPos>0?'P'+forecastPos+(totalAth>1?' / '+totalAth:''):'—';
-  const forecastColor=forecastPos===1?'#5cb37f':forecastPos<=3?'#D4A843':'#fff';   // verde sage suave
+  const willChange=rk.pos>0&&simPos>0&&simPos!==rk.pos;
+  let forecastTxt,forecastColor;
+  if(forecastPos<=0){forecastTxt='—';forecastColor='#fff';}
+  else if(willChange){
+    forecastTxt='Puesto '+rk.pos+' → '+simPos;
+    forecastColor=simPos===1?_txC('goodLift'):simPos<=3?_txC('accent'):'#fff';
+  }else{
+    forecastTxt='Posición '+forecastPos;
+    forecastColor=forecastPos===1?_txC('goodLift'):forecastPos<=3?_txC('accent'):'#fff';
+  }
   return `
     <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':(lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':'')}">
-      <div style="display:grid;grid-template-columns:180px 1fr 140px;background:linear-gradient(90deg,rgba(28,50,90,.96),rgba(35,60,105,.96));border-top:2px solid #D4A843;padding:10px 22px;align-items:center">
+      <div style="display:grid;grid-template-columns:180px 1fr 180px;background:linear-gradient(90deg,${_txC('headerBg')},${_txC('headerBg')});border-top:2px solid ${_txC('accent')};padding:10px 22px;align-items:center">
         <div style="font-family:Oswald;font-size:15px;color:rgba(200,215,240,.85);letter-spacing:1px">${catLabel}</div>
-        <div style="text-align:center;font-family:Oswald;font-size:17px;letter-spacing:2px">${rankTxt.split(' ').map((w,i)=>/^\d+$/.test(w)?'<span style="color:#D4A843;font-weight:700">'+w+'</span>':w).join(' ')}</div>
-        <div style="font-family:Oswald;font-size:22px;font-weight:800;color:${forecastColor};letter-spacing:2px;text-align:right" title="Posición forecast en su sexo+categoría+división">${forecastTxt}</div>
+        <div style="text-align:center;font-family:Oswald;font-size:14px;letter-spacing:1px;color:rgba(200,215,240,.7)">${(rk.pos&&totalAth?rk.pos+'/'+totalAth+' en categoría':'')}</div>
+        <div style="font-family:Oswald;font-size:${willChange?'16px':'20px'};font-weight:800;color:${forecastColor};letter-spacing:${willChange?'1px':'2px'};text-align:right;white-space:nowrap" title="Posición forecast en su sexo+categoría+división">${forecastTxt}</div>
       </div>
-      <div style="background:linear-gradient(90deg,#D4A843,#c19735);padding:6px 22px;display:flex;align-items:center;gap:14px">
-        <div style="background:rgba(10,22,40,.9);color:#D4A843;padding:4px 12px;border-radius:4px;font-family:Oswald;font-size:12px;letter-spacing:2px;font-weight:700">CHI 🇨🇱</div>
+      <div style="background:linear-gradient(90deg,${_txC('nameBg')},${_txC('nameBg2')});padding:6px 22px;display:flex;align-items:center;gap:14px">
+        <div style="background:rgba(10,22,40,.9);color:${_txC('nameBg')};padding:4px 12px;border-radius:4px;font-family:Oswald;font-size:12px;letter-spacing:2px;font-weight:700">CHI 🇨🇱</div>
         <div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px;overflow:hidden">
           <div style="font-size:30px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${firstName?firstName+' ':''}${lastName}</div>
         </div>
@@ -2943,14 +2970,14 @@ function renderTxScoreboard(cur,lifterChanged){
       <div style="display:grid;grid-template-columns:repeat(3,1fr) 140px;background:rgba(10,22,40,.94)">
         ${cur.att[DATA.lift].map((at,j)=>{
           let bg,clr,td='none';
-          if(at.r==='g'){bg='#5cb37f';clr='#0A1628'}                  // verde sage suave
-          else if(at.r==='n'){bg='#cc6666';clr='#fff';td='line-through'}  // rojo brick suave
+          if(at.r==='g'){bg=_txC('goodLift');clr='#0A1628'}
+          else if(at.r==='n'){bg=_txC('noLift');clr='#fff';td='line-through'}
           else if(j===DATA.round&&at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
           else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
           const isCur=j===DATA.round&&at.r===null&&at.w>0;
           return '<div style="padding:9px 18px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:22px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
         }).join('')}
-        <div style="padding:9px 14px;text-align:center;background:${isDQ(cur)?'#cc6666':'#D4A843'};color:${isDQ(cur)?'#fff':'#0A1628'};font-family:Oswald;font-size:24px;font-weight:700;letter-spacing:1px">${isDQ(cur)?'DQ':(st||newSub||0).toFixed(1)}</div>
+        <div style="padding:9px 14px;text-align:center;background:${isDQ(cur)?_txC('noLift'):_txC('accent')};color:${isDQ(cur)?'#fff':'#0A1628'};font-family:Oswald;font-size:24px;font-weight:700;letter-spacing:1px">${isDQ(cur)?'DQ':(st||newSub||0).toFixed(1)}</div>
       </div>
     </div>`;
 }
@@ -3319,6 +3346,19 @@ window.dirSetScale=async function(comp,scale){
   if(DATA.phase==='director')R();
 };
 window.dirResetScale=async function(comp){await window.dirSetScale(comp,1)};
+window.dirSetColor=async function(key,val){
+  if(!_dirState)_dirState={};
+  if(!_dirState.colors)_dirState.colors={};
+  _dirState.colors[key]=val;
+  await _dirPush();
+  if(DATA.phase==='director')R();
+};
+window.dirResetColors=async function(){
+  if(!_dirState)return;
+  _dirState.colors={};
+  await _dirPush();
+  if(DATA.phase==='director')R();
+};
 window.dirToggleBreak=async function(){
   const bt=_dirState&&_dirState.breakTimer;
   if(bt&&bt.active){await window.dirBreakHide();return}
