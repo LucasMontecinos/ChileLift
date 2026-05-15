@@ -4307,9 +4307,8 @@ fetch('data.json').then(r=>r.json()).then(d=>{
   _setupFotoListener();
 }).catch(()=>{});
 fetch('records.json').then(r=>r.json()).then(d=>{RECORDS=d}).catch(()=>console.warn('[FECHIPO] records.json no cargado'));
-fetch('nominas.json').then(r=>r.json()).then(n=>{DATA.events=n.events||[];applyEventURLParam();if(!loaded)R()}).catch(()=>{});
-if(loaded){R()}
-else if(!DATA.events.length)R();
+// DATA.events se construye desde Firestore via LIVE_EVENT_META en renderSetup()
+if(!loaded)R();
 
 // ── Accept ?evento=<id|name> URL param ──
 // If the URL asks for a specific event and it differs from the saved session,
@@ -4320,12 +4319,10 @@ function applyEventURLParam(){
     const p=new URLSearchParams(location.search).get('evento');
     if(!p)return;
     const want=decodeURIComponent(p);
-    // 1) Buscar en nominas.json (DATA.events)
+    // 1) Buscar en DATA.events (ya populado desde Firestore via LIVE_EVENT_META)
     let i=(DATA.events||[]).findIndex(e=>e.id===want||e.name===want);
     let wanted=i>=0?DATA.events[i]:null;
-    // 2) Si no está, buscar en Firestore eventos (LIVE_EVENT_META).
-    //    Permite que un evento creado en admin (que no está en nominas.json)
-    //    sea encontrado por su id o nombre.
+    // 2) Si no está aún (Firestore todavía cargando), buscar directamente en LIVE_EVENT_META.
     if(!wanted&&window.LIVE_EVENT_META){
       const fbEntry=Object.entries(window.LIVE_EVENT_META).find(function(e){return e[0]===want||e[1].name===want});
       if(fbEntry){

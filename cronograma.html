@@ -122,10 +122,7 @@ async function syncFlightsToFB(){
 }
 initCronoFB();
 
-Promise.all([
-  fetch('nominas.json').then(r=>r.json()).catch(()=>({events:[]})),
-  fetch('data.json').then(r=>r.json()).catch(()=>[])
-]).then(([n,d])=>{NM=n;DB=d;preselectFromURL();render();syncEventsWithFirestore()});
+fetch('data.json').then(r=>r.json()).catch(()=>[]).then(d=>{DB=d;render();syncEventsWithFirestore()});
 
 // ── Accept ?evento=<id|name> URL param to pre-select an event ──
 function preselectFromURL(){
@@ -138,9 +135,7 @@ function preselectFromURL(){
   }catch(e){console.warn('[Crono] preselect err',e)}
 }
 
-// ── Merge Firestore eventos metadata over nominas.json ──────
-// Firestore `eventos/{id}` is the source of truth for date/closeDate/location/org/days.
-// nominas.json only provides the athletes list until imported to Firebase.
+// ── Build NM.events from Firestore (source of truth) ────────
 function syncEventsWithFirestore(){
   const tryStart=()=>{
     if(!fbReady||!window._fb){setTimeout(tryStart,400);return}
@@ -148,22 +143,26 @@ function syncEventsWithFirestore(){
       window._fb.onSnapshot(window._fb.collection(fbDB,'eventos'),(snap)=>{
         const fbEvs={};
         snap.forEach(d=>{const e=d.data();if(e.status!=='archived')fbEvs[d.id]=e});
-        let changed=false;
-        (NM.events||[]).forEach(ev=>{
-          const fe=fbEvs[ev.id]||fbEvs[ev.name]||Object.values(fbEvs).find(x=>x.name===ev.name);
-          if(!fe)return;
-          ['date','closeDate','location','org','organizer','days','extraCols','status'].forEach(k=>{
-            if(fe[k]!==undefined&&fe[k]!==ev[k]){ev[k]=fe[k];changed=true}
-          });
-        });
-        if(changed){
-          // Update selectedEvent if user is viewing one
-          if(selectedEvent){
-            const fresh=NM.events.find(e=>e.name===selectedEvent.name||e.id===selectedEvent.id);
-            if(fresh)selectedEvent=fresh;
-          }
-          render();
+        // Build NM.events entirely from Firestore — no nominas.json needed
+        NM.events=Object.entries(fbEvs).map(([id,e])=>{
+          const aths=fbInscripciones
+            .filter(i=>(i.evento===id||i.evento===e.name)&&(i.status==='approved'||i.status==='pending'))
+            .sort((a,b)=>(a.sortOrder||a.timestamp?.seconds||0)-(b.sortOrder||b.timestamp?.seconds||0))
+            .map((i,idx)=>({
+              nombre:i.nombre,rut:i.rut||'',sexo:i.sexo||'',
+              dob:i.fechaNac||'',division:i.division||'',categoria:i.categoria||'',
+              modalidad:i.modalidad||'',club:i.club==='Otro'?i.clubOtro:i.club||'',
+              flight:i.flight||'',sortOrder:i.sortOrder||idx+1,id:i.id
+            }));
+          return {id,...e,athletes:aths};
+        }).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+        // Keep selectedEvent in sync
+        if(selectedEvent){
+          const fresh=NM.events.find(e=>e.name===selectedEvent.name||e.id===selectedEvent.id);
+          if(fresh)selectedEvent=fresh;
         }
+        preselectFromURL();
+        render();
       });
     }catch(e){console.warn('[Crono eventos sync]',e)}
   };

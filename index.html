@@ -180,20 +180,12 @@ function _applyNominas(all){
           universidad:i.universidad||'',status:i.status,
           sortOrder:idx+1,flight:i.flight||''
         }));
-      // Fallback: if no Firestore inscriptions, use athletes from nominas.json
-      const jsonEv=(NM._static||[]).find(e=>e.name===ev.name||e.id===ev.id);
-      const jsonAths=jsonEv?.athletes?.map((a,idx)=>({
-        ...a,id:'json_'+idx,status:'approved',sortOrder:idx+1
-      }))||[];
-      const athletes=fbAths.length>0?fbAths:jsonAths;
-      const approved=fbAths.length>0?fbAths.filter(a=>a.status==='approved').length:jsonAths.length;
+      const athletes=fbAths;
+      const approved=fbAths.filter(a=>a.status==='approved').length;
       const pending=fbAths.filter(a=>a.status==='pending').length;
-      return{...ev,athletes,fromFirebase:true,liveCount:{total:athletes.length,approved,pending},hasJsonFallback:fbAths.length===0&&jsonAths.length>0};
+      return{...ev,athletes,fromFirebase:true,liveCount:{total:athletes.length,approved,pending}};
     });
-  // Firestore events replace any JSON equivalents by name
-  const fbNames=new Set(fbEvents.map(e=>e.name));
-  const jsonOnly=NM.events.filter(e=>!e.fromFirebase&&!fbNames.has(e.name));
-  NM.events=[...jsonOnly,...fbEvents];
+  NM.events=fbEvents;
   render();
 }
 async function loadFBNominas(){
