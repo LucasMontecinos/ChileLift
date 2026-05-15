@@ -280,6 +280,7 @@ async function loadAll(){
         if(ed.nombre)a.nombre=ed.nombre;
         if(ed.club!==undefined)a.club=ed.club;
         if(ed.debut!==undefined)a.debut=ed.debut;
+        if(ed.rut!==undefined)a.rut=ed.rut;
       }
     });
   }catch(e){console.warn('[loadAll] athlete_edits:',e.message);}
@@ -610,7 +611,7 @@ window.editAthlete=async function(cod,field){
         try{await deleteDoc(doc(db,'athlete_edits',oldDocId))}catch(e){}
       }
       const docId=a.codigo.replace(/[^a-zA-Z0-9_-]/g,'_');
-      await setDoc(doc(db,'athlete_edits',docId),{codigo:a.codigo,nombre:a.nombre,club:a.club||'',debut:a.debut||'',ts:Date.now()});
+      await setDoc(doc(db,'athlete_edits',docId),{codigo:a.codigo,nombre:a.nombre,club:a.club||'',debut:a.debut||'',rut:a.rut||'',ts:Date.now()});
       await logAction('edit_athlete',`${oldCod}.${field}`,old,nv,{nombre:a.nombre});
       render();
       showToast(`${field} actualizado: ${a.nombre}`,async()=>{
@@ -627,6 +628,53 @@ window.editAthlete=async function(cod,field){
     }catch(e){console.error(e);a[field]=old;render();showToast('Error: '+e.message,null,true)}
   });
 }
+
+function generarCodigo(a){
+  const rut=String(a.rut||'').replace(/[^0-9]/g,'');
+  const nombre=String(a.nombre||'').trim();
+  const debut=String(a.debut||'').match(/\d{4}/)?.[0]||'';
+  if(!rut||!nombre||!debut)return null;
+  const digits=rut.slice(0,4).padEnd(4,'0');
+  const partes=nombre.split(/\s+/).filter(Boolean);
+  const ini0=(partes[0]||'')[0]?.toUpperCase()||'X';
+  // Apellidos = últimas 2 palabras
+  const ini1=(partes.length>=2?partes[partes.length-2]:partes[0]||'')[0]?.toUpperCase()||'X';
+  const ini2=(partes.length>=3?partes[partes.length-1]:partes[partes.length-1]||'')[0]?.toUpperCase()||'X';
+  return `${digits}${ini0}${ini1}${ini2}-${debut}`;
+}
+
+async function _applyCodigoFix(a,oldCod,newCod,newRut){
+  const oldDocId=oldCod.replace(/[^a-zA-Z0-9_-]/g,'_');
+  try{
+    try{await deleteDoc(doc(db,'athlete_edits',oldDocId))}catch(_){}
+    a.codigo=newCod;
+    if(newRut)a.rut=newRut;
+    const newDocId=newCod.replace(/[^a-zA-Z0-9_-]/g,'_');
+    await setDoc(doc(db,'athlete_edits',newDocId),{codigo:newCod,nombre:a.nombre,club:a.club||'',debut:a.debut||'',rut:a.rut||'',ts:Date.now()});
+    await logAction('fix_codigo',oldCod,oldCod,newCod,{nombre:a.nombre,rut:a.rut||''});
+    render();
+    showToast('✅ Código corregido: '+newCod);
+  }catch(e){a.codigo=oldCod;showToast('Error: '+e.message,null,true);}
+}
+
+window.fixCodigoAuto=async function(cod){
+  const a=ST.data.find(x=>x.codigo===cod);if(!a)return;
+  if(!a.rut){
+    openEditModal('RUT de '+a.nombre+' (sin puntos ni guión, ej: 123456787)','rut','',async(newRut)=>{
+      if(!newRut)return;
+      a.rut=newRut;
+      const newCod=generarCodigo(a);
+      if(!newCod){showToast('No se pudo generar — falta nombre o debut',null,true);return;}
+      if(!confirm('Cambiar código de:\n"'+cod+'"\na:\n"'+newCod+'"'))return;
+      await _applyCodigoFix(a,cod,newCod,newRut);
+    });
+  }else{
+    const newCod=generarCodigo(a);
+    if(!newCod){showToast('No se pudo generar — falta RUT, nombre o debut',null,true);return;}
+    if(!confirm('Cambiar código de:\n"'+cod+'"\na:\n"'+newCod+'"'))return;
+    await _applyCodigoFix(a,cod,newCod,null);
+  }
+};
 
 window.deleteAthlete=async function(cod){
   const a=ST.data.find(x=>x.codigo===cod);if(!a)return;
@@ -1583,15 +1631,22 @@ function renderAthletes(){
       <div class="card" style="padding:0;overflow-x:auto;flex:1">
         <table class="tbl">
           <tr><th>Código</th><th>RUT</th><th>Nombre</th><th>Club</th><th>Debut</th><th>Comp.</th><th></th></tr>
-          ${list.map(a=>{const esc=a.codigo.replace(/'/g,"\\'");return `<tr>
-            <td><span class="editable" onclick="editAthlete('${esc}','codigo')" style="font-size:10px;font-family:Oswald;color:var(--accent)">${a.codigo}</span></td>
-            <td style="font-size:10px;color:var(--muted)">${a.rut||'—'}</td>
+          ${list.map(a=>{
+            const esc=a.codigo.replace(/'/g,"\\'");
+            const badCodigo=!/^\d{4}[A-Z]{2,3}-\d{4}$/.test(a.codigo);
+            return `<tr${badCodigo?' style="background:rgba(239,68,68,.06)"':''}>
+            <td><span class="editable" onclick="editAthlete('${esc}','codigo')" style="font-size:10px;font-family:Oswald;color:${badCodigo?'var(--red)':'var(--accent)'}" title="${badCodigo?'Código inválido — click para corregir':''}">${a.codigo}</span></td>
+            <td><span class="editable" onclick="editAthlete('${esc}','rut')" style="font-size:10px;color:${a.rut?'var(--muted)':'var(--red)'}" title="Click para editar RUT">${a.rut||'⚠ sin RUT'}</span></td>
             <td><span class="editable" onclick="editAthlete('${esc}','nombre')">${a.nombre}</span></td>
             <td><span class="editable" onclick="editAthlete('${esc}','club')">${a.club||'—'}</span></td>
             <td><span class="editable" onclick="editAthlete('${esc}','debut')">${a.debut||'—'}</span></td>
             <td style="text-align:center"><span class="badge b-y">${a.competencias?.length||0}</span></td>
-            <td style="display:flex;gap:4px"><button onclick="openAthleteProfile('${esc}')" style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:var(--blue);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Ver perfil">👤</button><button onclick="deleteAthlete('${esc}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Eliminar">✕</button></td>
-          </tr>`}).join('')}
+            <td style="display:flex;gap:4px;flex-wrap:wrap">
+              ${badCodigo?`<button onclick="fixCodigoAuto('${esc}')" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald;font-weight:700" title="Generar código correcto desde RUT + nombre + debut">⚡ Fix</button>`:''}
+              <button onclick="openAthleteProfile('${esc}')" style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:var(--blue);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Ver perfil">👤</button>
+              <button onclick="deleteAthlete('${esc}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Eliminar">✕</button>
+            </td>
+          </tr>`;}).join('')}
         </table>
       </div>
     </div>
