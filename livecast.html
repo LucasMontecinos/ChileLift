@@ -340,7 +340,7 @@ const _TX_COLOR_DEFAULTS={
   headerBg:'rgba(28,50,90,.96)', // scoreboard/leaderboard header bg
 };
 function _txC(key){
-  const c=(_dirState&&_dirState.colors)||{};
+  const c=(_dirState&&_dirState.colors)||(_txDirState&&_txDirState.colors)||{};
   return c[key]||_TX_COLOR_DEFAULTS[key];
 }
 const SAVE_KEY='fechipo_lc3';
@@ -2615,7 +2615,8 @@ function renderTxDirector(container){
     +'|'+(_txDirState.leaderboard?.cat||'')+'|'+(_txDirState.slam?.type||'')
     +'|'+(_txDirState.profile?.until||0)+'|'+(_txDirState.scoreboard?.until||0)+'|'+(_txDirState.leaderboard?.until||0)+'|'+(_txDirState.slam?.until||0)
     +'|bt-'+(bt.startedAt||0)+'-'+(bt.durationSec||0)+'-'+(bt.pausedAt||0)+'-'+(bt.label||'')
-    +'|sc-'+(_txDirState.profile?.scale||1)+'-'+(_txDirState.scoreboard?.scale||1)+'-'+(_txDirState.leaderboard?.scale||1)+'-'+(_txDirState.timer?.scale||1)+'-'+(_txDirState.slam?.scale||1)+'-'+(_txDirState.breakTimer?.scale||1);
+    +'|sc-'+(_txDirState.profile?.scale||1)+'-'+(_txDirState.scoreboard?.scale||1)+'-'+(_txDirState.leaderboard?.scale||1)+'-'+(_txDirState.timer?.scale||1)+'-'+(_txDirState.slam?.scale||1)+'-'+(_txDirState.breakTimer?.scale||1)
+    +'|col-'+JSON.stringify(_txDirState.colors||{});
   if(sig===_txDirLastSig){
     // Updates in-place sin re-render para evitar flicker
     const tm=document.getElementById('cerTimer');
