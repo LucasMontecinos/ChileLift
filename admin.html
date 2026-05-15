@@ -790,6 +790,43 @@ window.exportData=function(){
   logAction('export','data.json',null,`${clean.length} athletes`);
 }
 
+window.crearPerfilDebutante=async function(sid){
+  const insId=decodeURIComponent(sid);
+  const i=ST.inscripciones.find(x=>x.id===insId);
+  if(!i){showToast('Inscripción no encontrada',null,true);return;}
+  const priv=ST.inscripcionesPrivate?.[insId]||{};
+  const rutRaw=i.rut||priv.rut||'';
+  const rutClean=rutRaw.replace(/[^0-9kK]/g,'').toUpperCase();
+  if(!rutClean){showToast('Esta inscripción no tiene RUT — no se puede crear el perfil',null,true);return;}
+  // Verificar de nuevo que no existe
+  const rutNorm=s=>String(s||'').replace(/[^0-9kK]/g,'').toUpperCase();
+  const yaExiste=(ST.data||[]).find(a=>rutNorm(a.rut)===rutClean);
+  if(yaExiste){showToast('Ya existe un perfil para este RUT: '+yaExiste.nombre,null,true);return;}
+  // Generar código único
+  const codigo=i.codigo||('FCP-'+new Date().getFullYear()+'-'+Math.random().toString(36).slice(2,6).toUpperCase());
+  const fechaNac=i.fechaNac||priv.fechaNac||'';
+  const pendDoc={
+    nombre:i.nombre||'',
+    rut:rutRaw,
+    codigo,
+    sexo:i.sexo||'',
+    fechaNac,
+    club:i.club||'',
+    zona:i.comuna||'',
+    debut:true,
+    inscripcion_evento:i.evento||'',
+    ts:serverTimestamp(),
+  };
+  try{
+    await setDoc(doc(db,'atletas_pending',rutClean),pendDoc);
+    // Agregar en memoria para que aparezca el banner y en búsquedas
+    ST.data.push({...pendDoc,_isPending:true});
+    await logAction('crear_perfil_debutante',rutClean,null,i.nombre);
+    showToast('★ Perfil creado para '+i.nombre+' — ya visible en atleta.html');
+    render();
+  }catch(e){showToast('Error: '+e.message,null,true);}
+};
+
 window.publicarDataJson=async function(){
   const pendientes=(ST.data||[]).filter(a=>a._isPending);
   if(!pendientes.length){showToast('No hay debutantes pendientes',null,true);return;}
@@ -1609,6 +1646,10 @@ function renderNominas(){
           const sid=encodeURIComponent(i.id||'');
           // Datos privados (carnet + WADA): solo si la inscripción es de Firebase
           const priv = editable ? (ST.inscripcionesPrivate?.[i.id]||{}) : {};
+          // Detectar si tiene perfil en data.json o en atletas_pending
+          const rutNormRow=s=>String(s||'').replace(/[^0-9kK]/g,'').toUpperCase();
+          const tienePerfilRow=!!(ST.data||[]).find(a=>rutNormRow(a.rut)===rutNormRow(i.rut));
+          const sinPerfilBtn=editable&&!tienePerfilRow?`<button onclick="crearPerfilDebutante('${sid}')" style="background:transparent;border:1px solid rgba(212,168,67,.5);color:var(--gold);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald;white-space:nowrap" title="Crear perfil de debutante">★ Perfil</button>`:'';
           const carnetUrl = priv.carnetURL || '';
           const wadaUrl = priv.wadeURL || priv.wadaURL || '';
           const carnetCell = carnetUrl
@@ -1629,7 +1670,7 @@ function renderNominas(){
             <td style="text-align:center">${carnetCell}</td>
             <td style="text-align:center">${wadaCell}</td>
             <td><span class="badge ${i.status==='approved'?'b-g':i.status==='pending'?'b-y':'b-r'}">${esc(i.status||'approved')}</span></td>
-            <td>${editable?`<button onclick="deleteInsc('${sid}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald" title="Eliminar">✕</button>`:''}</td>
+            <td style="white-space:nowrap">${sinPerfilBtn}${editable?`<button onclick="deleteInsc('${sid}')" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red);padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;font-family:Oswald;margin-left:4px" title="Eliminar">✕</button>`:''}</td>
           </tr>`;
         }).join('')}
       </table>
