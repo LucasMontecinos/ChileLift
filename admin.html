@@ -782,11 +782,61 @@ window.sortNominaByEvent=async function(eventoId){
 // EXPORT / IMPORT
 // ═══════════════════════════════════════════
 window.exportData=function(){
-  const blob=new Blob([JSON.stringify(ST.data,null,2)],{type:'application/json'});
+  const clean=ST.data.map(({_isPending,...a})=>a);
+  const blob=new Blob([JSON.stringify(clean,null,2)],{type:'application/json'});
   const u=URL.createObjectURL(blob);
   const l=document.createElement('a');l.href=u;l.download='data.json';l.click();
   URL.revokeObjectURL(u);
-  logAction('export','data.json',null,`${ST.data.length} athletes`);
+  logAction('export','data.json',null,`${clean.length} athletes`);
+}
+
+window.publicarDataJson=async function(){
+  const pendientes=(ST.data||[]).filter(a=>a._isPending);
+  if(!pendientes.length){showToast('No hay debutantes pendientes',null,true);return;}
+  if(!confirm(`¿Incorporar ${pendientes.length} debutante(s) al data.json?\n\n${pendientes.map(a=>a.nombre).join('\n')}\n\nSe descargará el archivo actualizado. Súbelo al servidor para publicarlo.`))return;
+
+  // Build clean data.json: all athletes without internal flags
+  const clean=ST.data.map(({_isPending,...a})=>{
+    // Convert fechaNac yyyy-mm-dd → dd/mm/yyyy if needed (debutants come in HTML date format)
+    if(a.debut&&a.fechaNac&&/^\d{4}-\d{2}-\d{2}$/.test(a.fechaNac)){
+      const [y,m,d]=a.fechaNac.split('-');
+      a.fechaNac=`${d}/${m}/${y}`;
+    }
+    // Ensure debut year is set
+    if(!a.debut&&a.fechaNac){
+      const m=a.fechaNac.match(/(\d{4})/);
+      if(m)a.debut=m[1];
+    }
+    // Ensure required fields exist
+    if(!a.competencias)a.competencias=[];
+    if(!a.bestLifts)a.bestLifts={sq:0,bp:0,dl:0,total:0,glp:0,dots:0};
+    return a;
+  });
+
+  // Download locally
+  const blob=new Blob([JSON.stringify(clean,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement('a');link.href=url;link.download='data.json';link.click();
+  URL.revokeObjectURL(url);
+
+  // Mark as incorporated in Firestore
+  const rutNorm=s=>String(s||'').replace(/[^0-9kK]/g,'').toUpperCase();
+  let marcados=0;
+  for(const a of pendientes){
+    try{
+      const rut=rutNorm(a.rut);
+      if(!rut)continue;
+      await setDoc(doc(db,'atletas_pending',rut),{incorporated:true,incorporatedAt:serverTimestamp()},{merge:true});
+      marcados++;
+    }catch(e){console.warn('[publicarDataJson] mark:',e.message);}
+  }
+
+  // Remove _isPending flag from local state so banner disappears
+  ST.data.forEach(a=>delete a._isPending);
+
+  await logAction('publicar_data_json',`${clean.length} atletas`,null,`${pendientes.length} debutantes`);
+  showToast(`✅ data.json descargado (${clean.length} atletas). ${marcados} debutante(s) marcados como incorporados. Sube el archivo al servidor.`);
+  render();
 }
 
 // ── OPL Export ──────────────────────────────────────────────
@@ -1459,9 +1509,32 @@ function renderAthletes(){
     return true;
   }).slice(0,100);
   const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const pendientes=(ST.data||[]).filter(a=>a._isPending);
+  let bannerPend='';
+  if(pendientes.length>0){
+    const rows=pendientes.map(a=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid rgba(212,168,67,.2);font-size:12px">
+        <div>
+          <span style="font-weight:700;color:var(--text)">${escapeHtml(a.nombre)}</span>
+          <span style="color:var(--muted);margin-left:8px">${escapeHtml(a.rut||'')} · ${escapeHtml(a.club||'')} · ${escapeHtml(a.codigo||'')}</span>
+        </div>
+        <span style="font-size:10px;color:var(--gold);font-weight:700">★ DEBUT</span>
+      </div>`).join('');
+    bannerPend=`<div style="background:rgba(212,168,67,.07);border:1px solid rgba(212,168,67,.4);border-radius:10px;margin-bottom:18px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(212,168,67,.3)">
+        <div>
+          <div style="font-family:Oswald;font-size:14px;color:var(--gold);letter-spacing:1px">★ ${pendientes.length} ATLETA${pendientes.length>1?'S':''} DEBUTANTE${pendientes.length>1?'S':''} PENDIENTE${pendientes.length>1?'S':''}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Se inscribieron pero aún no están en data.json. Sus perfiles ya son visibles en el sitio. Publicá para incorporarlos formalmente.</div>
+        </div>
+        <button onclick="publicarDataJson()" style="padding:10px 20px;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:Oswald;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;white-space:nowrap;margin-left:16px">📤 Publicar data.json</button>
+      </div>
+      ${rows}
+    </div>`;
+  }
   return `
     <div class="h1">Atletas (Base de Datos)</div>
     <p class="subtitle">${ST.data.length} atletas · Ordenados A-Z · Click en cualquier campo para editar</p>
+    ${bannerPend}
     <div class="search-box">
       <input class="inp" placeholder="Buscar nombre, club, código o RUT..." value="${ST.search}" oninput="searchDebounced(this.value)">
     </div>
@@ -1922,6 +1995,7 @@ function renderCampeonatos(){
           <a href="livecast.html?evento=${encodeURIComponent(ev.id)}" target="_blank" style="font-size:10px;color:var(--muted);text-decoration:none;padding:3px 8px;border:1px solid var(--border);border-radius:4px">📡 LiveCast (operador)</a>
           <button onclick="copyPublicLink('${ev.id}',this)" style="font-size:10px;color:var(--gold);background:transparent;text-decoration:none;padding:3px 8px;border:1px solid rgba(212,168,67,.4);border-radius:4px;cursor:pointer;font-family:inherit">🔗 Link público en vivo</button>
           <button onclick="toggleLivecastVisible('${ev.id}',${ev.livecastVisible!==false})" style="font-size:10px;padding:3px 10px;border-radius:4px;border:1px solid ${ev.livecastVisible!==false?'rgba(34,197,94,.4)':'rgba(239,68,68,.4)'};background:${ev.livecastVisible!==false?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'};color:${ev.livecastVisible!==false?'var(--green)':'var(--red)'};cursor:pointer;font-family:inherit;font-weight:700" title="Visible en el selector de eventos del LiveCast">${ev.livecastVisible!==false?'📡 LiveCast: ON':'📡 LiveCast: OFF'}</button>
+          <button onclick="deleteEvento('${ev.id}','${escapeHtml(ev.name).replace(/'/g,"\\'")}',this)" style="font-size:10px;padding:3px 10px;border-radius:4px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);color:var(--red);cursor:pointer;font-family:inherit;font-weight:700;margin-left:auto" title="Eliminar campeonato">🗑 Eliminar</button>
         </div>
       </div>`;
     }).join('')}
@@ -1988,6 +2062,18 @@ window.toggleLivecastVisible = async function(id, currentlyVisible){
     await logAction('toggle_livecast_visible', id, null, next ? 'ON' : 'OFF');
     showToast(next ? '📡 Campeonato visible en LiveCast' : '📡 Campeonato oculto del LiveCast');
   }catch(e){ showToast('Error: '+e.message, null, true); }
+};
+
+window.deleteEvento = async function(id, name, btn){
+  if(!confirm(`¿Eliminar el campeonato "${name}"?\n\nSe borrará solo la configuración del evento. Las inscripciones y resultados asociados NO se eliminan automáticamente.`))return;
+  if(!confirm(`Última confirmación: ¿eliminar "${name}"?`))return;
+  try{
+    btn.disabled=true; btn.textContent='Eliminando...';
+    await deleteDoc(doc(db,'eventos',id));
+    await logAction('delete_evento',id,null,name);
+    showToast(`🗑 Campeonato "${name}" eliminado`);
+    render();
+  }catch(e){ showToast('Error: '+e.message,null,true); btn.disabled=false; btn.textContent='🗑 Eliminar'; }
 };
 
 window.copyPublicLink = function(id, btn){
