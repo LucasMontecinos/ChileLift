@@ -2387,7 +2387,7 @@ function _renderTxCerScoreboardBL(cur,opts){
 function _renderTxCerSlamCorner(type,scale){
   const isGood=type==='g';
   const text=isGood?'GOOD LIFT':'NO LIFT';
-  const color=isGood?'#5cb37f':'#cc6666';                              // tonos suaves
+  const color=isGood?_txC('goodLift'):_txC('noLift');
   const glow=isGood?'rgba(92,179,127,.75)':'rgba(204,102,102,.75)';
   const s=scale||1;
   const wrapStart=s!==1?'<div style="position:fixed;top:24px;left:24px;transform:scale('+s+');transform-origin:top left">':'';
@@ -2871,7 +2871,7 @@ function renderTxProfile(cur){
     <div style="position:absolute;inset:0;padding:clamp(40px,5vw,80px);display:flex;flex-direction:column">
       <div class="txCascade" style="display:flex;flex-direction:column;gap:clamp(8px,1.5vh,22px);max-width:1400px;width:100%;margin:auto">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:clamp(6px,1vh,16px)">
-          <div style="background:#D4A843;padding:clamp(10px,1.6vw,18px) clamp(18px,2.2vw,28px);border-radius:6px;display:flex;align-items:center;gap:clamp(10px,1.5vw,18px);box-shadow:0 4px 20px rgba(212,168,67,.35)">
+          <div style="background:${_txC('nameBg')};padding:clamp(10px,1.6vw,18px) clamp(18px,2.2vw,28px);border-radius:6px;display:flex;align-items:center;gap:clamp(10px,1.5vw,18px);box-shadow:0 4px 20px rgba(212,168,67,.35)">
             <div style="background:rgba(0,0,0,.15);padding:6px 12px;border-radius:4px;font-size:clamp(28px,3vw,42px);line-height:1;display:flex;align-items:center" title="Chile">🇨🇱</div>
             <div style="font-family:Oswald;font-size:clamp(26px,3.2vw,44px);font-weight:700;letter-spacing:2px;color:#0A1628">
               <span style="font-weight:400">${firstName}</span> ${lastName}
@@ -2879,7 +2879,7 @@ function renderTxProfile(cur){
           </div>
         </div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:clamp(30px,4vw,70px);align-items:center;margin-top:clamp(10px,2vh,30px)">
-          <div style="width:clamp(180px,18vw,280px);aspect-ratio:3/4;background:${full?.foto_url?'#fff':'linear-gradient(135deg,#1a2e4f,#0e1f3a)'};border:3px solid #D4A843;border-radius:4px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px rgba(0,0,0,.5);position:relative;overflow:hidden">
+          <div style="width:clamp(180px,18vw,280px);aspect-ratio:3/4;background:${full?.foto_url?'#fff':'linear-gradient(135deg,#1a2e4f,#0e1f3a)'};border:3px solid ${_txC('accent')};border-radius:4px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px rgba(0,0,0,.5);position:relative;overflow:hidden">
             ${full?.foto_url
               ? `<img src="${full.foto_url}" alt="${cur.name||''}" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML='<span style=\\'font-family:Oswald;font-size:clamp(60px,8vw,120px);font-weight:700;color:rgba(212,168,67,.55);letter-spacing:2px\\'>${initials}</span>'">`
               : `<span style="font-family:Oswald;font-size:clamp(60px,8vw,120px);font-weight:700;color:rgba(212,168,67,.55);letter-spacing:2px">${initials}</span>`
@@ -2889,7 +2889,7 @@ function renderTxProfile(cur){
             ${rows.map(r=>`
               <div style="display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;border-bottom:1px solid rgba(212,168,67,.2);padding-bottom:clamp(8px,1.2vh,14px)">
                 <div style="font-family:Oswald;font-size:clamp(22px,2.4vw,36px);font-weight:600;color:rgba(220,230,245,.92);letter-spacing:3px">${r[0]}</div>
-                <div style="font-family:Oswald;font-size:clamp(24px,2.6vw,40px);font-weight:700;color:#D4A843;letter-spacing:1px;text-align:right">${r[1]}</div>
+                <div style="font-family:Oswald;font-size:clamp(24px,2.6vw,40px);font-weight:700;color:${_txC('accent')};letter-spacing:1px;text-align:right">${r[1]}</div>
               </div>`).join('')}
           </div>
         </div>
@@ -2999,7 +2999,7 @@ function renderTxLeaderboard(cur,lifterChanged,opts){
   return `
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:clamp(30px,5vh,80px)">
       <div class="txCascade" style="width:min(1100px,95%);background:rgba(10,22,40,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid rgba(212,168,67,.4);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45)">
-        <div style="padding:clamp(14px,2vh,22px) clamp(20px,2.5vw,32px);background:linear-gradient(90deg,rgba(28,50,90,.55),rgba(35,60,105,.55));border-bottom:2px solid #D4A843;display:flex;justify-content:space-between;align-items:center">
+        <div style="padding:clamp(14px,2vh,22px) clamp(20px,2.5vw,32px);background:linear-gradient(90deg,rgba(28,50,90,.55),rgba(35,60,105,.55));border-bottom:2px solid ${_txC('accent')};display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-family:Oswald;font-size:clamp(11px,1.1vw,14px);color:rgba(220,230,245,.75);letter-spacing:3px">LEADERBOARD</div>
             <div style="font-family:Oswald;font-size:clamp(20px,2.2vw,30px);font-weight:700;color:#fff;letter-spacing:2px;margin-top:2px;text-shadow:0 2px 6px rgba(0,0,0,.6)">${divS} • ${ref.cat} (${sexLabel})</div>
@@ -3018,8 +3018,8 @@ function renderTxLeaderboard(cur,lifterChanged,opts){
               <span style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);font-weight:${isCur?'700':'500'};color:${isCur?'#fff':'rgba(240,245,255,.92)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.name}</span>
             </div>
             <div style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);text-align:center;color:rgba(220,230,245,.75);text-shadow:0 1px 3px rgba(0,0,0,.5)">${(a.total||0).toFixed(1)}</div>
-            <div style="font-family:Oswald;font-size:clamp(15px,1.6vw,22px);text-align:center;font-weight:700;color:${isCur?'#D4A843':'rgba(240,245,255,.95)'};text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.fTotal||'—'}</div>
-            <div style="font-family:Oswald;font-size:clamp(16px,1.7vw,24px);text-align:center;font-weight:700;color:${isCur?'#D4A843':'rgba(220,230,245,.8)'};text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.fPlace}</div>
+            <div style="font-family:Oswald;font-size:clamp(15px,1.6vw,22px);text-align:center;font-weight:700;color:${isCur?_txC('accent'):'rgba(240,245,255,.95)'};text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.fTotal||'—'}</div>
+            <div style="font-family:Oswald;font-size:clamp(16px,1.7vw,24px);text-align:center;font-weight:700;color:${isCur?_txC('accent'):'rgba(220,230,245,.8)'};text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.fPlace}</div>
           </div>`;
         }).join('')}
         <div style="padding:clamp(10px,1.5vh,16px) clamp(20px,2.5vw,32px);background:rgba(196,30,58,.22);display:flex;gap:clamp(18px,2.5vw,40px);justify-content:center;align-items:center">
@@ -3604,6 +3604,33 @@ function renderDirector(){
     h+='<button class="btn btn-r" onclick="dirBreakHide()" style="padding:9px 18px;font-size:12px">⏹ DETENER</button>';
   }
   h+='</div>'+scaleSlider('breakTimer')+'</div>';
+
+  // Color picker panel
+  const curColors=(_dirState&&_dirState.colors)||{};
+  const colorDefs=[
+    {key:'goodLift',  label:'✓ GOOD LIFT',   desc:'Banner GOOD LIFT y posición #1'},
+    {key:'noLift',    label:'✗ NO LIFT',      desc:'Banner NO LIFT y DQ'},
+    {key:'nameBg',    label:'Fondo nombre',   desc:'Barra del nombre (perfil y marcador)'},
+    {key:'nameBg2',   label:'Fondo nombre 2', desc:'Gradiente derecho de la barra del nombre'},
+    {key:'accent',    label:'Acento',         desc:'Bordes, total, valores del perfil, leaderboard'},
+    {key:'headerBg',  label:'Header marcador',desc:'Fondo del header del marcador'},
+  ];
+  h+='<details style="margin-top:12px"><summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--card-bg,rgba(18,28,50,.7));border:1px solid var(--border);border-radius:10px;font-family:Oswald;font-size:13px;letter-spacing:1px;color:var(--gold)">🎨 COLORES DE WIDGETS <span style="font-size:10px;color:var(--muted);font-family:sans-serif;margin-left:4px">(click para expandir)</span></summary>';
+  h+='<div class="card" style="margin-top:4px;padding:16px 18px;border-top:none;border-radius:0 0 10px 10px">';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">';
+  colorDefs.forEach(({key,label,desc})=>{
+    const val=curColors[key]||_TX_COLOR_DEFAULTS[key]||'#ffffff';
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(10,22,40,.4);border:1px solid var(--border);border-radius:8px">';
+    h+='<input type="color" value="'+val+'" onchange="dirSetColor(\''+key+'\',this.value)" style="width:40px;height:40px;border:none;border-radius:6px;cursor:pointer;background:transparent;flex-shrink:0">';
+    h+='<div><div style="font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text)">'+label+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted);margin-top:2px">'+desc+'</div>';
+    h+='<div style="font-size:9px;color:var(--muted);font-family:monospace;margin-top:1px">'+val+'</div></div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-o" onclick="dirResetColors()" style="padding:7px 16px;font-size:11px;font-family:Oswald;letter-spacing:1px">↺ RESTAURAR DEFAULTS</button></div>';
+  h+='</div></details>';
+
   h+='</div>';
   return h;
 }
