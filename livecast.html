@@ -4523,10 +4523,9 @@ function renderAtletaInfo(){
     h+='<div style="display:flex;gap:14px;align-items:center;margin-bottom:12px">';
     const fotoUrl=db?.foto_url||'';
     h+='<div style="width:64px;height:64px;border-radius:12px;background:var(--bg);border:2px solid '+(fotoUrl?'rgba(212,168,67,.5)':'var(--border)')+';display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden">';
+    h+='<span style="font-family:Oswald;font-size:22px;font-weight:700;color:var(--border);position:absolute">'+initials+'</span>';
     if(fotoUrl){
-      h+='<img src="'+fotoUrl+'" alt="'+initials+'" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML=\'<span style=\\"font-family:Oswald;font-size:22px;font-weight:700;color:var(--border)\\">'+initials+'</span>\'">';
-    }else{
-      h+='<span style="font-family:Oswald;font-size:22px;font-weight:700;color:var(--border)">'+initials+'</span>';
+      h+='<img src="'+fotoUrl+'" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">';
     }
     h+='</div>';
     h+='<div style="flex:1;min-width:0">';
