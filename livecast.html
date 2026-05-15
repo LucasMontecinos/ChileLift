@@ -1277,10 +1277,11 @@ async function generateActaPDF(){
   const btn=document.getElementById('btnActaPDF');
   if(btn){btn.disabled=true;btn.textContent='⏳ Generando...';}
   // Backup nombres + clubes y normalizar (sin acentos) para el PDF
-  const _pdfBackups=DATA.athletes.map(a=>({ref:a,name:a.name,club:a.club}));
+  const _pdfBackups=DATA.athletes.map(a=>({ref:a,name:a.name,club:a.club,universidad:a.universidad}));
   DATA.athletes.forEach(a=>{
     if(a.name)a.name=_stripAccentsForPdf(a.name);
     if(a.club)a.club=_stripAccentsForPdf(a.club);
+    if(a.universidad)a.universidad=_stripAccentsForPdf(a.universidad);
   });
   try{
     // Lazy load jsPDF + autoTable
@@ -1594,6 +1595,204 @@ async function generateActaPDF(){
       doc.text('Sin totales registrados',PW/2,blY+16,{align:'center'});
     }
 
+    // ── Club Ranking page ────────────────────────────────
+    {
+      doc.addPage();
+      drawPageBg();
+      doc.setFillColor(...C.header);
+      doc.rect(0,0,PW,12,'F');
+      doc.setTextColor(...C.white);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(11);
+      doc.text('RANKING DE CLUBES',PW/2,8.5,{align:'center'});
+      doc.setFillColor(...C.rowAlt);
+      doc.rect(0,12,PW,7,'F');
+      doc.setTextColor(...C.gold);
+      doc.setFontSize(8);
+      doc.text(_stripAccentsForPdf('PUNTUACION POR CLUB — '+(DATA.event?.name||'').toUpperCase()),PW/2,17,{align:'center'});
+
+      // Build club stats — rank medals from category rankings
+      const clubStats={};
+      all.filter(a=>a.total>0).forEach(a=>{
+        const cl=_stripAccentsForPdf(a.club||'Sin Club');
+        if(!clubStats[cl])clubStats[cl]={club:cl,athletes:0,gold:0,silver:0,bronze:0,glSum:0};
+        clubStats[cl].athletes++;
+        clubStats[cl].glSum+=a.gl||0;
+        if(a._rank===1)clubStats[cl].gold++;
+        else if(a._rank===2)clubStats[cl].silver++;
+        else if(a._rank===3)clubStats[cl].bronze++;
+      });
+      const clubArr=Object.values(clubStats).sort((a,b)=>{
+        if(b.gold!==a.gold)return b.gold-a.gold;
+        if(b.silver!==a.silver)return b.silver-a.silver;
+        if(b.bronze!==a.bronze)return b.bronze-a.bronze;
+        return b.glSum-a.glSum;
+      });
+
+      const clCols=[
+        {header:'Pos',w:12},{header:'Club',w:80},{header:'Atletas',w:22},
+        {header:'Oro',w:18},{header:'Plata',w:18},{header:'Bronce',w:18},{header:'GL Total',w:22}
+      ];
+      const clTotalW=clCols.reduce((s,c)=>s+c.w,0);
+      const clX=(PW-clTotalW)/2;
+
+      let clY=26;
+      let ccx=clX;
+      doc.setFillColor(20,38,68);
+      doc.rect(clX,clY,clTotalW,6,'F');
+      doc.setTextColor(...C.muted);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      clCols.forEach(col=>{doc.text(col.header,ccx+col.w/2,clY+4,{align:'center'});ccx+=col.w;});
+      clY+=6;
+
+      if(clubArr.length){
+        clubArr.forEach((cl,ri)=>{
+          const rowH=8;
+          doc.setFillColor(...(ri%2===0?C.bg:C.rowAlt));
+          doc.rect(clX,clY,clTotalW,rowH,'F');
+          const rk=ri+1;
+          const cells=[
+            {text:String(rk),color:rk<=3?C.gold:C.white,bold:rk<=3},
+            {text:cl.club,color:C.white,bold:false,align:'left',px:clX+14},
+            {text:String(cl.athletes),color:C.muted,bold:false},
+            {text:String(cl.gold),color:[255,215,0],bold:cl.gold>0},
+            {text:String(cl.silver),color:[192,192,192],bold:cl.silver>0},
+            {text:String(cl.bronze),color:[205,127,50],bold:cl.bronze>0},
+            {text:String(Math.round(cl.glSum*100)/100),color:C.gold,bold:true}
+          ];
+          ccx=clX;
+          cells.forEach((cell,ci)=>{
+            const col=clCols[ci];
+            doc.setTextColor(...cell.color);
+            doc.setFont('helvetica',cell.bold?'bold':'normal');
+            doc.setFontSize(cell.bold?8:7);
+            if(cell.align==='left'){
+              doc.text(_stripAccentsForPdf(cell.text),cell.px,clY+rowH/2+2);
+            }else{
+              doc.text(_stripAccentsForPdf(cell.text),ccx+col.w/2,clY+rowH/2+2,{align:'center'});
+            }
+            ccx+=col.w;
+          });
+          doc.setDrawColor(...C.border);
+          doc.setLineWidth(0.15);
+          doc.line(clX,clY+rowH,clX+clTotalW,clY+rowH);
+          clY+=rowH;
+        });
+      }else{
+        doc.setTextColor(...C.muted);
+        doc.setFontSize(9);
+        doc.text('Sin datos de clubes',PW/2,clY+16,{align:'center'});
+      }
+
+      // Aclaración del criterio de ordenación
+      clY+=10;
+      doc.setTextColor(...C.muted);
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(6);
+      doc.text(_stripAccentsForPdf('Criterio: Medallas de Oro → Plata → Bronce → GL Points acumulados'),PW/2,clY,{align:'center'});
+    }
+
+    // ── University Ranking page (solo si hay datos de universidad) ───
+    {
+      const isUniv=(DATA.event?.name||'').toLowerCase().includes('universitario');
+      const univAthletes=all.filter(a=>a.total>0&&a.universidad&&a.universidad.trim());
+      if(isUniv||univAthletes.length>0){
+        doc.addPage();
+        drawPageBg();
+        doc.setFillColor(...C.header);
+        doc.rect(0,0,PW,12,'F');
+        doc.setTextColor(...C.white);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(11);
+        doc.text('RANKING DE UNIVERSIDADES',PW/2,8.5,{align:'center'});
+        doc.setFillColor(...C.rowAlt);
+        doc.rect(0,12,PW,7,'F');
+        doc.setTextColor(...C.gold);
+        doc.setFontSize(8);
+        doc.text(_stripAccentsForPdf('PUNTUACION POR UNIVERSIDAD — '+(DATA.event?.name||'').toUpperCase()),PW/2,17,{align:'center'});
+
+        const univStats={};
+        univAthletes.forEach(a=>{
+          const u=_stripAccentsForPdf((a.universidad||'').trim()||'Sin Universidad');
+          if(!univStats[u])univStats[u]={univ:u,athletes:0,gold:0,silver:0,bronze:0,glSum:0};
+          univStats[u].athletes++;
+          univStats[u].glSum+=a.gl||0;
+          if(a._rank===1)univStats[u].gold++;
+          else if(a._rank===2)univStats[u].silver++;
+          else if(a._rank===3)univStats[u].bronze++;
+        });
+        const univArr=Object.values(univStats).sort((a,b)=>{
+          if(b.gold!==a.gold)return b.gold-a.gold;
+          if(b.silver!==a.silver)return b.silver-a.silver;
+          if(b.bronze!==a.bronze)return b.bronze-a.bronze;
+          return b.glSum-a.glSum;
+        });
+
+        const uCols=[
+          {header:'Pos',w:12},{header:'Universidad',w:100},{header:'Atletas',w:22},
+          {header:'Oro',w:18},{header:'Plata',w:18},{header:'Bronce',w:18},{header:'GL Total',w:22}
+        ];
+        const uTotalW=uCols.reduce((s,c)=>s+c.w,0);
+        const uX=(PW-uTotalW)/2;
+
+        let uY=26;
+        let ucx=uX;
+        doc.setFillColor(20,38,68);
+        doc.rect(uX,uY,uTotalW,6,'F');
+        doc.setTextColor(...C.muted);
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(7);
+        uCols.forEach(col=>{doc.text(col.header,ucx+col.w/2,uY+4,{align:'center'});ucx+=col.w;});
+        uY+=6;
+
+        if(univArr.length){
+          univArr.forEach((u,ri)=>{
+            const rowH=8;
+            doc.setFillColor(...(ri%2===0?C.bg:C.rowAlt));
+            doc.rect(uX,uY,uTotalW,rowH,'F');
+            const rk=ri+1;
+            const cells=[
+              {text:String(rk),color:rk<=3?C.gold:C.white,bold:rk<=3},
+              {text:u.univ,color:C.white,bold:false,align:'left',px:uX+14},
+              {text:String(u.athletes),color:C.muted,bold:false},
+              {text:String(u.gold),color:[255,215,0],bold:u.gold>0},
+              {text:String(u.silver),color:[192,192,192],bold:u.silver>0},
+              {text:String(u.bronze),color:[205,127,50],bold:u.bronze>0},
+              {text:String(Math.round(u.glSum*100)/100),color:C.gold,bold:true}
+            ];
+            ucx=uX;
+            cells.forEach((cell,ci)=>{
+              const col=uCols[ci];
+              doc.setTextColor(...cell.color);
+              doc.setFont('helvetica',cell.bold?'bold':'normal');
+              doc.setFontSize(cell.bold?8:7);
+              if(cell.align==='left'){
+                doc.text(_stripAccentsForPdf(cell.text),cell.px,uY+rowH/2+2);
+              }else{
+                doc.text(_stripAccentsForPdf(cell.text),ucx+col.w/2,uY+rowH/2+2,{align:'center'});
+              }
+              ucx+=col.w;
+            });
+            doc.setDrawColor(...C.border);
+            doc.setLineWidth(0.15);
+            doc.line(uX,uY+rowH,uX+uTotalW,uY+rowH);
+            uY+=rowH;
+          });
+        }else{
+          doc.setTextColor(...C.muted);
+          doc.setFontSize(9);
+          doc.text('Sin datos de universidades registradas',PW/2,uY+16,{align:'center'});
+        }
+
+        uY+=10;
+        doc.setTextColor(...C.muted);
+        doc.setFont('helvetica','italic');
+        doc.setFontSize(6);
+        doc.text(_stripAccentsForPdf('Criterio: Medallas de Oro → Plata → Bronce → GL Points acumulados'),PW/2,uY,{align:'center'});
+      }
+    }
+
     // ── Footer on all pages ──────────────────────────────
     const totalPages=doc.internal.getNumberOfPages();
     for(let i=1;i<=totalPages;i++){
@@ -1620,7 +1819,7 @@ async function generateActaPDF(){
     alert('Error al generar PDF: '+err.message);
   }finally{
     // Restaurar nombres/clubes originales con acentos (no se pierden datos)
-    _pdfBackups.forEach(b=>{b.ref.name=b.name;b.ref.club=b.club;});
+    _pdfBackups.forEach(b=>{b.ref.name=b.name;b.ref.club=b.club;if(b.universidad!==undefined)b.ref.universidad=b.universidad;});
     if(btn){btn.disabled=false;btn.textContent='\uD83D\uDCCB Generar Acta PDF';}
   }
 }
