@@ -181,6 +181,7 @@ async function initFB(){
       snap.docs.forEach(d=>{
         const e=d.data();
         if(e.status==='archived')return;
+        if(e.livecastVisible===false)return;
         evs[d.id]=e.name;
         // Default récords activos; en "Universitario" arrancan apagados.
         const recordsEnabled=(typeof e.recordsEnabled==='boolean')

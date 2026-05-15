@@ -564,15 +564,8 @@ function renderForm() {
         </select>
       </div>
       <div class="field">
-        <label>Zona FECHIPO <span class="req">*</span></label>
-        <select class="input ${f.zona?'ok':''}" onchange="updR('zona',this.value)">
-          <option value="">Seleccionar zona...</option>
-          ${ZONAS.map(z => `<option ${f.zona===z?'selected':''}>${z}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Ciudad / Región <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(opcional)</span></label>
-        <input class="input" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)">
+        <label>Ciudad y Región <span class="req">*</span></label>
+        <input class="input ${f.comuna?'ok':''}" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)">
       </div>
     </div>
     ${f.club==='Otro'?`<div class="field">
@@ -585,7 +578,7 @@ function renderForm() {
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:16px">
       <button class="btn btn-outline" onclick="prevStep()">← Atrás</button>
-      <button class="btn btn-accent" onclick="nextStep()" ${!(f.nombre&&f.rut&&f.sexo&&f.fechaNac&&f.club&&f.zona&&f.pin&&f.pin.length===4)?'disabled':''}>Siguiente →</button>
+      <button class="btn btn-accent" onclick="nextStep()" ${!(f.nombre&&f.rut&&f.sexo&&f.fechaNac&&f.club&&f.comuna&&f.pin&&f.pin.length===4)?'disabled':''}>Siguiente →</button>
     </div></div>`;
   }
 
@@ -932,15 +925,8 @@ function renderEdit() {
         <input class="input" type="text" value="${f.universidad||''}" oninput="upd('universidad',this.value)">
       </div>`:''}
       <div class="field">
-        <label>Zona FECHIPO <span class="req">*</span></label>
-        <select class="input ${f.zona?'ok':''}" onchange="updR('zona',this.value)">
-          <option value="">Seleccionar zona...</option>
-          ${ZONAS.map(z => `<option ${f.zona===z?'selected':''}>${z}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Ciudad / Región</label>
-        <input class="input" type="text" value="${f.comuna}" oninput="upd('comuna',this.value)">
+        <label>Ciudad y Región <span class="req">*</span></label>
+        <input class="input ${f.comuna?'ok':''}" type="text" placeholder="ej: Talca, Región del Maule" value="${f.comuna}" oninput="upd('comuna',this.value)">
       </div>
     </div>
     <div style="text-align:right;margin-top:12px">
@@ -1103,7 +1089,7 @@ function nextStep() {
   const f = state.form;
   if (state.step === 0 && !f.evento) { state.error = 'Selecciona un evento'; render(); return; }
   if (state.step === 1) {
-    if (!f.nombre || !f.rut || !f.sexo || !f.fechaNac || !f.club || !f.zona || !f.pin || f.pin.length !== 4) { state.error = 'Completa todos los campos obligatorios (incluye Zona FECHIPO y PIN de 4 dígitos)'; render(); return; }
+    if (!f.nombre || !f.rut || !f.sexo || !f.fechaNac || !f.club || !f.comuna || !f.pin || f.pin.length !== 4) { state.error = 'Completa todos los campos obligatorios (incluye ciudad/región y PIN de 4 dígitos)'; render(); return; }
     if (!validateRut(f.rut).valid) { state.error = 'RUT inválido: ' + validateRut(f.rut).msg; render(); return; }
   }
   if (state.step === 2) {
