@@ -66,6 +66,7 @@ input,select,button{font-family:inherit;outline:none}
 </head>
 <body>
 <div id="R"></div>
+<script src="yl-compat.js"></script>
 <script src="clubs.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5/dist/obs-ws.min.js" integrity="sha384-Vce9u7FN5Pbapc8dhpMdg2EjTels5H1cGOVLAe7THp3fEtfb89nD6YOIaf8781ay" crossorigin="anonymous"></script>
 <script>
@@ -4277,6 +4278,7 @@ function findInDB(name,rut){
   return DB_FULL.find(a=>{const dn=nrm(a.nombre);return dn===nn})||DB_FULL.find(a=>{const dn=nrm(a.nombre);return parts.length>=2&&parts.every(p=>dn.includes(p))})||null;
 }
 fetch('data.json').then(r=>r.json()).then(d=>{
+  if(window.__ylNormalizeDataJsonForLegacy) window.__ylNormalizeDataJsonForLegacy(d);
   DB_FULL=d;
   // Mergear atleta_fotos desde Firestore (si Firebase está listo)
   if(fbReady && window._fb){
