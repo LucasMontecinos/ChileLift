@@ -822,6 +822,156 @@ window.sortNominaByEvent=async function(eventoId){
 }
 
 // ═══════════════════════════════════════════
+// INSCRIBIR ATLETA MANUALMENTE
+// ═══════════════════════════════════════════
+window.openInscribirModal=function(){
+  const evObj=(ST.eventos||[]).find(e=>e.name===ST.filterEv||e.id===ST.filterEv);
+  const tieneUniversidad=(evObj?.extraCols||[]).includes('universidad');
+  const el=document.createElement('div');
+  el.id='inscribirModal';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9990;display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML=`
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto">
+    <div style="font-family:Oswald;font-size:18px;font-weight:700;letter-spacing:1px;margin-bottom:6px">➕ Inscribir atleta manualmente</div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:20px">Evento: <b style="color:var(--gold)">${ST.filterEv||'—'}</b></p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <label class="field" style="grid-column:span 2">
+        <span>Buscar atleta (nombre o código)</span>
+        <input id="im_search" class="inp" placeholder="ej: Karen Pulecio" oninput="inscribirSearch(this.value)" autocomplete="off">
+        <div id="im_results" style="margin-top:4px;max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;display:none"></div>
+      </label>
+      <label class="field" style="grid-column:span 2">
+        <span>Nombre completo</span>
+        <input id="im_nombre" class="inp" placeholder="Karen Daniela Pulecio Giron">
+      </label>
+      <label class="field">
+        <span>RUT</span>
+        <input id="im_rut" class="inp" placeholder="22863335-6">
+      </label>
+      <label class="field">
+        <span>Fecha de nacimiento</span>
+        <input id="im_fechaNac" class="inp" placeholder="17/11/2002">
+      </label>
+      <label class="field">
+        <span>Sexo</span>
+        <select id="im_sexo" class="inp">
+          <option value="Femenino">Femenino</option>
+          <option value="Masculino">Masculino</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>División</span>
+        <select id="im_division" class="inp">
+          <option value="Open">Open</option>
+          <option value="Junior">Junior</option>
+          <option value="Sub-junior">Sub-junior</option>
+          <option value="Master I">Master I</option>
+          <option value="Master II">Master II</option>
+          <option value="Master III">Master III</option>
+          <option value="Master IV">Master IV</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Categoría (kg)</span>
+        <input id="im_categoria" class="inp" placeholder="ej: 69 o -69">
+      </label>
+      <label class="field">
+        <span>Modalidad</span>
+        <select id="im_modalidad" class="inp">
+          <option value="Powerlifting Classic">Powerlifting Classic</option>
+          <option value="Powerlifting Equipado">Powerlifting Equipado</option>
+          <option value="Only Bench Classic">Only Bench Classic</option>
+          <option value="Only Bench Equipado">Only Bench Equipado</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Club</span>
+        <input id="im_club" class="inp" placeholder="All Power CD">
+      </label>
+      ${tieneUniversidad?`
+      <label class="field" style="grid-column:span 2">
+        <span>Universidad</span>
+        <input id="im_universidad" class="inp" placeholder="ej: Universidad de Chile">
+      </label>`:`
+      <label class="field" style="grid-column:span 2">
+        <span>Universidad <span style="color:var(--muted)">(opcional)</span></span>
+        <input id="im_universidad" class="inp" placeholder="ej: Universidad de Chile">
+      </label>`}
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn" onclick="document.getElementById('inscribirModal').remove()" style="background:transparent;border:1px solid var(--border)">Cancelar</button>
+      <button class="btn btn-g" onclick="submitInscripcionManual()" style="padding:10px 24px;font-family:Oswald;font-size:14px;font-weight:700;letter-spacing:1px">✓ INSCRIBIR</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click',e=>{if(e.target===el)el.remove()});
+};
+
+window.inscribirSearch=function(q){
+  const res=document.getElementById('im_results');
+  if(!q||q.length<2){res.style.display='none';return}
+  const lower=q.toLowerCase();
+  const matches=(ST.data||[]).filter(a=>(a.nombre||'').toLowerCase().includes(lower)||(a.codigo||'').toLowerCase().includes(lower)).slice(0,8);
+  if(!matches.length){res.style.display='none';return}
+  res.style.display='block';
+  res.innerHTML=matches.map(a=>`
+    <div onclick="inscribirFill(${JSON.stringify(JSON.stringify(a))})"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;display:flex;flex-direction:column;gap:2px"
+      onmouseover="this.style.background='rgba(59,130,246,.12)'" onmouseout="this.style.background=''">
+      <span style="font-weight:600;color:var(--text)">${a.nombre||''}</span>
+      <span style="color:var(--muted)">${a.codigo||''} · ${a.club||''}</span>
+    </div>`).join('');
+};
+
+window.inscribirFill=function(json){
+  const a=JSON.parse(json);
+  document.getElementById('im_search').value=a.nombre||'';
+  document.getElementById('im_results').style.display='none';
+  document.getElementById('im_nombre').value=a.nombre||'';
+  document.getElementById('im_rut').value=a.rut||'';
+  document.getElementById('im_fechaNac').value=a.fechaNac||'';
+  document.getElementById('im_club').value=a.club||'';
+  if(a.sexo){
+    const sexoEl=document.getElementById('im_sexo');
+    const val=(a.sexo||'').toLowerCase().includes('f')?'Femenino':'Masculino';
+    sexoEl.value=val;
+  }
+};
+
+window.submitInscripcionManual=async function(){
+  const nombre=document.getElementById('im_nombre').value.trim();
+  const rut=document.getElementById('im_rut').value.trim();
+  if(!nombre){showToast('Falta el nombre',null,true);return}
+  if(!ST.filterEv){showToast('Seleccioná un evento primero',null,true);return}
+  const dup=ST.inscripciones.find(i=>i.evento===ST.filterEv&&i.nombre.toLowerCase()===nombre.toLowerCase());
+  if(dup&&!confirm(`Ya existe una inscripción de "${nombre}" en este evento. ¿Agregar igual?`))return;
+  const data={
+    nombre,
+    rut,
+    sexo:document.getElementById('im_sexo').value,
+    fechaNac:document.getElementById('im_fechaNac').value.trim(),
+    division:document.getElementById('im_division').value,
+    categoria:document.getElementById('im_categoria').value.trim(),
+    modalidad:document.getElementById('im_modalidad').value,
+    club:document.getElementById('im_club').value.trim(),
+    universidad:document.getElementById('im_universidad').value.trim(),
+    evento:ST.filterEv,
+    status:'approved',
+    timestamp:Date.now(),
+    _manualAdmin:true
+  };
+  try{
+    await addDoc(collection(db,'inscripciones'),data);
+    await logAction('manual_inscripcion',ST.filterEv,null,nombre);
+    showToast(`✓ ${nombre} inscrito/a en ${ST.filterEv}`);
+    document.getElementById('inscribirModal').remove();
+  }catch(e){
+    showToast('Error: '+(e.message||e),null,true);
+  }
+};
+
+// ═══════════════════════════════════════════
 // EXPORT / IMPORT
 // ═══════════════════════════════════════════
 window.exportData=function(){
@@ -1674,6 +1824,7 @@ function renderNominas(){
         ${allEvents.map(e=>`<option value="${e}" ${ST.filterEv===e?'selected':''}>${e}</option>`).join('')}
       </select>
       ${inFirebase?`<button class="btn btn-b" onclick="sortNominaByEvent('${ST.filterEv}')">⇅ ORDENAR</button>`:''}
+      <button class="btn btn-g" onclick="openInscribirModal()" style="padding:8px 16px;font-size:12px">➕ Inscribir atleta</button>
     </div>
     ${needsMetaSync?'<div class="card" style="background:rgba(212,168,67,.08);border-color:rgba(212,168,67,.3);padding:12px 16px;margin-bottom:12px"><span style="color:var(--gold);font-size:12px">⚠️ Las inscripciones están en Firebase pero falta el doc de evento en <code>eventos/</code>. Sin eso no podés editar fecha/cierre/ubicación desde <b>Campeonatos</b>. Creá el evento desde el panel de Campeonatos.</span></div>':''}
     <div class="card" style="padding:0;overflow-x:auto">
