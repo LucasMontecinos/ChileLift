@@ -908,15 +908,16 @@ window.openInscribirModal=function(){
   el.addEventListener('click',e=>{if(e.target===el)el.remove()});
 };
 
+window._inscMatches=[];
 window.inscribirSearch=function(q){
   const res=document.getElementById('im_results');
   if(!q||q.length<2){res.style.display='none';return}
   const lower=q.toLowerCase();
-  const matches=(ST.data||[]).filter(a=>(a.nombre||'').toLowerCase().includes(lower)||(a.codigo||'').toLowerCase().includes(lower)).slice(0,8);
-  if(!matches.length){res.style.display='none';return}
+  window._inscMatches=(ST.data||[]).filter(a=>(a.nombre||'').toLowerCase().includes(lower)||(a.codigo||'').toLowerCase().includes(lower)).slice(0,8);
+  if(!window._inscMatches.length){res.style.display='none';return}
   res.style.display='block';
-  res.innerHTML=matches.map(a=>`
-    <div onclick="inscribirFill(${JSON.stringify(JSON.stringify(a))})"
+  res.innerHTML=window._inscMatches.map((a,i)=>`
+    <div onclick="inscribirFill(${i})"
       style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;display:flex;flex-direction:column;gap:2px"
       onmouseover="this.style.background='rgba(59,130,246,.12)'" onmouseout="this.style.background=''">
       <span style="font-weight:600;color:var(--text)">${a.nombre||''}</span>
@@ -924,18 +925,30 @@ window.inscribirSearch=function(q){
     </div>`).join('');
 };
 
-window.inscribirFill=function(json){
-  const a=JSON.parse(json);
+window.inscribirFill=function(idx){
+  const a=window._inscMatches[idx];
+  if(!a)return;
   document.getElementById('im_search').value=a.nombre||'';
   document.getElementById('im_results').style.display='none';
   document.getElementById('im_nombre').value=a.nombre||'';
   document.getElementById('im_rut').value=a.rut||'';
   document.getElementById('im_fechaNac').value=a.fechaNac||'';
   document.getElementById('im_club').value=a.club||'';
-  if(a.sexo){
-    const sexoEl=document.getElementById('im_sexo');
-    const val=(a.sexo||'').toLowerCase().includes('f')?'Femenino':'Masculino';
-    sexoEl.value=val;
+  // Inferir sexo desde competencias
+  const comps=a.competencias||[];
+  const sexoComp=(comps.find(c=>c.sexo)||{}).sexo||'';
+  const esFem=sexoComp.toLowerCase().includes('f')||sexoComp.toLowerCase().includes('mujer');
+  document.getElementById('im_sexo').value=esFem?'Femenino':'Masculino';
+  // Inferir categoría y división desde la competencia más reciente con datos
+  const conCat=comps.filter(c=>c.categoria).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  if(conCat.length){
+    const cat=String(conCat[0].categoria).replace(/[^0-9+]/g,'');
+    document.getElementById('im_categoria').value=cat;
+    const div=conCat[0].division||'';
+    const divEl=document.getElementById('im_division');
+    const opts=[...divEl.options].map(o=>o.value);
+    const match=opts.find(o=>div.toLowerCase().includes(o.toLowerCase()));
+    if(match)divEl.value=match;
   }
 };
 
