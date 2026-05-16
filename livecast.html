@@ -2125,6 +2125,8 @@ function renderTxWidget(){
   // Widgets que NO dependen de DATA.athletes
   if(TX_MODE==='timer'){c.innerHTML=renderTxTimer();return true}
   if(TX_MODE==='lights'){c.innerHTML=renderTxLights();return true}
+  // Director: no necesita athletes — funciona solo con _txDirState (no requiere Firestore)
+  if(TX_MODE==='director'){renderTxDirector(c);return true}
   // Boot gate: el resto de widgets necesitan que llegue el snapshot de Firestore.
   // Hasta entonces, transparente — evita el "pestañeo" (render vacío → render con datos).
   if(!DATA.athletes||DATA.athletes.length===0){c.innerHTML='';return true}
@@ -2132,7 +2134,6 @@ function renderTxWidget(){
   if(TX_MODE==='slam'){c.innerHTML=renderTxSlam();return true}
   if(TX_MODE==='lbauto'){c.innerHTML=renderTxLbAuto();return true}
   if(TX_MODE==='ceremony'){renderTxCeremony(c);return true}
-  if(TX_MODE==='director'){renderTxDirector(c);return true}
   // Widgets que dependen del lifter actual
   const cur=liftQueue()[0];
   if(!cur&&TX_MODE!=='leaderboard'){
