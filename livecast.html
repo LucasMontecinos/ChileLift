@@ -338,6 +338,8 @@ const _TX_COLOR_DEFAULTS={
   nameBg2:'#c19735',     // nombre bar gradient end
   accent:'#D4A843',      // borders, total cell, leaderboard highlights
   headerBg:'rgba(28,50,90,.96)', // scoreboard/leaderboard header bg
+  puesto:'#c8d8f0',      // rank/position text in scoreboard header (non-podium)
+  curAttempt:'#2d4169',  // current upcoming attempt cell background
 };
 function _txC(key){
   const c=(_dirState&&_dirState.colors)||(_txDirState&&_txDirState.colors)||{};
@@ -2343,13 +2345,13 @@ function _renderTxCerScoreboardBL(cur,opts){
   const _forecastPos=_simPosBL||_rk.pos||0;
   const _willChangeBL=_rk.pos>0&&_simPosBL>0&&_simPosBL!==_rk.pos;
   let _forecastTxt,_forecastColor;
-  if(_forecastPos<=0){_forecastTxt='—';_forecastColor='#fff';}
+  if(_forecastPos<=0){_forecastTxt='—';_forecastColor=_txC('puesto');}
   else if(_willChangeBL){
     _forecastTxt='Puesto '+_rk.pos+' → '+_simPosBL;
-    _forecastColor=_simPosBL===1?_txC('goodLift'):_simPosBL<=3?_txC('accent'):'#fff';
+    _forecastColor=_simPosBL===1?_txC('goodLift'):_simPosBL<=3?_txC('accent'):_txC('puesto');
   }else{
     _forecastTxt='Posición '+_forecastPos;
-    _forecastColor=_forecastPos===1?_txC('goodLift'):_forecastPos<=3?_txC('accent'):'#fff';
+    _forecastColor=_forecastPos===1?_txC('goodLift'):_forecastPos<=3?_txC('accent'):_txC('puesto');
   }
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
   // animOrTx → animación de ciclo automatico (modo widget standalone) o transform de scale
@@ -2375,7 +2377,7 @@ function _renderTxCerScoreboardBL(cur,opts){
         let bg,clr,td='none';
         if(at.r==='g'){bg=_txC('goodLift');clr='#0A1628'}
         else if(at.r==='n'){bg=_txC('noLift');clr='#fff';td='line-through'}
-        else if(j===DATA.round&&at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
+        else if(j===DATA.round&&at.w>0){bg=_txC('curAttempt');clr='#fff'}
         else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
         const isCur=j===DATA.round&&at.r===null&&at.w>0;
         return '<div style="padding:7px 10px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:18px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
@@ -2534,9 +2536,11 @@ function _txDetectTransitions(){
   const comps=['profile','scoreboard','leaderboard','timer','breakTimer'];
   const fullscreen=new Set(['profile','leaderboard','breakTimer']);
   // Visibilidad EFECTIVA del scoreboard: lo escondemos cuando hay un fullscreen
-  // (profile o leaderboard) tapando la pantalla. Cuando esos se apagan, el
-  // scoreboard reaparece SOLO si el usuario lo había dejado activo.
-  const fsVisible=_txDirActive('profile')||_txDirActive('leaderboard');
+  // activo O cuando uno acaba de desactivarse pero su animación de salida aún corre.
+  // Así el scoreboard no entra mientras el perfil/leaderboard todavía está saliendo.
+  const fsCurrentlyExiting=Object.keys(_txDirAnims).some(c=>fullscreen.has(c)&&_txDirAnims[c].dir==='out');
+  const fsJustDeactivated=['profile','leaderboard','breakTimer'].some(c=>!!_txDirPrevActive[c]&&!_txDirActive(c));
+  const fsVisible=_txDirActive('profile')||_txDirActive('leaderboard')||_txDirActive('breakTimer')||fsCurrentlyExiting||fsJustDeactivated;
   const effectiveActive=(c)=>{
     if(c==='scoreboard'||c==='timer')return _txDirActive(c)&&!fsVisible;
     return _txDirActive(c);
@@ -2596,10 +2600,11 @@ function renderTxDirector(container){
   const cur=liftQueue()[0];
   const showProf=_txDirActive('profile');
   const showLb=_txDirActive('leaderboard');
-  // Scoreboard y Timer (corners) se OCULTAN cuando hay un fullscreen tapando.
-  // Su estado activo se mantiene → reaparecen automáticamente cuando el
-  // fullscreen se apaga.
-  const _fsVisible=showProf||showLb;
+  // Scoreboard y Timer (corners) se OCULTAN cuando hay un fullscreen tapando
+  // O cuando uno está en animación de salida — para que el scoreboard no entre
+  // encima del perfil/leaderboard mientras todavía está saliendo.
+  const _fsExiting=['profile','leaderboard','breakTimer'].some(c=>{const a=_txDirAnims[c];return a&&a.dir==='out'&&Date.now()-a.startedAt<(a.dur||TX_ANIM_MS.fullscreen);});
+  const _fsVisible=showProf||showLb||showBreak||_fsExiting;
   const showSb=_txDirActive('scoreboard')&&!_fsVisible;
   const showTm=_txDirActive('timer')&&!_fsVisible;
   const showSlam=_txDirActive('slam');
@@ -2943,13 +2948,13 @@ function renderTxScoreboard(cur,lifterChanged){
   const forecastPos=simPos||rk.pos||0;
   const willChange=rk.pos>0&&simPos>0&&simPos!==rk.pos;
   let forecastTxt,forecastColor;
-  if(forecastPos<=0){forecastTxt='—';forecastColor='#fff';}
+  if(forecastPos<=0){forecastTxt='—';forecastColor=_txC('puesto');}
   else if(willChange){
     forecastTxt='Puesto '+rk.pos+' → '+simPos;
-    forecastColor=simPos===1?_txC('goodLift'):simPos<=3?_txC('accent'):'#fff';
+    forecastColor=simPos===1?_txC('goodLift'):simPos<=3?_txC('accent'):_txC('puesto');
   }else{
     forecastTxt='Posición '+forecastPos;
-    forecastColor=forecastPos===1?_txC('goodLift'):forecastPos<=3?_txC('accent'):'#fff';
+    forecastColor=forecastPos===1?_txC('goodLift'):forecastPos<=3?_txC('accent'):_txC('puesto');
   }
   return `
     <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':(lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':'')}">
@@ -2973,7 +2978,7 @@ function renderTxScoreboard(cur,lifterChanged){
           let bg,clr,td='none';
           if(at.r==='g'){bg=_txC('goodLift');clr='#0A1628'}
           else if(at.r==='n'){bg=_txC('noLift');clr='#fff';td='line-through'}
-          else if(j===DATA.round&&at.w>0){bg='rgba(45,65,105,.6)';clr='#fff'}
+          else if(j===DATA.round&&at.w>0){bg=_txC('curAttempt');clr='#fff'}
           else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
           const isCur=j===DATA.round&&at.r===null&&at.w>0;
           return '<div style="padding:9px 18px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:22px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
@@ -3609,12 +3614,14 @@ function renderDirector(){
   // Color picker panel
   const curColors=(_dirState&&_dirState.colors)||{};
   const colorDefs=[
-    {key:'goodLift',  label:'✓ GOOD LIFT',   desc:'Banner GOOD LIFT y posición #1'},
-    {key:'noLift',    label:'✗ NO LIFT',      desc:'Banner NO LIFT y DQ'},
-    {key:'nameBg',    label:'Fondo nombre',   desc:'Barra del nombre (perfil y marcador)'},
-    {key:'nameBg2',   label:'Fondo nombre 2', desc:'Gradiente derecho de la barra del nombre'},
-    {key:'accent',    label:'Acento',         desc:'Bordes, total, valores del perfil, leaderboard'},
-    {key:'headerBg',  label:'Header marcador',desc:'Fondo del header del marcador'},
+    {key:'goodLift',   label:'✓ GOOD LIFT',      desc:'Banner GOOD LIFT y posición #1'},
+    {key:'noLift',     label:'✗ NO LIFT',         desc:'Banner NO LIFT y DQ'},
+    {key:'puesto',     label:'# Posición',        desc:'Texto del puesto en el marcador (posición 4+)'},
+    {key:'curAttempt', label:'Intento actual',    desc:'Fondo del intento en curso'},
+    {key:'nameBg',     label:'Fondo nombre',      desc:'Barra del nombre (perfil y marcador)'},
+    {key:'nameBg2',    label:'Fondo nombre 2',    desc:'Gradiente derecho de la barra del nombre'},
+    {key:'accent',     label:'Acento',            desc:'Bordes, total, valores del perfil, leaderboard'},
+    {key:'headerBg',   label:'Header marcador',   desc:'Fondo del header del marcador'},
   ];
   h+='<details style="margin-top:12px"><summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--card-bg,rgba(18,28,50,.7));border:1px solid var(--border);border-radius:10px;font-family:Oswald;font-size:13px;letter-spacing:1px;color:var(--gold)">🎨 COLORES DE WIDGETS <span style="font-size:10px;color:var(--muted);font-family:sans-serif;margin-left:4px">(click para expandir)</span></summary>';
   h+='<div class="card" style="margin-top:4px;padding:16px 18px;border-top:none;border-radius:0 0 10px 10px">';
