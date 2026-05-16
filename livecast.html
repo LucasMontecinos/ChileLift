@@ -334,9 +334,9 @@ const LIFTS=['sq','bp','dl'],LIFT_N={sq:'SQUAT',bp:'BENCH PRESS',dl:'DEADLIFT'},
 const FL_C={A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899',F:'#06b6d4'};
 // ── TX Widget Color System ───────────────────────────────────────────
 const _TX_COLOR_DEFAULTS={
-  goodLift:    '#5cb37f', // good attempt cell & GOOD LIFT slam
-  noLift:      '#cc6666', // no lift attempt cell & NO LIFT slam
-  puesto:      '#c8d8f0', // rank/position text (pos 4+)
+  goodLift:    '#22c55e', // good attempt cell & GOOD LIFT slam
+  noLift:      '#ef4444', // no lift attempt cell & NO LIFT slam
+  puesto:      '#ffffff', // rank/position text (pos 4+)
   curAttempt:  '#2d4169', // current upcoming attempt cell bg
   nameBg:      '#D4A843', // name bar gradient start (scoreboard + profile)
   nameBg2:     '#c19735', // name bar gradient end
@@ -346,6 +346,48 @@ const _TX_COLOR_DEFAULTS={
   gridBg:      '#0b1826', // attempt grid row background
   lbHighlight: '#6b1525', // current lifter row in leaderboard
   cardBg:      '#0d1e38', // leaderboard card background
+};
+const _TX_COLOR_PALETTES={
+  yourlift:{
+    label:'YourLift',desc:'Rojo · Dorado · Azul marino',
+    preview:['#C41E3A','#D4A843','#0A1628','#22c55e','#ef4444'],
+    colors:{goodLift:'#22c55e',noLift:'#ef4444',puesto:'#ffffff',
+      curAttempt:'#0f2544',nameBg:'#D4A843',nameBg2:'#b8882e',
+      nameText:'#0A1628',accent:'#D4A843',headerBg:'#0A1628',
+      gridBg:'#0b1826',lbHighlight:'#C41E3A',cardBg:'#0d1e38'}
+  },
+  rojo:{
+    label:'Rojo Intenso',desc:'Fondo rojo oscuro · Dorado',
+    preview:['#C41E3A','#8B1525','#D4A843','#22c55e','#ef4444'],
+    colors:{goodLift:'#22c55e',noLift:'#ef4444',puesto:'#ffffff',
+      curAttempt:'#2d0a10',nameBg:'#C41E3A',nameBg2:'#8B1525',
+      nameText:'#ffffff',accent:'#D4A843',headerBg:'#1a0608',
+      gridBg:'#0f0306',lbHighlight:'#8B1525',cardBg:'#130408'}
+  },
+  classic:{
+    label:'Clásico',desc:'Azul profundo · Dorado',
+    preview:['#1c324a','#2d4169','#D4A843','#22c55e','#ef4444'],
+    colors:{goodLift:'#22c55e',noLift:'#ef4444',puesto:'#ffffff',
+      curAttempt:'#2d4169',nameBg:'#D4A843',nameBg2:'#c19735',
+      nameText:'#0A1628',accent:'#D4A843',headerBg:'#1c324a',
+      gridBg:'#0b1826',lbHighlight:'#6b1525',cardBg:'#0d1e38'}
+  },
+  negro:{
+    label:'Negro',desc:'Puro negro · Dorado',
+    preview:['#0d0d0d','#1c1c1c','#D4A843','#22c55e','#ef4444'],
+    colors:{goodLift:'#22c55e',noLift:'#ef4444',puesto:'#ffffff',
+      curAttempt:'#1c1c1c',nameBg:'#1a1a1a',nameBg2:'#111111',
+      nameText:'#ffffff',accent:'#D4A843',headerBg:'#0d0d0d',
+      gridBg:'#080808',lbHighlight:'#2a2a2a',cardBg:'#101010'}
+  },
+  azul:{
+    label:'Azul',desc:'Azul competición · Dorado',
+    preview:['#071428','#0f3a7a','#D4A843','#22c55e','#ef4444'],
+    colors:{goodLift:'#22c55e',noLift:'#ef4444',puesto:'#ffffff',
+      curAttempt:'#0a1f3d',nameBg:'#0f3a7a',nameBg2:'#0a2a5c',
+      nameText:'#ffffff',accent:'#D4A843',headerBg:'#07101f',
+      gridBg:'#050e1c',lbHighlight:'#0f3a7a',cardBg:'#071428'}
+  },
 };
 let _txColorsLS={};
 (()=>{try{_txColorsLS=JSON.parse(localStorage.getItem('fechipo_tx_colors')||'{}')}catch(e){_txColorsLS={}}})();
@@ -3469,9 +3511,20 @@ window.dirSetColor=async function(key,val){
 };
 window.dirResetColors=async function(){
   if(!_dirState)return;
-  _dirState.colors={};
+  _dirState.colors={};_dirState.palette=null;
   _txColorsLS={};
   try{localStorage.removeItem('fechipo_tx_colors')}catch(e){}
+  await _dirPush();
+  if(DATA.phase==='director')R();
+};
+window.dirApplyPalette=async function(name){
+  const p=_TX_COLOR_PALETTES[name];if(!p)return;
+  if(!_dirState)_dirState={};
+  _dirState.colors={...p.colors};
+  _dirState.palette=name;
+  _txColorsLS={...p.colors};
+  try{localStorage.setItem('fechipo_tx_colors',JSON.stringify(_dirState.colors))}catch(e){}
+  try{localStorage.setItem('fechipo_tx_palette',name)}catch(e){}
   await _dirPush();
   if(DATA.phase==='director')R();
 };
@@ -3751,8 +3804,30 @@ function renderDirector(){
       {key:'lbHighlight',label:'Fila actual',      desc:'Color de la fila del atleta actual'},
     ]},
   ];
-  h+='<details style="margin-top:12px"><summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--card-bg,rgba(18,28,50,.7));border:1px solid var(--border);border-radius:10px;font-family:Oswald;font-size:13px;letter-spacing:1px;color:var(--gold)">🎨 COLORES DE WIDGETS <span style="font-size:10px;color:var(--muted);font-family:sans-serif;margin-left:4px">(click para expandir)</span></summary>';
-  h+='<div class="card" style="margin-top:4px;padding:16px 18px;border-top:none;border-radius:0 0 10px 10px">';
+  // ── Paletas rápidas ──────────────────────────────────────────
+  const activePal=(_dirState&&_dirState.palette)||null;
+  h+='<div style="margin-top:14px;background:var(--card-bg,rgba(18,28,50,.7));border:1px solid var(--border);border-radius:10px;padding:16px 18px">';
+  h+='<div style="font-family:Oswald;font-size:13px;font-weight:700;letter-spacing:1px;color:var(--gold);margin-bottom:12px">🎨 PALETA DE COLORES</div>';
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px">';
+  Object.entries(_TX_COLOR_PALETTES).forEach(([key,pal])=>{
+    const active=activePal===key;
+    h+='<button onclick="dirApplyPalette(\''+key+'\')" style="'
+      +'display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 14px;'
+      +'border-radius:10px;border:2px solid '+(active?'#D4A843':'rgba(100,140,200,.25)')+';'
+      +'background:'+(active?'rgba(212,168,67,.1)':'rgba(10,22,40,.5)')+';'
+      +'cursor:pointer;transition:all .15s;min-width:110px">';
+    // Swatches
+    h+='<div style="display:flex;gap:3px">';
+    pal.preview.forEach(c=>{h+='<div style="width:14px;height:14px;border-radius:3px;background:'+c+';box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>';});
+    h+='</div>';
+    h+='<div style="font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:.5px;color:'+(active?'#D4A843':'var(--text)')+'">'+pal.label+'</div>';
+    h+='<div style="font-size:9px;color:var(--muted);line-height:1.3">'+pal.desc+'</div>';
+    h+='</button>';
+  });
+  h+='</div>';
+  // ── Ajuste fino (individual) ─────────────────────────────────
+  h+='<details style="margin-top:12px"><summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:8px 0;font-family:Oswald;font-size:10px;letter-spacing:2px;color:var(--muted)">▸ AJUSTE FINO (colores individuales)</summary>';
+  h+='<div style="margin-top:12px">';
   colorGroups.forEach(({title,items})=>{
     h+='<div style="margin-bottom:14px">';
     h+='<div style="font-family:Oswald;font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(212,168,67,.2)">'+title+'</div>';
@@ -3771,6 +3846,7 @@ function renderDirector(){
   });
   h+='<div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="btn btn-o" onclick="dirResetColors()" style="padding:7px 16px;font-size:11px;font-family:Oswald;letter-spacing:1px">↺ RESTAURAR DEFAULTS</button></div>';
   h+='</div></details>';
+  h+='</div>';
 
   h+='</div>';
   return h;
