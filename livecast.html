@@ -2477,7 +2477,8 @@ function _widgetHandleDirectObsEvent(d){
     if(d.event)DATA.event=d.event;
     // No forzar re-render si hay un barrido activo — evita que se reinicie la animación
     const fsAnimRunning=Object.values(_txDirAnims).some(a=>a&&Date.now()-a.startedAt<(a.dur||TX_ANIM_MS.fullscreen));
-    if(!fsAnimRunning){_txDirLastSig=null;if(typeof renderTxWidget==='function')renderTxWidget();}
+    const fsShowing=_txDirState&&(_txDirActive('profile')||_txDirActive('leaderboard')||_txDirActive('breakTimer'));
+    if(!fsAnimRunning&&!fsShowing){_txDirLastSig=null;if(typeof renderTxWidget==='function')renderTxWidget();}
     return;
   }
   const mark=()=>{ _txDirLastSig=null; if(typeof renderTxWidget==='function')renderTxWidget(); };
@@ -2616,7 +2617,9 @@ function _txDetectTransitions(){
     if(prev!==now){
       const dur=fullscreen.has(c)?TX_ANIM_MS.fullscreen:TX_ANIM_MS.corner;
       if(fullscreen.has(c)){
-        // Transición fullscreen: barrido independiente, 1.5s de pausa post-salida
+        // Guard: si ya hay una animación en curso para este componente, no la retriggereamos.
+        // Evita que renders rápidos en sucesión (sync, Firestore, etc.) lancen el barrido 2 veces.
+        if(!_txDirAnims[c]){
         _txDirAnims[c]={dir:now?'in':'out',startedAt:Date.now(),dur};
         _startBarrido(now?'in':'out');
         const postDelay=now?0:1500; // 1.5s antes de que el scoreboard vuelva
@@ -2628,6 +2631,7 @@ function _txDetectTransitions(){
             else{if(typeof renderTxWidget==='function')renderTxWidget();}
           }
         },dur+50);
+        }
       } else {
         // Corner (scoreboard/timer): desaparece SIN animación cuando activa un fullscreen
         if(!now&&fsJustActivated){
