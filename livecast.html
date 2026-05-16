@@ -391,6 +391,7 @@ const _TX_COLOR_PALETTES={
 };
 let _txColorsLS={};
 (()=>{try{_txColorsLS=JSON.parse(localStorage.getItem('fechipo_tx_colors')||'{}')}catch(e){_txColorsLS={}}})();
+let _txProfileMediaType=(()=>{try{return localStorage.getItem('fechipo_tx_prof_media')||'foto'}catch(e){return 'foto'}})();
 function _txC(key){
   const c=(_dirState&&_dirState.colors)||(_txDirState&&_txDirState.colors)||_txColorsLS;
   return (c&&c[key])||_TX_COLOR_DEFAULTS[key];
@@ -2190,6 +2191,14 @@ function renderTxWidget(){
   else if(TX_MODE==='leaderboard')html=renderTxLeaderboard(cur,lifterChanged);
   else html='<div style="color:#fff;padding:40px;font-family:Oswald">Widget desconocido: '+TX_MODE+'. Valores: profile | scoreboard | leaderboard | lbauto | slam | timer | lights</div>';
   c.innerHTML=html;
+  // Setup GIF trim loop after DOM insertion
+  const _gifVid=c.querySelector('video[data-gif-trim]');
+  if(_gifVid){
+    const _gs=parseFloat(_gifVid.dataset.gifStart)||0;
+    const _ge=_gifVid.dataset.gifEnd!==''?parseFloat(_gifVid.dataset.gifEnd):Infinity;
+    _gifVid.currentTime=_gs;
+    _gifVid.ontimeupdate=function(){if(this.currentTime>=_ge)this.currentTime=_gs;};
+  }
   return true;
 }
 
@@ -2983,6 +2992,9 @@ function renderTxProfile(cur){
   if(years!==null)rows.push(['AÑOS COMPITIENDO',years+'']);
   if(pb)rows.push([pbLabel,pb.toFixed(1)]);
   const initials=parts.map(p=>p[0]||'').slice(0,2).join('').toUpperCase();
+  const useGif=_txProfileMediaType==='gif'&&!!full?.gif_url;
+  const gifBlend=useGif?(full.gif_blend||'screen'):'normal';
+  const mediaBg=useGif?'#000':(full?.foto_url?'#fff':'linear-gradient(135deg,#1a2e4f,#0e1f3a)');
   return `
     <div style="position:absolute;inset:0">
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden">
@@ -3007,10 +3019,12 @@ function renderTxProfile(cur){
           </div>
         </div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:clamp(30px,4vw,70px);align-items:center;margin-top:clamp(10px,2vh,30px)">
-          <div style="width:clamp(180px,18vw,280px);aspect-ratio:3/4;background:${full?.foto_url?'#fff':'linear-gradient(135deg,#1a2e4f,#0e1f3a)'};border:3px solid ${_txC('accent')};border-radius:4px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px rgba(0,0,0,.5);position:relative;overflow:hidden">
-            ${full?.foto_url
-              ? `<img src="${full.foto_url}" alt="${cur.name||''}" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML='<span style=\\'font-family:Oswald;font-size:clamp(60px,8vw,120px);font-weight:700;color:rgba(212,168,67,.55);letter-spacing:2px\\'>${initials}</span>'">`
-              : `<span style="font-family:Oswald;font-size:clamp(60px,8vw,120px);font-weight:700;color:rgba(212,168,67,.55);letter-spacing:2px">${initials}</span>`
+          <div style="width:clamp(180px,18vw,280px);aspect-ratio:3/4;background:${mediaBg};border:3px solid ${_txC('accent')};border-radius:4px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 30px rgba(0,0,0,.5);position:relative;overflow:hidden">
+            ${useGif
+              ? `<video src="${full.gif_url}" autoplay loop muted playsinline data-gif-trim="1" data-gif-start="${full.gif_start||0}" data-gif-end="${full.gif_end??''}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:${gifBlend};transform:scale(${full.gif_zoom||1}) translate(${full.gif_offset_x||0}%,${full.gif_offset_y||0}%);transform-origin:center center"></video>`
+              : full?.foto_url
+                ? `<img src="${full.foto_url}" alt="${cur.name||''}" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML='<span style=\\'font-family:Oswald;font-size:clamp(60px,8vw,120px);font-weight:700;color:rgba(212,168,67,.55);letter-spacing:2px\\'>${initials}</span>'">`
+                : `<span style="font-family:Oswald;font-size:clamp(60px,8vw,120px);font-weight:700;color:rgba(212,168,67,.55);letter-spacing:2px">${initials}</span>`
             }
           </div>
           <div class="txCascade" style="display:flex;flex-direction:column;gap:clamp(10px,1.8vh,24px)">
@@ -3517,6 +3531,13 @@ window.dirResetColors=async function(){
   await _dirPush();
   if(DATA.phase==='director')R();
 };
+window.setTxProfileMedia=function(type){
+  _txProfileMediaType=type;
+  try{localStorage.setItem('fechipo_tx_prof_media',type)}catch(e){}
+  if(_dirState){_dirState.profileMediaType=type;_dirPush();}
+  if(typeof renderTxWidget==='function')renderTxWidget();
+  if(typeof R==='function')R();
+};
 window.dirApplyPalette=async function(name){
   const p=_TX_COLOR_PALETTES[name];if(!p)return;
   if(!_dirState)_dirState={};
@@ -3706,6 +3727,21 @@ function renderDirector(){
   // Componentes — TOGGLES (1 botón / 1 tecla por componente, listo para Stream Deck)
   h+='<div style="display:grid;gap:12px">';
   h+=compToggle('profile','🪪','Perfil del atleta','Pantalla completa con nombre, categoría, club, edad, PB del atleta actual.','P','dirToggle(\'profile\')');
+  // Selector Foto / GIF
+  const _isGif=_txProfileMediaType==='gif';
+  h+='<div style="margin-top:-8px;margin-bottom:4px;padding:8px 18px;display:flex;align-items:center;gap:10px;background:rgba(10,22,40,.4);border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;flex-wrap:wrap">';
+  h+='<span style="font-size:10px;color:var(--muted);font-family:Oswald;letter-spacing:1px;flex-shrink:0">MEDIA EN PERFIL:</span>';
+  h+='<button onclick="setTxProfileMedia(\'foto\')" style="padding:5px 16px;border-radius:6px;border:2px solid '+(!_isGif?'var(--gold)':'var(--border)')+';background:'+(!_isGif?'rgba(212,168,67,.15)':'transparent')+';color:'+(!_isGif?'var(--gold)':'var(--muted)')+';font-family:Oswald;font-size:11px;cursor:pointer;font-weight:700;letter-spacing:1px;transition:all .15s">📷 FOTO</button>';
+  h+='<button onclick="setTxProfileMedia(\'gif\')" style="padding:5px 16px;border-radius:6px;border:2px solid '+(_isGif?'#a78bfa':'var(--border)')+';background:'+(_isGif?'rgba(139,92,246,.15)':'transparent')+';color:'+(_isGif?'#a78bfa':'var(--muted)')+';font-family:Oswald;font-size:11px;cursor:pointer;font-weight:700;letter-spacing:1px;transition:all .15s">🎬 GIF</button>';
+  if(_isGif){
+    const _curFull=liftQueue()[0]?txLookupFull(liftQueue()[0]):null;
+    if(_curFull?.gif_url){
+      h+='<span style="font-size:10px;color:#a78bfa;font-family:Oswald">✓ GIF disponible para este atleta</span>';
+    } else {
+      h+='<span style="font-size:10px;color:var(--red);font-family:Oswald">⚠ Sin GIF — se mostrará foto/iniciales</span>';
+    }
+  }
+  h+='</div>';
   h+=compToggle('scoreboard','📊','Marcador (lower-third)','Barra inferior izquierda con nombre, categoría e intentos cargados.','S','dirToggle(\'scoreboard\')');
   // Leaderboard: selector de cat + toggle
   const curCat=_dirState.leaderboard?.cat||'';
@@ -4778,7 +4814,16 @@ function _setupFotoListener(){
         const d2=doc.data();
         const codigo=d2.codigo||doc.id;
         const ath=DB_FULL.find(a=>a.codigo===codigo);
-        if(ath&&d2.foto_url)ath.foto_url=d2.foto_url;
+        if(ath){
+          if(d2.foto_url)ath.foto_url=d2.foto_url;
+          if(d2.gif_url!==undefined)ath.gif_url=d2.gif_url||null;
+          if(d2.gif_blend)ath.gif_blend=d2.gif_blend;
+          if(d2.gif_zoom!=null)ath.gif_zoom=d2.gif_zoom;
+          if(d2.gif_offset_x!=null)ath.gif_offset_x=d2.gif_offset_x;
+          if(d2.gif_offset_y!=null)ath.gif_offset_y=d2.gif_offset_y;
+          if(d2.gif_start!=null)ath.gif_start=d2.gif_start;
+          ath.gif_end=d2.gif_end??null;
+        }
       });
       if(typeof renderTxWidget==='function')renderTxWidget();
       if(typeof R==='function')R();

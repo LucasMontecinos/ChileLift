@@ -3283,7 +3283,10 @@ window._fotosState = window._fotosState || {
   processing:false, status:'', error:'',
   // Editor de imagen
   bgRemovedImg:null,        // Image object con fondo ya quitado (transparente)
-  transform:{zoom:1.0, offsetX:0, offsetY:0, rotation:0}
+  transform:{zoom:1.0, offsetX:0, offsetY:0, rotation:0},
+  // GIF / video de perfil TX
+  gifUploading:false, gifStatus:'', gifError:'',
+  gifBlend:'screen',  // 'screen' | 'normal' | 'multiply'
 };
 
 // Re-renderiza el canvas de preview aplicando el transform actual
@@ -3522,6 +3525,121 @@ function renderFotos(){
     }
     h += '</div></div></div>';
 
+    // ── GIF / Video para transmisión ──────────────────────────────
+    const _gifDoc2 = (ST.fotosByCodigo||{})[a.codigo];
+    const _gifUrl  = _gifDoc2?.gif_url || null;
+    const _gifBlend = F.gifBlend || _gifDoc2?.gif_blend || 'screen';
+    h += '<div class="card" style="margin-top:14px;border-color:rgba(139,92,246,.4);background:rgba(139,92,246,.04)">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">';
+    h += '<div><div style="font-family:Oswald;font-size:14px;font-weight:700;letter-spacing:1px;color:#a78bfa">🎬 GIF / VIDEO DE PERFIL TX</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-top:2px">Video corto (~3s) que aparece en el perfil durante la transmisión OBS. Se puede usar en lugar de la foto.</div></div>';
+    if(_gifUrl){
+      h += '<span style="background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);padding:3px 10px;border-radius:6px;font-size:10px;font-family:Oswald;font-weight:700;letter-spacing:1px">✓ CARGADO</span>';
+    }
+    h += '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">';
+    // Columna izquierda: preview actual
+    h += '<div>';
+    h += '<div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">PREVIEW ACTUAL</div>';
+    if(_gifUrl){
+      h += '<div style="position:relative;width:100%;max-width:220px;aspect-ratio:3/4;border-radius:6px;overflow:hidden;border:2px solid rgba(139,92,246,.5);background:#000">';
+      h += '<video src="'+escapeHtml(_gifUrl)+'" autoplay loop muted playsinline style="width:100%;height:100%;object-fit:cover;mix-blend-mode:'+_gifBlend+'"></video>';
+      h += '</div>';
+      h += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
+      h += '<button onclick="borrarGifAtleta()" '+(F.gifUploading?'disabled':'')+' style="padding:7px 14px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;cursor:pointer;font-size:11px">🗑️ Borrar GIF</button>';
+      h += '</div>';
+    } else {
+      h += '<div style="width:100%;max-width:220px;aspect-ratio:3/4;background:rgba(10,22,40,.6);border:2px dashed rgba(139,92,246,.4);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted)">';
+      h += '<span style="font-size:30px">🎬</span>';
+      h += '<span style="font-size:11px">Sin GIF cargado</span>';
+      h += '</div>';
+    }
+    h += '</div>';
+    // Columna derecha: subida + config
+    h += '<div>';
+    h += '<div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px">SUBIR NUEVO</div>';
+    h += '<input type="file" id="gifInput" accept="video/*,image/gif" onchange="subirGifAtleta(this)" style="display:none">';
+    h += '<button onclick="document.getElementById(\'gifInput\').click()" '+(F.gifUploading?'disabled':'')+' style="padding:11px 18px;background:rgba(139,92,246,.85);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;width:100%;margin-bottom:10px">'+(F.gifUploading?'⏳ Subiendo...':'📹 Elegir GIF / Video')+'</button>';
+    // Blend mode
+    h += '<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">MEZCLA DE FONDO</div>';
+    h += '<select id="gifBlendSel" onchange="gifSetBlend(this.value)" style="width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px">';
+    h += '<option value="screen" '+(_gifBlend==='screen'?'selected':'')+'>Screen — fondo negro se vuelve transparente ★</option>';
+    h += '<option value="normal" '+(_gifBlend==='normal'?'selected':'')+'>Normal — sin mezcla (WebM con alpha)</option>';
+    h += '<option value="multiply" '+(_gifBlend==='multiply'?'selected':'')+'>Multiply — fondo blanco se vuelve transparente</option>';
+    h += '</select></div>';
+    // Tip técnico
+    h += '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:10px;font-size:10px;color:rgba(245,158,11,.9);line-height:1.6">';
+    h += '<b>💡 Para que el fondo desaparezca:</b><br>';
+    h += '• <b>Opción 1 (fácil)</b>: Grabá frente a un <b>fondo negro</b> → usá "Screen".<br>';
+    h += '• <b>Opción 2 (pro)</b>: Exportá desde Premiere/DaVinci como <b>WebM con canal Alpha</b> → usá "Normal".<br>';
+    h += '• GIF, MP4 y WebM aceptados. Máx ~50 MB.';
+    h += '</div>';
+    if(F.gifStatus){h += '<div style="margin-top:8px;padding:8px;background:rgba(34,197,94,.1);border-left:3px solid var(--green);font-size:11px;color:var(--green)">'+escapeHtml(F.gifStatus)+'</div>';}
+    if(F.gifError){h += '<div style="margin-top:8px;padding:8px;background:rgba(239,68,68,.1);border-left:3px solid var(--red);font-size:11px;color:var(--red)">'+escapeHtml(F.gifError)+'</div>';}
+    h += '</div>'; // right col
+    h += '</div>'; // grid 2 cols
+
+    // ── Editor de GIF (zoom / posición / recorte) ─────────────────
+    if(_gifUrl){
+      const E = F.gifEditor || {zoom:1.0,offsetX:0,offsetY:0,startTime:0,endTime:null};
+      const tx = 'scale('+E.zoom+') translate('+E.offsetX+'%,'+E.offsetY+'%)';
+      h += '<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(139,92,246,.3)">';
+      h += '<div style="font-family:Oswald;font-size:11px;font-weight:700;letter-spacing:2px;color:#a78bfa;margin-bottom:12px">🛠️ AJUSTAR GIF — ZOOM · POSICIÓN · RECORTE</div>';
+      h += '<div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:start">';
+      // Preview
+      h += '<div>';
+      h += '<div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">VISTA PREVIA</div>';
+      h += '<div style="position:relative;width:200px;height:267px;background:#000;border-radius:6px;overflow:hidden;border:2px solid rgba(139,92,246,.5)">';
+      h += '<video id="gifPreviewVid" src="'+escapeHtml(_gifUrl)+'" autoplay loop muted playsinline '
+        +'ontimeupdate="gifTrimLoop(this)" onloadedmetadata="gifEditorOnMeta(this)" '
+        +'style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:'+_gifBlend+';transform:'+tx+';transform-origin:center center"></video>';
+      h += '</div>';
+      h += '<div id="gifDuration" style="font-size:10px;color:var(--muted);margin-top:5px;font-family:Oswald;letter-spacing:1px">⏳ Cargando duración...</div>';
+      h += '</div>';
+      // Controls
+      h += '<div style="display:flex;flex-direction:column;gap:12px">';
+      // Zoom
+      h += '<div>';
+      h += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--muted)">Zoom</span><span id="gifZoomVal" style="color:#a78bfa;font-family:Oswald;font-weight:700">'+E.zoom.toFixed(2)+'x</span></div>';
+      h += '<input type="range" min="0.5" max="3" step="0.05" value="'+E.zoom+'" oninput="gifEditorSetZoom(this.value)" style="width:100%;accent-color:#a78bfa">';
+      h += '<div style="display:flex;gap:5px;margin-top:5px">';
+      h += '<button onclick="gifEditorZoom(-0.1)" style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-size:12px">− Zoom</button>';
+      h += '<button onclick="gifEditorZoom(0.1)"  style="flex:1;padding:6px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;font-size:12px">+ Zoom</button>';
+      h += '</div></div>';
+      // D-pad
+      h += '<div>';
+      h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Mover</div>';
+      h += '<div style="display:grid;grid-template-columns:repeat(3,36px);gap:3px">';
+      h += '<div></div>';
+      h += '<button onclick="gifEditorMove(0,-5)" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">↑</button>';
+      h += '<div></div>';
+      h += '<button onclick="gifEditorMove(-5,0)" style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">←</button>';
+      h += '<button onclick="gifEditorReset()"    style="padding:8px;background:var(--card);border:1px solid var(--border);color:#a78bfa;border-radius:4px;cursor:pointer;font-size:10px">⌂</button>';
+      h += '<button onclick="gifEditorMove(5,0)"  style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">→</button>';
+      h += '<div></div>';
+      h += '<button onclick="gifEditorMove(0,5)"  style="padding:8px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer">↓</button>';
+      h += '<div></div>';
+      h += '</div></div>';
+      // Trim
+      h += '<div>';
+      h += '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Recorte (segundos)</div>';
+      h += '<div style="display:flex;gap:8px;align-items:flex-end">';
+      h += '<div style="flex:1"><label style="font-size:9px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:1px">INICIO</label>';
+      h += '<input type="number" min="0" step="0.1" value="'+(E.startTime||0)+'" onchange="gifEditorSetStart(this.value)" style="width:100%;padding:7px 6px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:Oswald;font-size:14px;text-align:center"></div>';
+      h += '<span style="color:var(--muted);font-size:18px;margin-bottom:7px">→</span>';
+      h += '<div style="flex:1"><label style="font-size:9px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:1px">FIN</label>';
+      h += '<input type="number" min="0" step="0.1" value="'+(E.endTime!=null?E.endTime:'')+'" placeholder="final" onchange="gifEditorSetEnd(this.value)" style="width:100%;padding:7px 6px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:Oswald;font-size:14px;text-align:center"></div>';
+      h += '</div>';
+      h += '<div style="font-size:9px;color:var(--muted);margin-top:3px">Dejá "Fin" vacío para usar todo el video</div>';
+      h += '</div>';
+      // Save
+      h += '<button onclick="guardarAjustesGif()" style="padding:11px;background:rgba(139,92,246,.9);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;font-family:Oswald;letter-spacing:1px">💾 GUARDAR AJUSTES</button>';
+      h += '</div>'; // controls
+      h += '</div>'; // grid editor
+      h += '</div>'; // editor section
+    }
+    h += '</div>'; // card GIF
+
     // Tip de uso
     h += '<div class="card" style="margin-top:14px;background:rgba(59,130,246,.05);border-color:rgba(59,130,246,.3)">';
     h += '<div style="font-size:11px;color:#3b82f6;font-weight:700;margin-bottom:6px">💡 RECOMENDACIONES PARA LA FOTO</div>';
@@ -3595,6 +3713,20 @@ window.seleccionarAtletaFoto = function(codigo){
   window._fotosState.error = '';
   window._fotosState.bgRemovedImg = null;
   window._fotosState.transform = {zoom:1.0, offsetX:0, offsetY:0, rotation:0};
+  // GIF state reset
+  window._fotosState.gifUploading = false;
+  window._fotosState.gifStatus = '';
+  window._fotosState.gifError = '';
+  const _gifDoc = (ST.fotosByCodigo||{})[a.codigo];
+  window._fotosState.gifBlend = _gifDoc?.gif_blend || 'screen';
+  window._fotosState.gifEditor = {
+    zoom:     _gifDoc?.gif_zoom      || 1.0,
+    offsetX:  _gifDoc?.gif_offset_x  || 0,
+    offsetY:  _gifDoc?.gif_offset_y  || 0,
+    startTime:_gifDoc?.gif_start     || 0,
+    endTime:  _gifDoc?.gif_end       ?? null,
+    duration: null,
+  };
   // Detectar foto pendiente de la inscripcion
   window._fotosState.pendingPhotoUrl = _findInscriptionPhotoByRut(a.rut);
   render();
@@ -3805,6 +3937,173 @@ window.borrarFotoAtleta = async function(){
   } catch(e){
     F.error = 'Error: '+e.message;
     F.processing = false;
+    render();
+  }
+};
+
+window.gifSetBlend = function(v){
+  window._fotosState.gifBlend = v;
+  ['gifPreviewVid'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.mixBlendMode=v;});
+};
+
+// ── GIF Editor — funciones de ajuste ──────────────────────────────
+function _gifEditorApply(){
+  const F = window._fotosState;
+  const E = F.gifEditor;
+  const vid = document.getElementById('gifPreviewVid');
+  if(vid){
+    vid.style.transform = 'scale('+E.zoom+') translate('+E.offsetX+'%,'+E.offsetY+'%)';
+  }
+  const zv = document.getElementById('gifZoomVal');
+  if(zv) zv.textContent = E.zoom.toFixed(2)+'x';
+}
+window.gifEditorSetZoom = function(v){
+  window._fotosState.gifEditor.zoom = Math.max(0.5, Math.min(3, parseFloat(v)||1));
+  _gifEditorApply();
+};
+window.gifEditorZoom = function(delta){
+  const E = window._fotosState.gifEditor;
+  gifEditorSetZoom(E.zoom + delta);
+};
+window.gifEditorMove = function(dx, dy){
+  const E = window._fotosState.gifEditor;
+  E.offsetX = Math.max(-50, Math.min(50, E.offsetX + dx));
+  E.offsetY = Math.max(-50, Math.min(50, E.offsetY + dy));
+  _gifEditorApply();
+};
+window.gifEditorReset = function(){
+  window._fotosState.gifEditor = {zoom:1.0,offsetX:0,offsetY:0,
+    startTime:window._fotosState.gifEditor.startTime||0,
+    endTime:window._fotosState.gifEditor.endTime,
+    duration:window._fotosState.gifEditor.duration};
+  _gifEditorApply();
+  const sl = document.querySelector('input[oninput*="gifEditorSetZoom"]');
+  if(sl) sl.value = 1.0;
+};
+window.gifEditorSetStart = function(v){
+  const E = window._fotosState.gifEditor;
+  E.startTime = Math.max(0, parseFloat(v)||0);
+  const vid = document.getElementById('gifPreviewVid');
+  if(vid) vid.currentTime = E.startTime;
+};
+window.gifEditorSetEnd = function(v){
+  window._fotosState.gifEditor.endTime = v===''||v==null ? null : parseFloat(v);
+};
+window.gifTrimLoop = function(vid){
+  const E = window._fotosState?.gifEditor;
+  if(!E) return;
+  const end = E.endTime != null ? E.endTime : Infinity;
+  if(vid.currentTime >= end) vid.currentTime = E.startTime || 0;
+};
+window.gifEditorOnMeta = function(vid){
+  const dur = vid.duration;
+  const F = window._fotosState;
+  if(F.gifEditor) F.gifEditor.duration = dur;
+  const el = document.getElementById('gifDuration');
+  if(el) el.textContent = 'Duración: '+dur.toFixed(2)+'s';
+  vid.currentTime = F.gifEditor?.startTime || 0;
+};
+
+window.guardarAjustesGif = async function(){
+  const F = window._fotosState;
+  if(!F.selected || !F.gifEditor) return;
+  const E = F.gifEditor;
+  const gifDoc = (ST.fotosByCodigo||{})[F.selected.codigo];
+  if(!gifDoc?.gif_url){alert('No hay GIF cargado para este atleta.'); return;}
+  try{
+    const docRef = doc(db, 'atleta_fotos', F.selected.codigo);
+    const data = {
+      gif_zoom:     E.zoom,
+      gif_offset_x: E.offsetX,
+      gif_offset_y: E.offsetY,
+      gif_start:    E.startTime,
+      gif_end:      E.endTime,
+      gif_blend:    F.gifBlend,
+    };
+    await setDoc(docRef, data, {merge:true});
+    Object.assign(ST.fotosByCodigo[F.selected.codigo], data);
+    F.gifStatus = '✓ Ajustes guardados';
+    F.gifError  = '';
+    render();
+  }catch(e){
+    F.gifError = 'Error guardando ajustes: '+e.message;
+    render();
+  }
+};
+
+window.subirGifAtleta = async function(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const F = window._fotosState;
+  if(!F.selected) return;
+  F.gifUploading = true; F.gifStatus = 'Subiendo GIF...'; F.gifError = '';
+  render();
+  try{
+    const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+    const rutKey = (F.selected.rut || F.selected.codigo || 'unknown').replace(/[^0-9a-zA-Z]/g,'_');
+    const ts = Date.now();
+    const path = 'athlete_gifs/'+rutKey+'_'+ts+'.'+ext;
+    const storage = getStorage(app);
+    const sRef = storageRef(storage, path);
+    await uploadBytes(sRef, file, {contentType: file.type || 'video/mp4'});
+    const url = await getDownloadURL(sRef);
+    const docRef = doc(db, 'atleta_fotos', F.selected.codigo);
+    await setDoc(docRef, {
+      codigo: F.selected.codigo,
+      gif_url: url,
+      gif_blend: F.gifBlend,
+      gif_storage_path: path,
+      gif_updated: ts,
+    }, {merge:true});
+    // Actualizar cache local
+    if(!ST.fotosByCodigo) ST.fotosByCodigo = {};
+    if(!ST.fotosByCodigo[F.selected.codigo]) ST.fotosByCodigo[F.selected.codigo] = {};
+    ST.fotosByCodigo[F.selected.codigo].gif_url = url;
+    ST.fotosByCodigo[F.selected.codigo].gif_blend = F.gifBlend;
+    ST.fotosByCodigo[F.selected.codigo].gif_storage_path = path;
+    F.selected.gif_url = url;
+    const localAth = (ST.data||[]).find(a=>a.codigo===F.selected.codigo);
+    if(localAth) { localAth.gif_url = url; localAth.gif_blend = F.gifBlend; }
+    F.gifUploading = false;
+    F.gifStatus = '✓ GIF guardado y publicado';
+    render();
+  }catch(e){
+    console.error('[GIF] upload error:',e);
+    F.gifError = 'Error: '+e.message;
+    F.gifUploading = false;
+    render();
+  }
+};
+
+window.borrarGifAtleta = async function(){
+  const F = window._fotosState;
+  if(!F.selected) return;
+  if(!confirm('¿Borrar el GIF de '+F.selected.nombre+'?')) return;
+  F.gifUploading = true; F.gifStatus = 'Borrando...'; F.gifError = '';
+  render();
+  try{
+    const gifDoc = (ST.fotosByCodigo||{})[F.selected.codigo];
+    if(gifDoc?.gif_storage_path){
+      try{
+        await deleteObject(storageRef(getStorage(app), gifDoc.gif_storage_path));
+      }catch(e){console.warn('[GIF] storage delete:',e);}
+    }
+    const docRef = doc(db, 'atleta_fotos', F.selected.codigo);
+    await setDoc(docRef, {gif_url:null, gif_blend:null, gif_storage_path:null}, {merge:true});
+    if(ST.fotosByCodigo?.[F.selected.codigo]){
+      delete ST.fotosByCodigo[F.selected.codigo].gif_url;
+      delete ST.fotosByCodigo[F.selected.codigo].gif_blend;
+      delete ST.fotosByCodigo[F.selected.codigo].gif_storage_path;
+    }
+    delete F.selected.gif_url;
+    const localAth = (ST.data||[]).find(a=>a.codigo===F.selected.codigo);
+    if(localAth) { delete localAth.gif_url; delete localAth.gif_blend; }
+    F.gifUploading = false;
+    F.gifStatus = '✓ GIF eliminado';
+    render();
+  }catch(e){
+    F.gifError = 'Error: '+e.message;
+    F.gifUploading = false;
     render();
   }
 };
