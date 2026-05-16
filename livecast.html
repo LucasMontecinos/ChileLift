@@ -2622,13 +2622,11 @@ function _txDetectTransitions(){
         if(!_txDirAnims[c]){
         _txDirAnims[c]={dir:now?'in':'out',startedAt:Date.now(),dur};
         _startBarrido(now?'in':'out');
-        const postDelay=now?0:1500; // 1.5s antes de que el scoreboard vuelva
         setTimeout(()=>{
           if(_txDirAnims[c]&&Date.now()-_txDirAnims[c].startedAt>=dur-50){
             delete _txDirAnims[c];
             _txDirLastSig=null;
-            if(postDelay>0){setTimeout(()=>{if(typeof renderTxWidget==='function')renderTxWidget()},postDelay);}
-            else{if(typeof renderTxWidget==='function')renderTxWidget();}
+            if(typeof renderTxWidget==='function')renderTxWidget();
           }
         },dur+50);
         }
@@ -3289,7 +3287,8 @@ async function obsWsConnect(){
       _obsWsLog.unshift({ts:Date.now(),data:d});
       if(_obsWsLog.length>10)_obsWsLog.pop();
       handleObsCustomEvent(d);
-      if(DATA.phase==='director')R();
+      // competitionSync se rebota cada 5s desde nosotros mismos → no re-renderizar el panel
+      if(DATA.phase==='director'&&d.action!=='competitionSync')R();
     });
     _obsWs.on('ConnectionClosed',()=>{
       _obsWsConnected=false;
