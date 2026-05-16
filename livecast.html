@@ -2623,6 +2623,10 @@ function renderTxDirector(container){
   const cur=liftQueue()[0];
   const showProf=_txDirActive('profile');
   const showLb=_txDirActive('leaderboard');
+  const showSlam=_txDirActive('slam');
+  // Break timer: activo si tiene `active=true` y aún hay tiempo (o pausado)
+  const bt=_txDirState.breakTimer||{};
+  const showBreak=!!bt.active&&bt.startedAt>0&&bt.durationSec>0;
   // Scoreboard y Timer (corners) se OCULTAN cuando hay un fullscreen tapando
   // O cuando uno está en animación de salida — para que el scoreboard no entre
   // encima del perfil/leaderboard mientras todavía está saliendo.
@@ -2630,10 +2634,6 @@ function renderTxDirector(container){
   const _fsVisible=showProf||showLb||showBreak||_fsExiting;
   const showSb=_txDirActive('scoreboard')&&!_fsVisible;
   const showTm=_txDirActive('timer')&&!_fsVisible;
-  const showSlam=_txDirActive('slam');
-  // Break timer: activo si tiene `active=true` y aún hay tiempo (o pausado)
-  const bt=_txDirState.breakTimer||{};
-  const showBreak=!!bt.active&&bt.startedAt>0&&bt.durationSec>0;
   // Detectar transiciones (cambios on↔off) para reproducir animaciones
   _txDetectTransitions();
   // Signature p/ evitar flicker por timer cada 1s
