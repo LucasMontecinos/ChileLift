@@ -1205,7 +1205,7 @@ function render(){
       <div class="side-label">Datos</div>
       <button class="side-btn ${ST.view==='athletes'?'active':''}" onclick="go('athletes')"><span class="icon">🏋️</span>Atletas (DB)</button>
       <button class="side-btn ${ST.view==='nominas'?'active':''}" onclick="go('nominas')"><span class="icon">📋</span>Nóminas</button>
-      <button class="side-btn ${ST.view==='stats'?'active':''}" onclick="go('stats')"><span class="icon">📈</span>Estadísticas</button>
+      ${(ST.adminInfo?.role==='superadmin'||ST.adminInfo?.bootstrap)?`<button class="side-btn ${ST.view==='stats'?'active':''}" onclick="go('stats')"><span class="icon">📈</span>Estadísticas</button>`:''}
       <button class="side-btn ${ST.view==='approvals'?'active':''}" onclick="go('approvals')"><span class="icon">✓</span>Aprobaciones</button>
       <button class="side-btn ${ST.view==='editRequests'?'active':''}" onclick="go('editRequests')"><span class="icon">✏️</span>Solicitudes edit${ST.editRequests.length?` <span style="background:var(--accent);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${ST.editRequests.length}</span>`:''}</button>
       <button class="side-btn ${ST.view==='entrenadores'?'active':''}" onclick="go('entrenadores')"><span class="icon">👥</span>Entrenadores</button>
@@ -1277,6 +1277,8 @@ function buildStatsRows(){
 }
 
 function renderStats(){
+  if(!(ST.adminInfo?.role==='superadmin'||ST.adminInfo?.bootstrap))
+    return '<div class="h1">Sin acceso</div><p class="subtitle">Solo el superadmin puede ver las estadísticas.</p>';
   const rows=buildStatsRows();
   const years=[...new Set(rows.map(r=>r.year))].sort();
   const totalAtletas=(ST.data||[]).length;
