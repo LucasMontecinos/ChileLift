@@ -2425,13 +2425,24 @@ function _renderTxCerSlamCorner(type,scale){
 }
 
 // ─── DIRECTOR direct OBS WS (widget independiente) ─────────────
-// Cuando el widget se abre con ?tx=director&obsWs=localhost:4455&obsPwd=secret,
-// se conecta SOLO a OBS WebSocket (no necesita panel admin ni Firestore para
-// el director state). Stream Deck → OBS → Widget directo.
+// Cuando el widget se abre con ?tx=director, escucha eventos de OBS de dos formas:
+// 1. obsCustomEvent (API nativa de OBS Browser Source) — sin WebSocket, sin mixed-content.
+//    BroadcastCustomEvent → OBS inyecta 'obsCustomEvent' en todos los browser sources.
+// 2. WebSocket directo (fallback para pruebas en browser normal con ?obsWs=host:port).
 let _widgetObsWs=null;
+let _widgetObsNativeListening=false;
 function _widgetStartDirectObsListener(){
-  if(_widgetObsWs)return;
   if(TX_MODE!=='director')return;
+  // Método 1: API nativa OBS (funciona siempre dentro de OBS Browser Source)
+  if(!_widgetObsNativeListening){
+    _widgetObsNativeListening=true;
+    window.addEventListener('obsCustomEvent',e=>{
+      _widgetHandleDirectObsEvent(e.detail);
+    });
+    console.log('[Widget] obsCustomEvent listener activo');
+  }
+  // Método 2: WebSocket directo (solo si se pasa ?obsWs= y aún no conectado)
+  if(_widgetObsWs)return;
   if(!window.OBSWebSocket)return;
   const obsWsParam=TX_URL.get('obsWs');
   if(!obsWsParam)return;
@@ -2441,7 +2452,7 @@ function _widgetStartDirectObsListener(){
   _widgetObsWs.connect(url,obsPwd).then(()=>{
     console.log('[Widget] OBS WS connected directly:',url);
   }).catch(e=>{
-    console.error('[Widget] OBS WS connection failed:',e);
+    console.warn('[Widget] OBS WS fallback failed (normal en OBS Browser Source):',e.message||e);
     _widgetObsWs=null;
   });
   _widgetObsWs.on('CustomEvent',d=>{
@@ -2449,7 +2460,7 @@ function _widgetStartDirectObsListener(){
   });
   _widgetObsWs.on('ConnectionClosed',()=>{
     _widgetObsWs=null;
-    setTimeout(_widgetStartDirectObsListener,3000); // reintento auto
+    setTimeout(_widgetStartDirectObsListener,5000);
   });
 }
 function _widgetHandleDirectObsEvent(d){
