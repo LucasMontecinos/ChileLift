@@ -2468,6 +2468,17 @@ function _widgetHandleDirectObsEvent(d){
   if(!d)return;
   if(!_txDirState)_txDirState={...TX_DIR_DEFAULT};
   const action=d.action;
+  // Sync de datos de competencia desde el admin panel (no necesita Firestore)
+  if(action==='competitionSync'){
+    if(d.lift)DATA.lift=d.lift;
+    if(typeof d.round==='number')DATA.round=d.round;
+    if(d.flight)DATA.flight=d.flight;
+    if(Array.isArray(d.athletes)&&d.athletes.length)DATA.athletes=d.athletes;
+    if(d.event)DATA.event=d.event;
+    _txDirLastSig=null;
+    if(typeof renderTxWidget==='function')renderTxWidget();
+    return;
+  }
   const mark=()=>{ _txDirLastSig=null; if(typeof renderTxWidget==='function')renderTxWidget(); };
   if(action==='toggle'&&d.component){
     const c=_txDirState[d.component]||{};
@@ -3255,7 +3266,15 @@ async function obsWsConnect(){
       handleObsCustomEvent(d);
       if(DATA.phase==='director')R();
     });
-    _obsWs.on('ConnectionClosed',()=>{_obsWsConnected=false;if(DATA.phase==='director')R()});
+    _obsWs.on('ConnectionClosed',()=>{
+      _obsWsConnected=false;
+      if(_obsWsSyncInterval){clearInterval(_obsWsSyncInterval);_obsWsSyncInterval=null;}
+      if(DATA.phase==='director')R();
+    });
+    // Sync periódico: manda athletes+estado cada 5s para que el widget OBS siempre tenga datos
+    if(_obsWsSyncInterval)clearInterval(_obsWsSyncInterval);
+    _obsWsSyncInterval=setInterval(_obsWsBroadcastSync,5000);
+    _obsWsBroadcastSync(); // sync inmediato al conectar
     if(DATA.phase==='director')R();
   }catch(e){
     _obsWsError=e.message||String(e);
@@ -3334,6 +3353,21 @@ async function _dirPush(){
   try{
     await window._fb.setDoc(window._fb.doc(fbDB,'livecast_director','current'),{show:_dirState,ts:Date.now()});
   }catch(e){alert('Error pusheando comando: '+(e.message||e))}
+  _obsWsBroadcastSync();
+}
+// Broadcastea datos de competencia vía OBS para el widget (no depende de Firestore).
+// El widget en OBS no puede leer Firestore, pero sí recibe obsCustomEvent.
+let _obsWsSyncInterval=null;
+function _obsWsBroadcastSync(){
+  if(!_obsWsConnected||!_obsWs)return;
+  try{
+    _obsWs.call('BroadcastCustomEvent',{eventData:{
+      action:'competitionSync',
+      lift:DATA.lift, round:DATA.round, flight:DATA.flight,
+      athletes:DATA.athletes,
+      event:DATA.event
+    }});
+  }catch(e){}
 }
 window.dirShow=async function(comp,seconds,opts){
   if(!_dirState)_dirState={};
