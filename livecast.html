@@ -113,6 +113,8 @@ if(TX_MODE){
     @keyframes txSlideInBottom{0%{transform:translateY(260px);opacity:0}55%{transform:translateY(-6px);opacity:1}80%{transform:translateY(2px);opacity:1}100%{transform:translateY(0);opacity:1}}
     @keyframes txSlideOutBottom{0%{transform:translateY(0);opacity:1}100%{transform:translateY(260px);opacity:0}}
     @keyframes txBuildRow{0%{transform:translateX(-30px) scaleY(0);opacity:0;transform-origin:left center}60%{transform:translateX(0) scaleY(1);opacity:1}100%{transform:translateX(0) scaleY(1);opacity:1}}
+    @keyframes txSbRowIn{0%{opacity:0;transform:scaleY(0)}60%{opacity:1;transform:scaleY(1.04)}100%{opacity:1;transform:scaleY(1)}}
+    @keyframes txSbRowOut{0%{opacity:1;transform:scaleY(1)}100%{opacity:0;transform:scaleY(0)}}
     @keyframes txScoreboardCycle{0%{transform:translateY(110%);opacity:0}3%{transform:translateY(0);opacity:1}97%{transform:translateY(0);opacity:1}100%{transform:translateY(110%);opacity:0}}
     @keyframes txLbCycle{0%{transform:scale(.92);opacity:0}5%{transform:scale(1);opacity:1}95%{transform:scale(1);opacity:1}100%{transform:scale(1.04);opacity:0;filter:blur(4px)}}
     @keyframes txRecordSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
@@ -332,18 +334,24 @@ const LIFTS=['sq','bp','dl'],LIFT_N={sq:'SQUAT',bp:'BENCH PRESS',dl:'DEADLIFT'},
 const FL_C={A:'#3b82f6',B:'#f59e0b',C:'#22c55e',D:'#a855f7',E:'#ec4899',F:'#06b6d4'};
 // ── TX Widget Color System ───────────────────────────────────────────
 const _TX_COLOR_DEFAULTS={
-  goodLift:'#5cb37f',    // good attempt cell & GOOD LIFT slam
-  noLift:'#cc6666',      // no lift cell & NO LIFT slam
-  nameBg:'#D4A843',      // nombre bar background (scoreboard + profile)
-  nameBg2:'#c19735',     // nombre bar gradient end
-  accent:'#D4A843',      // borders, total cell, leaderboard highlights
-  headerBg:'rgba(28,50,90,.96)', // scoreboard/leaderboard header bg
-  puesto:'#c8d8f0',      // rank/position text in scoreboard header (non-podium)
-  curAttempt:'#2d4169',  // current upcoming attempt cell background
+  goodLift:    '#5cb37f', // good attempt cell & GOOD LIFT slam
+  noLift:      '#cc6666', // no lift attempt cell & NO LIFT slam
+  puesto:      '#c8d8f0', // rank/position text (pos 4+)
+  curAttempt:  '#2d4169', // current upcoming attempt cell bg
+  nameBg:      '#D4A843', // name bar gradient start (scoreboard + profile)
+  nameBg2:     '#c19735', // name bar gradient end
+  nameText:    '#0A1628', // dark text on name bar
+  accent:      '#D4A843', // borders, total cell, LB highlights
+  headerBg:    '#1c324a', // scoreboard/LB header background
+  gridBg:      '#0b1826', // attempt grid row background
+  lbHighlight: '#6b1525', // current lifter row in leaderboard
+  cardBg:      '#0d1e38', // leaderboard card background
 };
+let _txColorsLS={};
+(()=>{try{_txColorsLS=JSON.parse(localStorage.getItem('fechipo_tx_colors')||'{}')}catch(e){_txColorsLS={}}})();
 function _txC(key){
-  const c=(_dirState&&_dirState.colors)||(_txDirState&&_txDirState.colors)||{};
-  return c[key]||_TX_COLOR_DEFAULTS[key];
+  const c=(_dirState&&_dirState.colors)||(_txDirState&&_txDirState.colors)||_txColorsLS;
+  return (c&&c[key])||_TX_COLOR_DEFAULTS[key];
 }
 const SAVE_KEY='fechipo_lc3';
 const PLATES=[25,20,15,10,5,2.5,1.25,0.5,0.25];
@@ -2323,6 +2331,20 @@ function _renderTxCerTimerCorner(scale){
   const tx=s!==1?'transform:scale('+s+');transform-origin:top right;':'';
   return '<div id="cerTimer" style="position:fixed;top:24px;right:24px;font-family:Oswald,sans-serif;font-size:clamp(48px,5vw,72px);font-weight:900;color:'+color+';letter-spacing:3px;text-shadow:0 4px 20px rgba(0,0,0,.85);background:rgba(10,22,40,.6);padding:8px 22px;border-radius:10px;border:2px solid rgba(212,168,67,.4);-webkit-text-stroke:1px rgba(0,0,0,.35);'+tx+'">'+txt+'</div>';
 }
+// IPF-style row animation: rows appear/disappear one by one
+// rows: 0=header, 1=name, 2=attempts
+function _sbRowAnim(animDir,row){
+  if(!animDir)return '';
+  if(animDir==='in'){
+    const d=[240,0,140][row]; // name first, attempts 2nd, header last
+    const o=['top center','center center','bottom center'][row];
+    return `animation:txSbRowIn .35s cubic-bezier(.2,.9,.2,1) ${d}ms both;transform-origin:${o};`;
+  }else{
+    const d=[0,210,100][row]; // header first, attempts 2nd, name last
+    const o=['top center','center center','bottom center'][row];
+    return `animation:txSbRowOut .22s ease-in ${d}ms both;transform-origin:${o};`;
+  }
+}
 function _renderTxCerScoreboardBL(cur,opts){
   opts=opts||{};
   const scale=opts.scale||1;
@@ -2356,33 +2378,33 @@ function _renderTxCerScoreboardBL(cur,opts){
   const logo=window.clubLogoImg?window.clubLogoImg(cur.club,28,'background:rgba(10,22,40,.85);padding:2px;flex-shrink:0;'):'';
   // animOrTx → animación de ciclo automatico (modo widget standalone) o transform de scale
   // extraStyle → animación in/out cuando se enciende/apaga desde control TX (slide vertical)
-  const extraStyle=opts.extraStyle||'';
+  const animDir=opts.animDir||null; // 'in' | 'out' | null
   const animOrTx=noAnimate
     ? (scale!==1?'transform:scale('+scale+');transform-origin:bottom left;':'')
     : 'animation:txScoreboardCycle '+(TX_CEREMONY.scoreboardMs/1000)+'s ease-in-out forwards;';
-  return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+extraStyle+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,'+_txC('headerBg')+','+_txC('headerBg')+');border-top:2px solid '+_txC('accent')+';padding:6px 14px">'
+  return '<div style="position:fixed;bottom:24px;left:24px;width:min(640px,55vw);'+animOrTx+'border-radius:8px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.6)">'
+    +'<div style="'+_sbRowAnim(animDir,0)+'display:flex;justify-content:space-between;align-items:center;background:'+_txC('headerBg')+';border-top:2px solid '+_txC('accent')+';padding:6px 14px">'
       +'<div style="font-family:Oswald;font-size:12px;color:rgba(200,215,240,.85);letter-spacing:1px">'+catLabel+'</div>'
       +'<div style="font-family:Oswald;font-size:18px;font-weight:800;color:'+_forecastColor+';letter-spacing:2px">'+_forecastTxt+'</div>'
     +'</div>'
-    +'<div style="background:linear-gradient(90deg,'+_txC('nameBg')+','+_txC('nameBg2')+');padding:5px 14px;display:flex;align-items:center;gap:10px">'
+    +'<div style="'+_sbRowAnim(animDir,1)+'background:linear-gradient(90deg,'+_txC('nameBg')+','+_txC('nameBg2')+');padding:5px 14px;display:flex;align-items:center;gap:10px">'
       +'<div style="background:rgba(10,22,40,.9);color:'+_txC('nameBg')+';padding:3px 9px;border-radius:3px;font-family:Oswald;font-size:10px;letter-spacing:2px;font-weight:700">CHI</div>'
-      +'<div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px;overflow:hidden">'
+      +'<div style="flex:1;font-family:Oswald;color:'+_txC('nameText')+';letter-spacing:1px;overflow:hidden">'
         +'<div style="font-size:24px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(firstName?firstName+' ':'')+lastName+'</div>'
       +'</div>'
       +logo
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(3,1fr) 100px;background:rgba(10,22,40,.94)">'
+    +'<div style="'+_sbRowAnim(animDir,2)+'display:grid;grid-template-columns:repeat(3,1fr) 100px;background:'+_txC('gridBg')+'">'
       +cur.att[DATA.lift].map((at,j)=>{
         let bg,clr,td='none';
-        if(at.r==='g'){bg=_txC('goodLift');clr='#0A1628'}
+        if(at.r==='g'){bg=_txC('goodLift');clr=_txC('nameText')}
         else if(at.r==='n'){bg=_txC('noLift');clr='#fff';td='line-through'}
         else if(j===DATA.round&&at.w>0){bg=_txC('curAttempt');clr='#fff'}
         else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
         const isCur=j===DATA.round&&at.r===null&&at.w>0;
         return '<div style="padding:7px 10px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:18px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
       }).join('')
-      +'<div style="padding:7px 10px;text-align:center;background:'+(isDQ(cur)?_txC('noLift'):_txC('accent'))+';color:'+(isDQ(cur)?'#fff':'#0A1628')+';font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:1px">'+(isDQ(cur)?'DQ':(subTotal(cur,DATA.lift)||0).toFixed(1))+'</div>'
+      +'<div style="padding:7px 10px;text-align:center;background:'+(isDQ(cur)?_txC('noLift'):_txC('accent'))+';color:'+(isDQ(cur)?'#fff':_txC('nameText'))+';font-family:Oswald;font-size:20px;font-weight:700;letter-spacing:1px">'+(isDQ(cur)?'DQ':(subTotal(cur,DATA.lift)||0).toFixed(1))+'</div>'
     +'</div>'
   +'</div>';
 }
@@ -2502,6 +2524,7 @@ let _txDirUnsub=null;
 let _txDirPoll=null;
 let _txDirLastSig=null;
 function _txStartDirectorListener(){
+  if(!_txDirState)_txDirState={...TX_DIR_DEFAULT};
   if(_txDirUnsub)return;
   if(!fbReady||!window._fb){
     if(!_txDirPoll)_txDirPoll=setInterval(()=>{if(fbReady&&window._fb){clearInterval(_txDirPoll);_txDirPoll=null;_txStartDirectorListener()}},300);
@@ -2695,8 +2718,7 @@ function renderTxDirector(container){
     // Scoreboard entra subiendo desde abajo y sale bajando.
     // Pasamos la animación al render del scoreboard (no a un wrapper) porque
     // el scoreboard usa position:fixed y el wrapper tendría altura 0.
-    const sbAnim=animSb?(animSb.dir==='in'?'animation:txSlideInBottom .8s cubic-bezier(.2,.85,.3,1) forwards;':'animation:txSlideOutBottom .55s cubic-bezier(.5,0,.7,.5) forwards;'):'';
-    const sbHtml=_renderTxCerScoreboardBL(cur,{noAnimate:true,scale:_txDirState.scoreboard?.scale||1,extraStyle:sbAnim});
+    const sbHtml=_renderTxCerScoreboardBL(cur,{noAnimate:true,scale:_txDirState.scoreboard?.scale||1,animDir:animSb?.dir||null});
     html+=sbHtml;
   }
   // Timer (corner) — slide-in/out desde la derecha
@@ -2874,12 +2896,19 @@ function renderTxProfile(cur){
   if(pb)rows.push([pbLabel,pb.toFixed(1)]);
   const initials=parts.map(p=>p[0]||'').slice(0,2).join('').toUpperCase();
   return `
+    <div style="position:absolute;inset:0">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden">
+      <img src="YourLift_logo.png" alt="" style="width:52%;opacity:0.07;filter:blur(18px);transform:scale(1.15);user-select:none" onerror="this.style.display='none'">
+    </div>
     <div style="position:absolute;inset:0;padding:clamp(40px,5vw,80px);display:flex;flex-direction:column">
       <div class="txCascade" style="display:flex;flex-direction:column;gap:clamp(8px,1.5vh,22px);max-width:1400px;width:100%;margin:auto">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:clamp(6px,1vh,16px)">
           <div style="background:${_txC('nameBg')};padding:clamp(10px,1.6vw,18px) clamp(18px,2.2vw,28px);border-radius:6px;display:flex;align-items:center;gap:clamp(10px,1.5vw,18px);box-shadow:0 4px 20px rgba(212,168,67,.35)">
-            <div style="background:rgba(0,0,0,.15);padding:6px 12px;border-radius:4px;font-size:clamp(28px,3vw,42px);line-height:1;display:flex;align-items:center" title="Chile">🇨🇱</div>
-            <div style="font-family:Oswald;font-size:clamp(26px,3.2vw,44px);font-weight:700;letter-spacing:2px;color:#0A1628">
+            <div style="background:rgba(0,0,0,.2);padding:clamp(6px,0.7vw,10px) clamp(10px,1.2vw,16px);border-radius:5px;display:flex;align-items:center;gap:clamp(6px,0.8vw,10px)">
+              <span style="font-size:clamp(26px,3vw,42px);line-height:1">🇨🇱</span>
+              <span style="font-family:Oswald;font-size:clamp(14px,1.6vw,22px);font-weight:700;letter-spacing:3px;color:${_txC('nameText')};opacity:0.85">CHI</span>
+            </div>
+            <div style="font-family:Oswald;font-size:clamp(26px,3.2vw,44px);font-weight:700;letter-spacing:2px;color:${_txC('nameText')}">
               <span style="font-weight:400">${firstName}</span> ${lastName}
             </div>
           </div>
@@ -2903,6 +2932,7 @@ function renderTxProfile(cur){
           <img src="YourLift_logo.png" alt="YourLift" style="height:clamp(28px,3vw,44px);filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))" onerror="this.outerHTML='<span style=\\'font-family:Oswald;font-size:clamp(14px,1.4vw,20px);letter-spacing:3px;color:rgba(212,168,67,.7)\\'>⚡ YourLift</span>'">
         </div>
       </div>
+    </div>
     </div>`;
 }
 
@@ -2956,16 +2986,17 @@ function renderTxScoreboard(cur,lifterChanged){
     forecastTxt='Posición '+forecastPos;
     forecastColor=forecastPos===1?_txC('goodLift'):forecastPos<=3?_txC('accent'):_txC('puesto');
   }
+  const _animDir=TX_MODE==='scoreboard'?null:(lifterChanged?'in':null);
   return `
-    <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':(lifterChanged?'animation:txSlideUp .6s cubic-bezier(.2,.8,.2,1)':'')}">
-      <div style="display:grid;grid-template-columns:180px 1fr 180px;background:linear-gradient(90deg,${_txC('headerBg')},${_txC('headerBg')});border-top:2px solid ${_txC('accent')};padding:10px 22px;align-items:center">
+    <div style="position:absolute;bottom:0;left:0;right:0;${TX_MODE==='scoreboard'?'animation:txScoreboardCycle '+(TX_SCOREBOARD_DURATION/1000)+'s ease-in-out forwards':''}">
+      <div style="${_sbRowAnim(_animDir,0)}display:grid;grid-template-columns:180px 1fr 180px;background:${_txC('headerBg')};border-top:2px solid ${_txC('accent')};padding:10px 22px;align-items:center">
         <div style="font-family:Oswald;font-size:15px;color:rgba(200,215,240,.85);letter-spacing:1px">${catLabel}</div>
         <div style="text-align:center;font-family:Oswald;font-size:14px;letter-spacing:1px;color:rgba(200,215,240,.7)">${(rk.pos&&totalAth?rk.pos+'/'+totalAth+' en categoría':'')}</div>
         <div style="font-family:Oswald;font-size:${willChange?'16px':'20px'};font-weight:800;color:${forecastColor};letter-spacing:${willChange?'1px':'2px'};text-align:right;white-space:nowrap" title="Posición forecast en su sexo+categoría+división">${forecastTxt}</div>
       </div>
-      <div style="background:linear-gradient(90deg,${_txC('nameBg')},${_txC('nameBg2')});padding:6px 22px;display:flex;align-items:center;gap:14px">
+      <div style="${_sbRowAnim(_animDir,1)}background:linear-gradient(90deg,${_txC('nameBg')},${_txC('nameBg2')});padding:6px 22px;display:flex;align-items:center;gap:14px">
         <div style="background:rgba(10,22,40,.9);color:${_txC('nameBg')};padding:4px 12px;border-radius:4px;font-family:Oswald;font-size:12px;letter-spacing:2px;font-weight:700">CHI 🇨🇱</div>
-        <div style="flex:1;font-family:Oswald;color:#0A1628;letter-spacing:1px;overflow:hidden">
+        <div style="flex:1;font-family:Oswald;color:${_txC('nameText')};letter-spacing:1px;overflow:hidden">
           <div style="font-size:30px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${firstName?firstName+' ':''}${lastName}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;font-family:Oswald;font-size:11px;color:rgba(10,22,40,.75);letter-spacing:1px;text-align:right;max-width:240px">
@@ -2973,17 +3004,17 @@ function renderTxScoreboard(cur,lifterChanged){
           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cur.club||''}</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr) 140px;background:rgba(10,22,40,.94)">
+      <div style="${_sbRowAnim(_animDir,2)}display:grid;grid-template-columns:repeat(3,1fr) 140px;background:${_txC('gridBg')}">
         ${cur.att[DATA.lift].map((at,j)=>{
           let bg,clr,td='none';
-          if(at.r==='g'){bg=_txC('goodLift');clr='#0A1628'}
+          if(at.r==='g'){bg=_txC('goodLift');clr=_txC('nameText')}
           else if(at.r==='n'){bg=_txC('noLift');clr='#fff';td='line-through'}
           else if(j===DATA.round&&at.w>0){bg=_txC('curAttempt');clr='#fff'}
           else{bg='rgba(30,48,78,.3)';clr='rgba(140,160,190,.45)'}
           const isCur=j===DATA.round&&at.r===null&&at.w>0;
           return '<div style="padding:9px 18px;text-align:center;background:'+bg+';border-right:1px solid rgba(255,255,255,.08);font-family:Oswald;font-size:22px;font-weight:700;color:'+clr+';text-decoration:'+td+';'+(isCur?'box-shadow:inset 0 -3px 0 '+LIFT_C[DATA.lift]+';':'')+'">'+(at.w||'—')+'</div>';
         }).join('')}
-        <div style="padding:9px 14px;text-align:center;background:${isDQ(cur)?_txC('noLift'):_txC('accent')};color:${isDQ(cur)?'#fff':'#0A1628'};font-family:Oswald;font-size:24px;font-weight:700;letter-spacing:1px">${isDQ(cur)?'DQ':(st||newSub||0).toFixed(1)}</div>
+        <div style="padding:9px 14px;text-align:center;background:${isDQ(cur)?_txC('noLift'):_txC('accent')};color:${isDQ(cur)?'#fff':_txC('nameText')};font-family:Oswald;font-size:24px;font-weight:700;letter-spacing:1px">${isDQ(cur)?'DQ':(st||newSub||0).toFixed(1)}</div>
       </div>
     </div>`;
 }
@@ -3004,8 +3035,8 @@ function renderTxLeaderboard(cur,lifterChanged,opts){
   const curBest={sq:bestOf(ref,'sq'),bp:bestOf(ref,'bp'),dl:bestOf(ref,'dl')};
   return `
     <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:clamp(30px,5vh,80px)">
-      <div class="txCascade" style="width:min(1100px,95%);background:rgba(10,22,40,.55);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid rgba(212,168,67,.4);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45)">
-        <div style="padding:clamp(14px,2vh,22px) clamp(20px,2.5vw,32px);background:linear-gradient(90deg,rgba(28,50,90,.55),rgba(35,60,105,.55));border-bottom:2px solid ${_txC('accent')};display:flex;justify-content:space-between;align-items:center">
+      <div class="txCascade" style="width:min(1100px,95%);background:${_txC('cardBg')};backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid rgba(212,168,67,.4);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45)">
+        <div style="padding:clamp(14px,2vh,22px) clamp(20px,2.5vw,32px);background:${_txC('headerBg')};border-bottom:2px solid ${_txC('accent')};display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-family:Oswald;font-size:clamp(11px,1.1vw,14px);color:rgba(220,230,245,.75);letter-spacing:3px">LEADERBOARD</div>
             <div style="font-family:Oswald;font-size:clamp(20px,2.2vw,30px);font-weight:700;color:#fff;letter-spacing:2px;margin-top:2px;text-shadow:0 2px 6px rgba(0,0,0,.6)">${divS} • ${ref.cat} (${sexLabel})</div>
@@ -3018,7 +3049,7 @@ function renderTxLeaderboard(cur,lifterChanged,opts){
         ${ranked.map(a=>{
           const isCur=a.id===ref.id;
           const logo=window.clubLogoImg?window.clubLogoImg(a.club,28,'background:rgba(10,22,40,.6);padding:2px;flex-shrink:0;'):'';
-          return `<div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:clamp(10px,1.6vh,18px) clamp(20px,2.5vw,32px);background:${isCur?'linear-gradient(90deg,rgba(196,30,58,.45),rgba(212,168,67,.3))':'transparent'};border-bottom:1px solid rgba(212,168,67,.12);align-items:center">
+          return `<div style="display:grid;grid-template-columns:1fr 120px 120px 80px;padding:clamp(10px,1.6vh,18px) clamp(20px,2.5vw,32px);background:${isCur?_txC('lbHighlight'):'transparent'};border-bottom:1px solid rgba(212,168,67,.12);align-items:center">
             <div style="display:flex;align-items:center;gap:10px;overflow:hidden">
               ${logo||'<div style="width:28px;height:28px;flex-shrink:0"></div>'}
               <span style="font-family:Oswald;font-size:clamp(14px,1.5vw,20px);font-weight:${isCur?'700':'500'};color:${isCur?'#fff':'rgba(240,245,255,.92)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.5)">${a.name}</span>
@@ -3356,12 +3387,16 @@ window.dirSetColor=async function(key,val){
   if(!_dirState)_dirState={};
   if(!_dirState.colors)_dirState.colors={};
   _dirState.colors[key]=val;
+  _txColorsLS=Object.assign({},_txColorsLS,{[key]:val});
+  try{localStorage.setItem('fechipo_tx_colors',JSON.stringify(_dirState.colors))}catch(e){}
   await _dirPush();
   if(DATA.phase==='director')R();
 };
 window.dirResetColors=async function(){
   if(!_dirState)return;
   _dirState.colors={};
+  _txColorsLS={};
+  try{localStorage.removeItem('fechipo_tx_colors')}catch(e){}
   await _dirPush();
   if(DATA.phase==='director')R();
 };
@@ -3434,7 +3469,11 @@ function renderDirector(){
   const cur=liftQueue()[0];
   const cats=[...new Set(DATA.athletes.filter(a=>!a.bombed).map(a=>a.cat))].filter(Boolean).sort((a,b)=>(parseFloat(a)||999)-(parseFloat(b)||999));
   const fmtTime=t=>{if(!t||t<=Date.now())return '';const s=Math.ceil((t-Date.now())/1000);return s+'s restantes'};
-  const widgetUrl=location.origin+location.pathname.replace(/[^/]+$/,'')+'livecast.html?tx=director&evento='+encodeURIComponent(DATA.event?.id||DATA.event?.name||'');
+  const _wsParam=_obsWsConnected&&_obsWsSettings?.host
+    ?'&obsWs='+encodeURIComponent(_obsWsSettings.host+':'+(_obsWsSettings.port||4455))
+      +(_obsWsSettings.password?'&obsPwd='+encodeURIComponent(_obsWsSettings.password):'')
+    :'';
+  const widgetUrl=location.origin+location.pathname.replace(/[^/]+$/,'')+'livecast.html?tx=director&evento='+encodeURIComponent(DATA.event?.id||DATA.event?.name||'')+_wsParam;
   const kbd=(k)=>'<kbd style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 10px;background:#0a1628;border:2px solid #D4A843;border-radius:6px;font-family:Oswald;font-size:16px;font-weight:700;color:#D4A843;letter-spacing:1px;box-shadow:0 2px 0 #D4A84355">'+k+'</kbd>';
   const scaleSlider=(key)=>{
     const c=_dirState[key]||{};
@@ -3613,30 +3652,49 @@ function renderDirector(){
 
   // Color picker panel
   const curColors=(_dirState&&_dirState.colors)||{};
-  const colorDefs=[
-    {key:'goodLift',   label:'✓ GOOD LIFT',      desc:'Banner GOOD LIFT y posición #1'},
-    {key:'noLift',     label:'✗ NO LIFT',         desc:'Banner NO LIFT y DQ'},
-    {key:'puesto',     label:'# Posición',        desc:'Texto del puesto en el marcador (posición 4+)'},
-    {key:'curAttempt', label:'Intento actual',    desc:'Fondo del intento en curso'},
-    {key:'nameBg',     label:'Fondo nombre',      desc:'Barra del nombre (perfil y marcador)'},
-    {key:'nameBg2',    label:'Fondo nombre 2',    desc:'Gradiente derecho de la barra del nombre'},
-    {key:'accent',     label:'Acento',            desc:'Bordes, total, valores del perfil, leaderboard'},
-    {key:'headerBg',   label:'Header marcador',   desc:'Fondo del header del marcador'},
+  const colorGroups=[
+    {title:'INTENTOS',items:[
+      {key:'goodLift',   label:'✓ Good Lift',     desc:'Intento bueno y banner GOOD LIFT'},
+      {key:'noLift',     label:'✗ No Lift',        desc:'Intento fallido, banner NO LIFT y DQ'},
+      {key:'curAttempt', label:'Intento actual',   desc:'Fondo del intento en curso'},
+    ]},
+    {title:'NOMBRE / BARRA',items:[
+      {key:'nameBg',     label:'Fondo nombre',     desc:'Color principal de la barra del nombre'},
+      {key:'nameBg2',    label:'Fondo nombre 2',   desc:'Color derecho del gradiente de la barra'},
+      {key:'nameText',   label:'Texto nombre',     desc:'Texto sobre la barra del nombre'},
+    ]},
+    {title:'POSICIÓN',items:[
+      {key:'puesto',     label:'# Posición',       desc:'Texto del puesto en marcador (pos 4+)'},
+      {key:'accent',     label:'Acento / Podio',   desc:'Bordes, total, pos 2-3, highlights'},
+    ]},
+    {title:'ESTRUCTURA',items:[
+      {key:'headerBg',   label:'Header',           desc:'Fondo del encabezado del marcador/LB'},
+      {key:'gridBg',     label:'Grid intentos',    desc:'Fondo de la fila de intentos'},
+    ]},
+    {title:'LEADERBOARD',items:[
+      {key:'cardBg',     label:'Fondo tarjeta',    desc:'Fondo de la tarjeta del leaderboard'},
+      {key:'lbHighlight',label:'Fila actual',      desc:'Color de la fila del atleta actual'},
+    ]},
   ];
   h+='<details style="margin-top:12px"><summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--card-bg,rgba(18,28,50,.7));border:1px solid var(--border);border-radius:10px;font-family:Oswald;font-size:13px;letter-spacing:1px;color:var(--gold)">🎨 COLORES DE WIDGETS <span style="font-size:10px;color:var(--muted);font-family:sans-serif;margin-left:4px">(click para expandir)</span></summary>';
   h+='<div class="card" style="margin-top:4px;padding:16px 18px;border-top:none;border-radius:0 0 10px 10px">';
-  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">';
-  colorDefs.forEach(({key,label,desc})=>{
-    const val=curColors[key]||_TX_COLOR_DEFAULTS[key]||'#ffffff';
-    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(10,22,40,.4);border:1px solid var(--border);border-radius:8px">';
-    h+='<input type="color" value="'+val+'" onchange="dirSetColor(\''+key+'\',this.value)" style="width:40px;height:40px;border:none;border-radius:6px;cursor:pointer;background:transparent;flex-shrink:0">';
-    h+='<div><div style="font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text)">'+label+'</div>';
-    h+='<div style="font-size:10px;color:var(--muted);margin-top:2px">'+desc+'</div>';
-    h+='<div style="font-size:9px;color:var(--muted);font-family:monospace;margin-top:1px">'+val+'</div></div>';
-    h+='</div>';
+  colorGroups.forEach(({title,items})=>{
+    h+='<div style="margin-bottom:14px">';
+    h+='<div style="font-family:Oswald;font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(212,168,67,.2)">'+title+'</div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px">';
+    items.forEach(({key,label,desc})=>{
+      const _raw=curColors[key]||_TX_COLOR_DEFAULTS[key]||'#ffffff';
+      const val=/^#[0-9a-fA-F]{6}$/.test(_raw)?_raw:(_TX_COLOR_DEFAULTS[key]||'#ffffff');
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(10,22,40,.4);border:1px solid var(--border);border-radius:8px">';
+      h+='<input type="color" value="'+val+'" onchange="dirSetColor(\''+key+'\',this.value)" style="width:36px;height:36px;border:none;border-radius:5px;cursor:pointer;background:transparent;flex-shrink:0">';
+      h+='<div style="min-width:0"><div style="font-family:Oswald;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--text)">'+label+'</div>';
+      h+='<div style="font-size:10px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+desc+'</div>';
+      h+='<div style="font-size:9px;color:var(--muted);font-family:monospace;margin-top:1px">'+val+'</div></div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
   });
-  h+='</div>';
-  h+='<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-o" onclick="dirResetColors()" style="padding:7px 16px;font-size:11px;font-family:Oswald;letter-spacing:1px">↺ RESTAURAR DEFAULTS</button></div>';
+  h+='<div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="btn btn-o" onclick="dirResetColors()" style="padding:7px 16px;font-size:11px;font-family:Oswald;letter-spacing:1px">↺ RESTAURAR DEFAULTS</button></div>';
   h+='</div></details>';
 
   h+='</div>';
